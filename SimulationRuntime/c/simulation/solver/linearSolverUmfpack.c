@@ -52,7 +52,8 @@ void printMatrixCSC(int* Ap, int* Ai, double* Ax, int n);
 void printMatrixCSR(int* Ap, int* Ai, double* Ax, int n);
 int solveSingularSystem(LINEAR_SYSTEM_DATA* systemData);
 
-/*! \fn allocate memory for linear system solver UmfPack
+/*! \fn allocateUmfPackData
+ *  allocate memory for linear system solver UmfPack
  *
  */
 int
@@ -60,9 +61,6 @@ allocateUmfPackData(int n_row, int n_col, int nz, void** voiddata)
 {
   DATA_UMFPACK* data = (DATA_UMFPACK*) malloc(sizeof(DATA_UMFPACK));
   assertStreamPrint(NULL, 0 != data, "Could not allocate data for linear solver UmfPack.");
-
-  data->symbolic = NULL;
-  data->numeric = NULL;
 
   data->n_col = n_col;
   data->n_row = n_row;
@@ -75,6 +73,8 @@ allocateUmfPackData(int n_row, int n_col, int nz, void** voiddata)
   data->Ax = (double*) calloc(nz,sizeof(double));
   data->work = (double*) calloc(n_col,sizeof(double));
 
+  data->x = (double*) calloc(n_col, sizeof(double));
+
   data->numberSolving=0;
   umfpack_di_defaults(data->control);
 
@@ -84,6 +84,11 @@ allocateUmfPackData(int n_row, int n_col, int nz, void** voiddata)
   data->control[UMFPACK_STRATEGY] = 5;
 
 
+  /* transposed matrix*/
+  data->Atp = (int*) calloc((n_row+1),sizeof(int));
+
+  data->Ati = (int*) calloc(nz,sizeof(int));
+  data->Atx = (double*) calloc(nz,sizeof(double));
 
   *voiddata = (void*)data;
 
@@ -91,14 +96,13 @@ allocateUmfPackData(int n_row, int n_col, int nz, void** voiddata)
 }
 
 
-/*! \fn free memory for linear system solver UmfPack
+/*! \fn freeUmfPackData
+ *  free memory for linear system solver UmfPack
  *
  */
 int
 freeUmfPackData(void **voiddata)
 {
-  TRACE_PUSH
-
   DATA_UMFPACK* data = (DATA_UMFPACK*) *voiddata;
 
   free(data->Ap);
@@ -106,12 +110,15 @@ freeUmfPackData(void **voiddata)
   free(data->Ax);
   free(data->work);
 
-  if(data->symbolic)
-    umfpack_di_free_symbolic (&data->symbolic);
-  if(data->numeric)
-    umfpack_di_free_numeric (&data->numeric);
+  free(data->x);
 
-  TRACE_POP
+  free(data->Atp);
+  free(data->Ati);
+  free(data->Atx);
+
+  umfpack_di_free_symbolic (&data->symbolic);
+  umfpack_di_free_numeric (&data->numeric);
+
   return 0;
 }
 
@@ -177,13 +184,14 @@ static int wrapper_fvec_umfpack(double* x, double* f, void* data, int sysNumber)
   return 0;
 }
 
-/*! \fn solve linear system with UmfPack method
+/*! \fn solveUmfPack
+ * solve linear system with UmfPack method
  *
  *  \param  [in]  [data]
  *                [sysNumber] index of the corresponding linear system
  *
  *
- * author: kbalzereit, wbraun
+ * \author kbalzereit, wbraun
  */
 int
 solveUmfPack(DATA *data, int sysNumber)
@@ -202,21 +210,26 @@ solveUmfPack(DATA *data, int sysNumber)
   if (0 == systemData->method)
   {
     /* set A matrix */
-    solverData->Ap[0] = 0;
-    systemData->setA(data, systemData);
-    solverData->Ap[solverData->n_row] = solverData->nnz;
+      for (i=0; i<solverData->n_row; i++)
+		  	 solverData->Atp[i] = 0;
+	  systemData->setA(data, systemData);
+     solverData->Atp[solverData->n_row] = solverData->nnz;
 
-    if (ACTIVE_STREAM(LOG_LS_V))
-    {
-      infoStreamPrint(LOG_LS_V, 1, "Matrix A");
-      printMatrixCSR(solverData->Ap, solverData->Ai, solverData->Ax, n);
-      messageClose(LOG_LS_V);
-    }
+	  umfpack_di_transpose(solverData->n_row, solverData->n_col, solverData->Atp, solverData->Ati, solverData->Atx, NULL, NULL, solverData->Ap, solverData->Ai, solverData->Ax);
 
-    /* set b vector */
-    systemData->setb(data, systemData);
-  } else {
+	  if (ACTIVE_STREAM(LOG_LS_V))
+	  {
+	    infoStreamPrint(LOG_LS_V, 1, "Matrix A");
+	    printMatrixCSC(solverData->Ap, solverData->Ai, solverData->Ax, n);
 
+	    messageClose(LOG_LS_V);
+	  }
+
+	  /* set b vector */
+	  systemData->setb(data, systemData);
+  }
+  else
+  {
     solverData->Ap[0] = 0;
     /* calculate jacobian -> matrix A*/
     if(systemData->jacobianIndex != -1){
@@ -226,83 +239,88 @@ solveUmfPack(DATA *data, int sysNumber)
     }
     solverData->Ap[solverData->n_row] = solverData->nnz;
 
+
+	infoStreamPrint(LOG_LS_V, 0, "Matrix A");
+	printMatrixCSC(solverData->Ap, solverData->Ai, solverData->Ax, n);
+
     /* calculate vector b (rhs) */
     memcpy(solverData->work, systemData->x, sizeof(double)*solverData->n_row);
     wrapper_fvec_umfpack(solverData->work, systemData->b, data, sysNumber);
   }
-
   infoStreamPrint(LOG_LS, 0, "###  %f  time to set Matrix A and vector b.", rt_ext_tp_tock(&(solverData->timeClock)));
 
   if (ACTIVE_STREAM(LOG_LS_V))
   {
-    if (ACTIVE_STREAM(LOG_LS_V))
-    {
-      infoStreamPrint(LOG_LS_V, 1, "Old solution x:");
-      for(i = 0; i < solverData->n_row; ++i)
-        infoStreamPrint(LOG_LS_V, 0, "[%d] %s = %g", i+1, modelInfoGetEquation(&data->modelData.modelDataXml,eqSystemNumber).vars[i], systemData->x[i]);
-
-      messageClose(LOG_LS_V);
-    }
-    infoStreamPrint(LOG_LS_V, 1, "Matrix A n_rows = %d", solverData->n_row);
-    for (i=0; i<solverData->n_row; i++){
-      infoStreamPrint(LOG_LS_V, 0, "%d. Ap => %d -> %d", i, solverData->Ap[i], solverData->Ap[i+1]);
-      for (j=solverData->Ap[i]; j<solverData->Ap[i+1]; j++){
-        infoStreamPrint(LOG_LS_V, 0, "A[%d,%d] = %f", i, solverData->Ai[j], solverData->Ax[j]);
-
-      }
-    }
-    messageClose(LOG_LS_V);
-
+    infoStreamPrint(LOG_LS_V, 1, "Vector b");
     for (i=0; i<solverData->n_row; i++)
-      infoStreamPrint(LOG_LS_V, 0, "b[%d] = %e", i, systemData->b[i]);
-  }
-  rt_ext_tp_tick(&(solverData->timeClock));
+      infoStreamPrint(LOG_LS_V, 0, " %e", systemData->b[i]);
 
-  /* symbolic pre-ordering of A to reduce fill-in of L and U */
+    messageClose(LOG_LS_V);
+  }
+
+
+
+   /* symbolic pre-ordering of A to reduce fill-in of L and U */
   if (0 == solverData->numberSolving)
   {
     status = umfpack_di_symbolic(solverData->n_col, solverData->n_row, solverData->Ap, solverData->Ai, solverData->Ax, &(solverData->symbolic), solverData->control, solverData->info);
   }
 
-  /* compute the LU factorization of A */
-  if (0 == status){
-    status = umfpack_di_numeric(solverData->Ap, solverData->Ai, solverData->Ax, solverData->symbolic, &(solverData->numeric), solverData->control, solverData->info);
+   /* compute the LU factorization of A */
+  if (UMFPACK_OK == status)
+  {
+	  status = umfpack_di_numeric(solverData->Ap, solverData->Ai, solverData->Ax, solverData->symbolic, &(solverData->numeric), solverData->control, solverData->info);
   }
 
-  if (0 == status){
-    if (1 == systemData->method){
-      status = umfpack_di_solve(UMFPACK_A, solverData->Ap, solverData->Ai, solverData->Ax, systemData->x, systemData->b, solverData->numeric, solverData->control, solverData->info);
-    } else {
-      status = umfpack_di_solve(UMFPACK_Aat, solverData->Ap, solverData->Ai, solverData->Ax, systemData->x, systemData->b, solverData->numeric, solverData->control, solverData->info);
-    }
-  }
-
-  if (status == UMFPACK_OK){
-    success = 1;
+  if (UMFPACK_OK == status)
+  {
+    status = umfpack_di_solve(UMFPACK_A, solverData->Ap, solverData->Ai, solverData->Ax, solverData->x, systemData->b, solverData->numeric, solverData->control, solverData->info);
   }
   else if (status == UMFPACK_WARNING_singular_matrix)
   {
-    if (!solveSingularSystem(systemData))
+    if (solveSingularSystem(systemData) != 0)
+    {
+      success = 0;
+    }
+    else
     {
       success = 1;
+      status = UMFPACK_OK;
     }
   }
-  infoStreamPrint(LOG_LS, 0, "Solve System: %f", rt_ext_tp_tock(&(solverData->timeClock)));
 
-  /* print solution */
-  if (1 == success){
+  if (status == UMFPACK_OK)
+  {
+    success = 1;
+  }
+  else
+  {
+    warningStreamPrint(LOG_STDOUT, 0,
+      "Failed to solve linear system of equations (no. %d) at time %f, system status %d.",
+        (int)systemData->equationIndex, data->localData[0]->timeValue, status);
 
-    if (1 == systemData->method){
-      /* take the solution */
-      for(i = 0; i < solverData->n_row; ++i)
-        systemData->x[i] += solverData->work[i];
+    success = 0;
+  }
+  if (1 == systemData->method)
+  {
+      /* update inner equations
+      for (i = 0; i < n; i++)
+	  {
+        systemData->x[i] += solverData->x[i];
+	  }
+	  */
 
-      /* update inner equations */
+      vecAddLS(n, systemData->x, solverData->x, systemData->x);
+
       wrapper_fvec_umfpack(systemData->x, solverData->work, data, sysNumber);
-    } else {
-      /* the solution is automatically in x */
-    }
-
+  }
+  else
+  {
+    memcpy(systemData->x, solverData->x, sizeof(double)*solverData->n_col);
+  }
+  /* print solution */
+  if (1 == success)
+  {
     if (ACTIVE_STREAM(LOG_LS_V))
     {
       infoStreamPrint(LOG_LS_V, 1, "Solution x:");
@@ -311,14 +329,9 @@ solveUmfPack(DATA *data, int sysNumber)
       for(i = 0; i < systemData->size; ++i)
         infoStreamPrint(LOG_LS_V, 0, "[%d] %s = %g", i+1, modelInfoGetEquation(&data->modelData.modelDataXml,eqSystemNumber).vars[i], systemData->x[i]);
 
+
       messageClose(LOG_LS_V);
     }
-  }
-  else
-  {
-    warningStreamPrint(LOG_STDOUT, 0,
-      "Failed to solve linear system of equations (no. %d) at time %f, system status %d.",
-        (int)systemData->equationIndex, data->localData[0]->timeValue, status);
   }
   solverData->numberSolving += 1;
 
@@ -331,7 +344,6 @@ solveUmfPack(DATA *data, int sysNumber)
  *
  *
  *  solve even singular system
- *  (note that due to initialization A is given in its transposed form A^T)
  *
  *  A * x = b
  *  <=> P * R * A * Q * Q * x = P * R * b       |   P * R * A * Q = L * U
@@ -350,172 +362,154 @@ solveUmfPack(DATA *data, int sysNumber)
  */
 int solveSingularSystem(LINEAR_SYSTEM_DATA* systemData)
 {
+      DATA_UMFPACK* solverData = (DATA_UMFPACK*)systemData->solverData;
+      double *Ux,*Rs, r_ii, *b, sum, *y, *z;
+      int *Up, *Ui, *Q, do_recip, rank=0, current_rank, current_unz, i, j, k, l, success=0, status, stop=0;
 
-  DATA_UMFPACK* solverData = (DATA_UMFPACK*) systemData->solverData;
-  double *Ux, *Rs, r_ii, *b, sum, *y, *z;
-  int *Up, *Ui, *Q, do_recip, rank = 0, current_rank, current_unz, i, j, k, l,
-      success = 0, status, stop = 0;
+      int unz = solverData->info[UMFPACK_UNZ];
 
-  int unz = solverData->info[UMFPACK_UNZ];
+      /* allocate memory for solving singular system */
+      Up = (int*) malloc((solverData->n_row+1)*sizeof(int));
+      Ui = (int*) malloc(unz*sizeof(int));
+      Ux = (double*) malloc(unz*sizeof(double));
 
-  Up = (int*) malloc((solverData->n_row + 1) * sizeof(int));
-  Ui = (int*) malloc(unz * sizeof(int));
-  Ux = (double*) malloc(unz * sizeof(double));
+      Q = (int*) malloc(solverData->n_col*sizeof(int));
+      Rs = (double*) malloc(solverData->n_row*sizeof(double));
 
-  Q = (int*) malloc(solverData->n_col * sizeof(int));
-  Rs = (double*) malloc(solverData->n_row * sizeof(double));
+      b = (double*) malloc(solverData->n_col*sizeof(double));
+      y = (double*) malloc(solverData->n_col*sizeof(double));
+      z = (double*) malloc(solverData->n_col*sizeof(double));
 
-  b = (double*) malloc(solverData->n_col * sizeof(double));
-  y = (double*) malloc(solverData->n_col * sizeof(double));
-  z = (double*) malloc(solverData->n_col * sizeof(double));
 
-  infoStreamPrint(LOG_LS_V, 0, "Solve singular system");
+      infoStreamPrint(LOG_LS_V, 0, "Solve singular system");
 
-  status = umfpack_di_get_numeric((int*) NULL, (int*) NULL, (double*) NULL, Up,
-      Ui, Ux, (int*) NULL, Q, (double*) NULL, &do_recip, Rs,
-      solverData->numeric);
+      status = umfpack_di_get_numeric((int*) NULL, (int*) NULL, (double*) NULL, Up, Ui, Ux, (int* ) NULL, Q, (double*) NULL, &do_recip, Rs, solverData->numeric);
 
-  switch (status)
-  {
-  case UMFPACK_WARNING_singular_matrix:
-  case UMFPACK_ERROR_out_of_memory:
-  case UMFPACK_ERROR_argument_missing:
-  case UMFPACK_ERROR_invalid_system:
-  case UMFPACK_ERROR_invalid_Numeric_object:
-    infoStreamPrint(LOG_LS_V, 0, "error: %d", status);
-  }
+	  switch (status)
+	  {
+   	    case UMFPACK_WARNING_singular_matrix:
+	    case UMFPACK_ERROR_out_of_memory:
+	    case UMFPACK_ERROR_argument_missing:
+	    case UMFPACK_ERROR_invalid_system:
+	    case UMFPACK_ERROR_invalid_Numeric_object:
+	  	  infoStreamPrint(LOG_LS_V,0, "error: %d",status);
+	  }
 
-  /* calculate R*b */
-  if (do_recip == 0)
-  {
-    for (i = 0; i < solverData->n_row; i++)
-    {
-      b[i] = systemData->b[i] / Rs[i];
-    }
-  }
-  else
-  {
-    for (i = 0; i < solverData->n_row; i++)
-    {
-      b[i] = systemData->b[i] * Rs[i];
-    }
-  }
+	  /* calculate R*b */
+	  if (do_recip)
+	  {
+		  for (i=0; i<solverData->n_row; i++)
+		  {
+			  b[i] = systemData->b[i] * Rs[i];
+		  }
+	  }
+	  else
+	  {
+		  for (i=0; i<solverData->n_row; i++)
+		  {
+			  b[i] = systemData->b[i] / Rs[i];
+		  }
+	  }
 
-  /* solve L * y = P * R * b  <=>  P^T * L * y = R * b */
-  status = umfpack_di_solve(UMFPACK_Pt_L, solverData->Ap, solverData->Ai,
-      solverData->Ax, y, b, solverData->numeric, solverData->control,
-      solverData->info);
 
-  switch (status)
-  {
-  case UMFPACK_WARNING_singular_matrix:
-  case UMFPACK_ERROR_out_of_memory:
-  case UMFPACK_ERROR_argument_missing:
-  case UMFPACK_ERROR_invalid_system:
-  case UMFPACK_ERROR_invalid_Numeric_object:
-    infoStreamPrint(LOG_LS_V, 0, "error: %d", status);
-  }
+	  /* solve L * y = P * R * b  <=> P^T * L * y = R * b */
+	  status=umfpack_di_solve(UMFPACK_Pt_L, solverData->Ap, solverData->Ai, solverData->Ax, y, b, solverData->numeric, solverData->control, solverData->info);
 
-  /* rank is at most as high as the maximum in Ui */
-  for (i = 0; i < unz; i++)
-  {
-    if (rank < Ui[i])
-      rank = Ui[i];
-  }
+	  switch (status)
+	  {
+	    case UMFPACK_WARNING_singular_matrix:
+	    case UMFPACK_ERROR_out_of_memory:
+	    case UMFPACK_ERROR_argument_missing:
+	    case UMFPACK_ERROR_invalid_system:
+	    case UMFPACK_ERROR_invalid_Numeric_object:
+	      infoStreamPrint(LOG_LS_V,0, "error: %d",status);
+	  }
 
-  /* if rank is already smaller than n set last component of result zero */
-  for (i = rank + 1; i < solverData->n_col; i++)
-  {
-    if (y[i] < 1e-12)
-    {
-      z[i] = 0.0;
-    }
-    else
-    {
-      infoStreamPrint(LOG_LS_V, 0, "error: system is not solvable*");
-      /* free all used memory */
-      free(Up);
-      free(Ui);
-      free(Ux);
 
-      free(Q);
-      free(Rs);
 
-      free(b);
-      free(y);
-      free(z);
-      return -1;
-    }
-  }
+	  /* rank is at most as high as the maximum in Ui */
+	  for (i=0; i<unz; i++)
+	  {
+		  if (rank<Ui[i])
+			  rank = Ui[i];
+	  }
 
-  current_rank = rank;
-  current_unz = unz;
 
-  while ((stop == 0) && (current_rank > 1))
-  {
-    /* check if last two rows of U are the same */
-    if ((Ux[current_unz] == Ux[current_unz - 1])
-        && (Ui[current_unz] == Ui[current_unz - 1])
-        && (Up[current_rank] - Up[current_rank - 1] > 1))
-    {
-      /* if diagonal entry on second to last row is nonzero, remaining matrix is regular */
-      if (Ui[Up[current_rank] - 1] == current_rank - 1)
-      {
-        stop = 1;
-      }
-      /* last two rows are the same -> under-determined system, calculate one value and set the other one zero */
-      else
-      {
-        z[current_rank] = y[current_rank] / Ux[current_unz];
+	  /* if rank is already smaller than n set last component of result zero */
+	  for (i=rank+1; i<solverData->n_col; i++)
+	  {
+		  if (y[i] < 1e-12)
+		  {
+			  z[i]=0.0;
+		  }
+		  else
+		  {
+			infoStreamPrint(LOG_LS_V, 0, "error: system is not solvable*");
+			return -1;
+		  }
+	  }
 
-        /* reduce system */
-        for (i = Up[current_rank]; i < current_unz; i++)
-        {
-          y[Ui[i]] -= z[current_rank] * Ux[i];
-        }
 
-        current_unz = Up[current_rank] - 1;
-        current_rank--;
+	  current_rank=rank;
+	  current_unz=unz;
 
-        /* now last row has only zero entries */
-        if (y[current_rank] < 1e-12)
-        {
-          z[current_rank] = 0.0;
-        }
-        else
-        {
-          infoStreamPrint(LOG_LS_V, 0, "error: system is not solvable");
-          /* free all used memory */
-          free(Up);
-          free(Ui);
-          free(Ux);
 
-          free(Q);
-          free(Rs);
+	  while ((stop == 0) && (current_rank > 1))
+	  {
+			/* check if last two rows of U are the same */
+			if ((Ux[current_unz] == Ux[current_unz-1]) && (Ui[current_unz] == Ui[current_unz-1]) && (Up[current_rank]-Up[current_rank-1] >1))
+			{
+			  /* if diagonal entry on second to last row is nonzero, remaining matrix is regular ==> system is solvable by back substitution */
+			  if (Ui[Up[current_rank]-1] == current_rank-1)
+			  {
+				  stop = 1;
+			  }
+			  /* last two rows are the same -> under-determined system, calculate one value and set the other one zero */
+			  else
+			  {
+				  z[current_rank]=y[current_rank]/Ux[current_unz];
 
-          free(b);
-          free(y);
-          free(z);
-          return -1;
-        }
+				  /* reduce system */
+				  for (i=Up[current_rank]; i<current_unz; i++)
+				  {
+					  y[Ui[i]] -= z[current_rank]*Ux[i];
+				  }
 
-        current_rank--;
-      }
-    }
-    else
-    {
-      stop = 1;
-    }
-  }
+				  current_unz = Up[current_rank]-1;
+				  current_rank--;
 
-  /* remaining system is regular so solve system by back substitution */
-  z[current_rank] = Ux[current_unz] * y[current_rank];
+				  /* now last row has only zero entries */
+				  if (y[current_rank] < 1e-12)
+				  {
+					  z[current_rank] = 0.0;
+				  }
+				  else
+				  {
+				    infoStreamPrint(LOG_LS_V, 0, "error: system is not solvable");
+				    return -1;
+				  }
 
-  for (i = current_rank - 1; i >= 0; i--)
-  {
-    /* get diagonal element r_ii, j shows where the element is in vector Ux, Ui */
-    j = Up[i];
-    while (Ui[j] != i)
+				  current_rank--;
+			  }
+			}
+			else
+			{
+				stop = 1;
+			}
+	  }
+
+	  /* remaining system is regular so solve system by back substitution */
+	  z[current_rank] = Ux[current_unz]*y[current_rank];
+
+	  for (i=current_rank-1; i>=0; i--)
+	  {
+		  /* get diagonal element r_ii, j shows where the element is in vector Ux, Ui */
+		  j=Up[i];
+		  while (Ui[j]!=i)
+		  {
+				  j++;
+		  }
+
     {
       j++;
     }
@@ -537,7 +531,7 @@ int solveSingularSystem(LINEAR_SYSTEM_DATA* systemData)
   /* x = Q^T * z */
   for (i = 0; i < solverData->n_col; i++)
   {
-    systemData->x[Q[i]] = z[i];
+    solverData->x[Q[i]] = z[i];
   }
 
   /* free all used memory */

@@ -1,4 +1,4 @@
-/*
+ /*
  * This file is part of OpenModelica.
  *
  * Copyright (c) 1998-2014, Open Source Modelica Consortium (OSMC),
@@ -51,6 +51,34 @@ static void setBElement(int row, double value, void *data );
 static void setBElementLis(int row, double value, void *data );
 
 int check_linear_solution(DATA *data, int printFailingSystems, int sysNumber);
+
+const char *LS_NAME[LS_MAX+1] = {
+  "LS_UNKNOWN",
+
+  /* LS_LAPACK */       "lapack",
+#if !defined(OMC_MINIMAL_RUNTIME)
+  /* LS_LIS */          "lis",
+#endif
+  /* LS_UMFPACK */      "umfpack",
+  /* LS_TOTALPIVOT */   "totalpivot",
+  /* LS_DEFAULT */      "default",
+
+  "LS_MAX"
+};
+
+const char *LS_DESC[LS_MAX+1] = {
+  "unknown",
+
+  /* LS_LAPACK */       "method using lapack LU factorization",
+#if !defined(OMC_MINIMAL_RUNTIME)
+  /* LS_LIS */          "method using iterativ solver Lis",
+#endif
+  /* LS_UMFPACK */      "method using umfpack sparse linear solver",
+  /* LS_TOTALPIVOT */   "method using a total pivoting LU factorization for underdetermination systems",
+  /* LS_DEFAULT */      "default method - lapack with total pivoting as fallback",
+
+  "LS_MAX"
+};
 
 /* Data structure for the default solver
  * where two different solverData for lapack and
@@ -499,14 +527,31 @@ static void setAElementUmfpack(int row, int col, double value, int nth, void *da
   LINEAR_SYSTEM_DATA* linSys = (LINEAR_SYSTEM_DATA*) data;
   DATA_UMFPACK* sData = (DATA_UMFPACK*) linSys->solverData;
 
-  infoStreamPrint(LOG_LS_V, 0, " set %d. -> (%d,%d) = %f", nth, row, col, value);
-  if (row > 0){
-    if (sData->Ap[row] == 0){
-      sData->Ap[row] = nth;
+
+  if (linSys->method == 0)
+  {
+    if (row > 0){
+      if (sData->Atp[row] == 0)
+	  {
+        sData->Atp[row] = nth;
+      }
     }
+
+    sData->Ati[nth] = col;
+    sData->Atx[nth] = value;
+  }
+  else
+  {
+    if (row > 0){
+      if (sData->Ap[row] == 0)
+	  {
+        sData->Ap[row] = nth;
+      }
+    }
+
+    sData->Ai[nth] = col;
+    sData->Ax[nth] = value;
   }
 
-  sData->Ai[nth] = col;
-  sData->Ax[nth] = value;
 }
 #endif

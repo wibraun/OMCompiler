@@ -47,9 +47,13 @@ typedef struct DATA_UMFPACK
   int *Ap;
   int *Ai;
   double *Ax;
+  int *Atp;
+  int *Ati;
+  double *Atx;
   int n_col;
   int n_row;
   int nnz;
+  double *x;
   void *symbolic, *numeric;
   double control[UMFPACK_CONTROL], info[UMFPACK_INFO];
 
