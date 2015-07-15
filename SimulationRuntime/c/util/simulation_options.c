@@ -55,6 +55,7 @@ const char *FLAG_NAME[FLAG_MAX+1] = {
   /* FLAG_IPOPT_INIT*/             "ipopt_init",
   /* FLAG_IPOPT_MAX_ITER */        "ipopt_max_iter",
   /* FLAG_IPOPT_WARM_START */      "ipopt_warm_start",
+  /* FLAG_IRKSCO_SSC */            "irksco_ssc",
   /* FLAG_L */                     "l",
   /* FLAG_LOG_FORMAT */            "logFormat",
   /* FLAG_LS */                    "ls",
@@ -111,6 +112,7 @@ const char *FLAG_DESC[FLAG_MAX+1] = {
   /* FLAG_IPOPT_INIT */            "value specifies the initial guess for optimization",
   /* FLAG_IPOPT_MAX_ITER */        "value specifies the max number of iteration for ipopt",
   /* FLAG_IPOPT_WARM_START */      "value specifies lvl for a warm start in ipopt: 1,2,3,...",
+  /* FLAG_IRKSCO_SSC */            "value specifies step-size control method of irksco solver. -irksco_ssc=midpoint (default) or -irksco_ssc=richardson",
   /* FLAG_L */                     "value specifies a time where the linearization of the model should be performed",
   /* FLAG_LOG_FORMAT */            "value specifies the log format of the executable. -logFormat=text (default) or -logFormat=xml",
   /* FLAG_LS */                    "value specifies the linear solver method",
@@ -198,6 +200,8 @@ const char *FLAG_DETAILED_DESC[FLAG_MAX+1] = {
   "  Value specifies the max number of iteration for ipopt.",
   /* FLAG_IPOPT_WARM_START */
   "  Value specifies lvl for a warm start in ipopt: 1,2,3,...",
+  /* FLAG_IRKSCO_SSC */
+  "value specifies step-size control method of irksco solver. -irksco_ssc=midpoint (default) or -irksco_ssc=richardson",
   /* FLAG_L */
   "  Value specifies a time where the linearization of the model should be performed.",
   /* FLAG_LOG_FORMAT */
@@ -307,6 +311,7 @@ const int FLAG_TYPE[FLAG_MAX] = {
   /* FLAG_IPOPT_INIT */            FLAG_TYPE_OPTION,
   /* FLAG_IPOPT_MAX_ITER */        FLAG_TYPE_OPTION,
   /* FLAG_IPOPT_WARM_START */      FLAG_TYPE_OPTION,
+  /* FLAG_IRKSCO_SSC */            FLAG_TYPE_OPTION,
   /* FLAG_L */                     FLAG_TYPE_OPTION,
   /* FLAG_LOG_FORMAT */            FLAG_TYPE_OPTION,
   /* FLAG_LS */                    FLAG_TYPE_OPTION,
@@ -341,6 +346,7 @@ const char *SOLVER_METHOD_NAME[S_MAX] = {
   "euler",
   "rungekutta",
   "dassl",
+  "irksco",
   "optimization",
   "radau5",
   "radau3",
@@ -357,6 +363,7 @@ const char *SOLVER_METHOD_DESC[S_MAX] = {
   "euler",
   "rungekutta",
   "dassl with colored numerical jacobian, with interval root finding - default",
+  "implicit runge-kutta solver with step-size control",
   "optimization",
   "radau5 [sundial/kinsol needed]",
   "radau3 [sundial/kinsol needed]",

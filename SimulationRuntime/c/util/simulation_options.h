@@ -63,6 +63,7 @@ enum _FLAG
   FLAG_IPOPT_INIT,
   FLAG_IPOPT_MAX_ITER,
   FLAG_IPOPT_WARM_START,
+  FLAG_IRKSCO_SSC,
   FLAG_L,
   FLAG_LOG_FORMAT,
   FLAG_LS,
@@ -113,17 +114,18 @@ enum SOLVER_METHOD
 {
   S_UNKNOWN = 0,
 
-  S_EULER,         /*  1 */
-  S_RUNGEKUTTA,    /*  2 */
-  S_DASSL,         /*  3 */
-  S_OPTIMIZATION,  /*  4 */
-  S_RADAU5,        /*  5 */
-  S_RADAU3,        /*  6 */
-  S_RADAU1,        /*  7 */
-  S_LOBATTO2,      /*  8 */
-  S_LOBATTO4,      /*  9 */
-  S_LOBATTO6,      /* 10 */
-  S_SYM_EULER,     /* 11 */
+  S_EULER,
+  S_RUNGEKUTTA,
+  S_DASSL,
+  S_IRKSCO,
+  S_OPTIMIZATION,
+  S_RADAU5,
+  S_RADAU3,
+  S_RADAU1,
+  S_LOBATTO2,
+  S_LOBATTO4,
+  S_LOBATTO6,
+  S_SYM_EULER,
   S_QSS,
 
   S_MAX

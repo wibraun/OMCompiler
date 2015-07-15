@@ -38,6 +38,7 @@
 #include "openmodelica_func.h"
 #include "initialization/initialization.h"
 #include "nonlinearSystem.h"
+#include "newtonIteration.h"
 #include "dassl.h"
 #include "delay.h"
 #include "events.h"
@@ -49,6 +50,7 @@
 #include "meta/meta_modelica.h"
 #include "simulation/solver/epsilon.h"
 #include "linearSystem.h"
+#include "irksco.h"
 
 #include "optimization/OptimizerInterface.h"
 
@@ -99,6 +101,18 @@ int solver_main_step(DATA* data, SOLVER_INFO* solverInfo)
     retVal = euler_ex_step(data, solverInfo);
     TRACE_POP
     return retVal;
+  case S_IRKSCO:
+    {
+      const char *flagSSC = omc_flagValue[FLAG_IRKSCO_SSC];
+      if(!strcmp(flagSSC, "richardson")){
+        retVal = irksco_richardson(data, solverInfo);
+      }else{
+        /* default method mid point rule*/
+        retVal = irksco_midpoint_rule(data, solverInfo);
+      }
+      TRACE_POP
+      return retVal;
+    }
   case S_RUNGEKUTTA:
     retVal = rungekutta_step(data, solverInfo);
     TRACE_POP
@@ -173,6 +187,12 @@ int initializeSolverData(DATA* data, SOLVER_INFO* solverInfo)
   solverInfo->stateEvents = 0;
   solverInfo->sampleEvents = 0;
 
+  /* if FLAG_NOEQUIDISTANT_GRID is set, choose dassl step method */
+  if (omc_flag[FLAG_NOEQUIDISTANT_GRID])
+  {
+    solverInfo->integratorSteps = 1; /* TRUE */
+  }
+
   /* set tolerance for ZeroCrossings */
   setZCtol(fmin(simInfo->stepSize, simInfo->tolerance));
 
@@ -180,6 +200,11 @@ int initializeSolverData(DATA* data, SOLVER_INFO* solverInfo)
   {
   case S_SYM_EULER:
   case S_EULER: break;
+  case S_IRKSCO:
+  {
+    allocateIrksco(solverInfo, data->modelData.nStates, data->modelData.nZeroCrossings);
+    break;
+  }
   case S_RUNGEKUTTA:
   {
     /* Allocate RK work arrays */
@@ -290,7 +315,11 @@ int freeSolverData(DATA* data, SOLVER_INFO* solverInfo)
   int i;
 
   /* deintialize solver related workspace */
-  if(solverInfo->solverMethod == S_RUNGEKUTTA)
+  if (solverInfo->solverMethod == S_IRKSCO)
+  {
+    freeIrksco(solverInfo);
+  }
+  else if(solverInfo->solverMethod == S_RUNGEKUTTA)
   {
     /* free RK work arrays */
     for(i = 0; i < ((RK4_DATA*)(solverInfo->solverData))->work_states_ndims + 1; i++)
@@ -514,6 +543,14 @@ int finishSimulation(DATA* data, SOLVER_INFO* solverInfo, const char* outputVari
       infoStreamPrint(LOG_STATS, 0, "%5d convergence test failures", ((DASSL_DATA*)solverInfo->solverData)->dasslStatistics[4]);
       messageClose(LOG_STATS);
     }
+    else if (S_IRKSCO == solverInfo->solverMethod)
+    {
+      infoStreamPrint(LOG_STATS, 1, "solver: implicit runge-kutta methods");
+      infoStreamPrint(LOG_STATS, 0, "%5u steps taken", ((DATA_IRKSCO*)solverInfo->solverData)->stepsDone);
+      infoStreamPrint(LOG_STATS, 0, "%5u calls of functionODE", ((DATA_IRKSCO*)solverInfo->solverData)->evalFunctionODE);
+      infoStreamPrint(LOG_STATS, 0, "%5u evaluations of jacobian", ((DATA_IRKSCO*)solverInfo->solverData)->evalJacobians);
+      messageClose(LOG_STATS);
+    }
     else
 #endif
     if(S_OPTIMIZATION == solverInfo->solverMethod)
@@ -563,7 +600,7 @@ int finishSimulation(DATA* data, SOLVER_INFO* solverInfo, const char* outputVari
  *  \param [in]  [solverID] selects the ode solver
  *  \param [in]  [outputVariablesAtEnd] ???
  *
- *  This is the main function of the solver it perform the simulation.
+ *  This is the main function of the solver, it performs the simulation.
  */
 int solver_main(DATA* data, const char* init_initMethod, const char* init_file,
     double init_time, int lambda_steps, int solverID, const char* outputVariablesAtEnd)
@@ -715,7 +752,6 @@ static int sym_euler_im_step(DATA* data, SOLVER_INFO* solverInfo){
     data->localData[0]->realVars[j] = (data->localData[0]->realVars[i]-data->localData[1]->realVars[i])/solverInfo->currentStepSize;
   return retVal;
 }
-
 
 /***************************************    RK4      ***********************************/
 static int rungekutta_step(DATA* data, SOLVER_INFO* solverInfo)
