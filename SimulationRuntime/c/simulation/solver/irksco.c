@@ -279,8 +279,6 @@ int rk_imp_step(DATA* data, SOLVER_INFO* solverInfo, double* y_new)
     }
   }
 
-
-
   userdata->data = (void*) data;
 
   solverData->newtonStrategy = NEWTON_DAMPED2;
@@ -399,7 +397,7 @@ int wrapper_fvec_irksco(int* n, double* x, double* fvec, void* userdata, int fj)
       x[i] += delta_hh;
       delta_hh = 1. / delta_hh;
 
-      wrapper_fvec_radau(n, x, solverData->rwork, userdata, 1);
+      wrapper_fvec_irksco(n, x, solverData->rwork, userdata, 1);
       solverData->nfev++;
 
       for(j = 0; j < *n; j++)
@@ -569,11 +567,11 @@ int irksco_richardson(DATA* data, SOLVER_INFO* solverInfo)
 
   if (userdata->firstStep  || solverInfo->didEventStep == 1)
   {
-    radau_first_step(data, solverInfo);
+    irksco_first_step(data, solverInfo);
     userdata->radauStepSizeOld = 0;
   }
 
-  checkForZeroCrossingsRADAU(data, userdata, userdata->zeroCrossingValuesOld);
+  checkForZeroCrossingsIrksco(data, userdata, userdata->zeroCrossingValuesOld);
 
   while (userdata->radauTime < targetTime)
   {
@@ -594,7 +592,7 @@ int irksco_richardson(DATA* data, SOLVER_INFO* solverInfo)
       /* calculate jacobian once for the first step*/
       solverData->calculate_jacobian = 0;
 
-      euler_imp_step(data, solverInfo, userdata->y1);
+      rk_imp_step(data, solverInfo, userdata->y1);
 
       fac = 0.9 * (solverData->maxfev + 1) / (solverData->maxfev + solverData->numberOfIterations);
 
@@ -604,13 +602,13 @@ int irksco_richardson(DATA* data, SOLVER_INFO* solverInfo)
       /* do not calculate jacobian again */
       solverData->calculate_jacobian = -1;
 
-      euler_imp_step(data, solverInfo, userdata->y05);
+      rk_imp_step(data, solverInfo, userdata->y05);
 
       memcpy(userdata->y0, userdata->y05, data->modelData.nStates*sizeof(double));
 
       userdata->radauTime += userdata->radauStepSize;
 
-      euler_imp_step(data, solverInfo, userdata->y2);
+      rk_imp_step(data, solverInfo, userdata->y2);
 
       userdata->radauTime -= userdata->radauStepSize;
 
@@ -737,7 +735,7 @@ int irksco_midpoint_rule(DATA* data, SOLVER_INFO* solverInfo)
 
   if (userdata->firstStep  || solverInfo->didEventStep == 1)
   {
-    radau_first_step(data, solverInfo);
+    irksco_first_step(data, solverInfo);
     userdata->radauStepSizeOld = 0;
   }
 
@@ -759,7 +757,7 @@ int irksco_midpoint_rule(DATA* data, SOLVER_INFO* solverInfo)
         solverData->calculate_jacobian = 0;
 
       /* solve nonlinear system */
-      euler_imp_step(data, solverInfo, userdata->y05);
+      rk_imp_step(data, solverInfo, userdata->y05);
 
       /* extrapolate values in y1 */
       for (i=0; i<data->modelData.nStates; i++)
@@ -779,7 +777,7 @@ int irksco_midpoint_rule(DATA* data, SOLVER_INFO* solverInfo)
       solverData->calculate_jacobian = -1;
 
       /* solve nonlinear system */
-      euler_imp_step(data, solverInfo, userdata->y2);
+      rk_imp_step(data, solverInfo, userdata->y2);
 
       /* reset time */
       userdata->radauTime -= userdata->radauStepSize;

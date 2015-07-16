@@ -103,13 +103,22 @@ int solver_main_step(DATA* data, SOLVER_INFO* solverInfo)
     return retVal;
   case S_IRKSCO:
     {
-      const char *flagSSC = omc_flagValue[FLAG_IRKSCO_SSC];
-      if(!strcmp(flagSSC, "richardson")){
-        retVal = irksco_richardson(data, solverInfo);
+      const char *flagSSC;
+      if (omc_flag[FLAG_IRKSCO_SSC]){
+        flagSSC  = omc_flagValue[FLAG_IRKSCO_SSC];
       }else{
-        /* default method mid point rule*/
+        flagSSC = "midpoint";
+      }
+      /*
+      if(!strcmp(flagSSC, "richardson")){
+
+      }else{
+         default method mid point rule
         retVal = irksco_midpoint_rule(data, solverInfo);
       }
+      */
+      retVal = irksco_richardson(data, solverInfo);
+      //retVal = irksco_midpoint_rule(data, solverInfo);
       TRACE_POP
       return retVal;
     }
