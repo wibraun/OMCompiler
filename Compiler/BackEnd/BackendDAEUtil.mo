@@ -7101,6 +7101,7 @@ algorithm
                        (EvaluateParameter.evaluateReplaceEvaluateParameters, "evaluateReplaceEvaluateParameters", false),
                        (EvaluateParameter.evaluateReplaceFinalEvaluateParameters, "evaluateReplaceFinalEvaluateParameters", false),
                        (EvaluateParameter.evaluateReplaceProtectedFinalEvaluateParameters, "evaluateReplaceProtectedFinalEvaluateParameters", false),
+                       (EvaluateParameter.evaluateAllParametersWithConstantBinding, "evaluateAllParametersWithConstantBinding", false),
                        (BackendDAEOptimize.removeEqualFunctionCalls, "removeEqualFunctionCalls", false),
                        (BackendDAEOptimize.removeProtectedParameters, "removeProtectedParameters", false),
                        (BackendDAEOptimize.removeUnusedParameter, "removeUnusedParameter", false),

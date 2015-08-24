@@ -1391,6 +1391,13 @@ algorithm
   prot := DAEUtil.getProtectedAttr(attr);
 end isProtectedVar;
 
+public function hasVarConstantBindingAndisParameter
+  input BackendDAE.Var inVar;
+  output Boolean select;
+algorithm
+  select := varHasConstantBindExp(inVar) or isVarParam(inVar);
+end hasVarConstantBindingAndisParameter;
+
 public function hasVarEvaluateAnnotationOrFinal
   input BackendDAE.Var inVar;
   output Boolean select;

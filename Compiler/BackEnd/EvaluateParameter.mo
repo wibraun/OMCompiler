@@ -188,6 +188,16 @@ algorithm
   end if;
 end evaluateReplaceProtectedFinalEvaluateParameters;
 
+
+public function evaluateAllParametersWithConstantBinding
+"author Frenkel TUD
+  evaluate and replace parameters with constant binding in variables."
+  input BackendDAE.BackendDAE inDAE;
+  output BackendDAE.BackendDAE outDAE;
+algorithm
+  (outDAE,_ ) := evaluateParameters(inDAE,BackendVariable.hasVarConstantBindingAndisParameter);
+end evaluateAllParametersWithConstantBinding;
+
 /*
  * protected section
  *
