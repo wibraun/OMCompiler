@@ -871,7 +871,7 @@ algorithm
 
     // function with discrete expressions generate no zerocrossing
     case (DAE.LUNARY(exp=e1), ((zeroCrossings, relations, samples, numRelations, numMathFunctions), (eq_count, vars, knvars))) equation
-      false = BackendDAEUtil.hasExpContinuousParts(e1, vars, knvars);
+      false = BackendDAEUtil.hasExpContinuousParts(e1, vars, knvars, false);
       if Flags.isSet(Flags.RELIDX) then
         print("discrete LUNARY: " + intString(numRelations) + "\n");
       end if;
@@ -879,8 +879,8 @@ algorithm
     then (inExp, true, ((zeroCrossings, relations, samples, numRelations, numMathFunctions), (eq_count, vars, knvars)));
 
     case (DAE.LBINARY(exp1=e1, exp2=e2), ((zeroCrossings, relations, samples, numRelations, numMathFunctions), (eq_count, vars, knvars))) equation
-      false = BackendDAEUtil.hasExpContinuousParts(e1, vars, knvars);
-      false = BackendDAEUtil.hasExpContinuousParts(e2, vars, knvars);
+      false = BackendDAEUtil.hasExpContinuousParts(e1, vars, knvars, false);
+      false = BackendDAEUtil.hasExpContinuousParts(e2, vars, knvars, false);
       if Flags.isSet(Flags.RELIDX) then
         print("discrete LBINARY: " + intString(numRelations) + "\n");
       end if;
@@ -921,8 +921,8 @@ algorithm
 
     // function with discrete expressions generate no zerocrossing
     case (DAE.RELATION(exp1=e1, exp2=e2), ((zeroCrossings, relations, samples, numRelations, numMathFunctions), (eq_count, vars, knvars))) equation
-      false = BackendDAEUtil.hasExpContinuousParts(e1, vars, knvars);
-      false = BackendDAEUtil.hasExpContinuousParts(e2, vars, knvars);
+      false = BackendDAEUtil.hasExpContinuousParts(e1, vars, knvars, false);
+      false = BackendDAEUtil.hasExpContinuousParts(e2, vars, knvars, false);
       if Flags.isSet(Flags.RELIDX) then
         print("discrete RELATION: " + intString(numRelations) + "\n");
       end if;
@@ -1093,7 +1093,7 @@ algorithm
     then (inExp, true, (iterator, inExpLst, range, (zeroCrossings, relations, samples, numRelations, numMathFunctions), (alg_indx, vars, knvars)));
 
     case (DAE.LUNARY(exp=e1), (iterator, inExpLst, range, (zeroCrossings, relations, samples, numRelations, numMathFunctions), (alg_indx, vars, knvars))) equation
-      false = BackendDAEUtil.hasExpContinuousParts(e1, vars, knvars);
+      false = BackendDAEUtil.hasExpContinuousParts(e1, vars, knvars, false);
       //fcall(Flags.RELIDX, print, "discrete LUNARY: " + intString(indx) + "\n");
       //fcall(Flags.RELIDX, BackendDump.debugExpStr, (inExp, "\n"));
     then (inExp, true, (iterator, inExpLst, range, (zeroCrossings, relations, samples, numRelations, numMathFunctions), (alg_indx, vars, knvars)));
@@ -1136,8 +1136,8 @@ algorithm
     then (e_1, false, (iterator, inExpLst, range, (zeroCrossings, relations, samples, numRelations, numMathFunctions), (alg_indx, vars, knvars)));
 
     case (DAE.LBINARY(exp1=e1, exp2=e2), (iterator, inExpLst, range, (zeroCrossings, relations, samples, numRelations, numMathFunctions), (alg_indx, vars, knvars))) equation
-      false = BackendDAEUtil.hasExpContinuousParts(e1, vars, knvars);
-      false = BackendDAEUtil.hasExpContinuousParts(e2, vars, knvars);
+      false = BackendDAEUtil.hasExpContinuousParts(e1, vars, knvars, false);
+      false = BackendDAEUtil.hasExpContinuousParts(e2, vars, knvars, false);
       //fcall(Flags.RELIDX, print, "discrete LBINARY: " + intString(numRelations) + "\n");
       //fcall(Flags.RELIDX, BackendDump.debugExpStr, (inExp, "\n"));
     then (inExp, true, (iterator, inExpLst, range, (zeroCrossings, relations, samples, numRelations, numMathFunctions), (alg_indx, vars, knvars)));
@@ -1185,8 +1185,8 @@ algorithm
 
     // function with discrete expressions generate no zerocrossing.
     case (DAE.RELATION(exp1=e1, exp2=e2), (iterator, inExpLst, range, (zeroCrossings, relations, samples, numRelations, numMathFunctions), (alg_indx, vars, knvars))) equation
-      false = BackendDAEUtil.hasExpContinuousParts(e1, vars, knvars);
-      false = BackendDAEUtil.hasExpContinuousParts(e2, vars, knvars);
+      false = BackendDAEUtil.hasExpContinuousParts(e1, vars, knvars, false);
+      false = BackendDAEUtil.hasExpContinuousParts(e2, vars, knvars, false);
     then (inExp, true, (iterator, inExpLst, range, (zeroCrossings, relations, samples, numRelations, numMathFunctions), (alg_indx, vars, knvars)));
 
     // All other functions generate zerocrossing.

@@ -751,6 +751,22 @@ algorithm
   outType := inType;
 end makeExpType;
 
+public function hasExpContinuousPartsWrapper
+"Wrapper of hasExpContinuousParts for using it with
+BackendEquation.traverseExpsOfEquation"
+  input DAE.Exp inExp;
+  input tuple<BackendDAE.Variables, BackendDAE.Variables, Boolean> inTypeA;
+  output DAE.Exp outExp = inExp;
+  output tuple<BackendDAE.Variables, BackendDAE.Variables, Boolean> outTypeA;
+protected
+  BackendDAE.Variables vars, knvars;
+  Boolean b;
+algorithm
+  (vars, knvars, b) := inTypeA;
+  b := hasExpContinuousParts(inExp, vars, knvars, b);
+  outTypeA := (vars, knvars, b);
+end hasExpContinuousPartsWrapper;
+
 public function hasExpContinuousParts
 "Returns true if expression has contiuous parts,
  and false if the expression is completely discrete.
@@ -758,9 +774,10 @@ public function hasExpContinuousParts
   input DAE.Exp inExp;
   input BackendDAE.Variables inVariables;
   input BackendDAE.Variables inKnvars;
+  input Boolean inBoolean;
   output Boolean outBoolean;
 algorithm
-  (_,(_, _, SOME(outBoolean))) := Expression.traverseExpTopDown(inExp, traversingContinuousExpFinder, (inVariables, inKnvars, SOME(false)));
+  (_,(_, _, SOME(outBoolean))) := Expression.traverseExpTopDown(inExp, traversingContinuousExpFinder, (inVariables, inKnvars, SOME(inBoolean)));
 end hasExpContinuousParts;
 
 protected function traversingContinuousExpFinder "Helper for isDiscreteExp"
@@ -814,6 +831,74 @@ algorithm
     then (e, true, (vars, knvars, blst));
   end matchcontinue;
 end traversingContinuousExpFinder;
+
+public function isExpDiscreteWrapper
+"Wrapper of hasExpContinuousParts for using it with
+BackendEquation.traverseExpsOfEquation"
+  input DAE.Exp inExp;
+  input tuple<BackendDAE.Variables, BackendDAE.Variables, Boolean> inTypeA;
+  output DAE.Exp outExp = inExp;
+  output tuple<BackendDAE.Variables, BackendDAE.Variables, Boolean> outTypeA;
+protected
+  BackendDAE.Variables vars, knvars;
+  Boolean b;
+algorithm
+  (vars, knvars, b) := inTypeA;
+  b := isExpDiscrete(inExp, vars, knvars, b);
+  outTypeA := (vars, knvars, b);
+end isExpDiscreteWrapper;
+
+public function isExpDiscrete
+"Returns true if expression has discrete parts,
+ and false if the expression has no discrete parts."
+  input DAE.Exp inExp;
+  input BackendDAE.Variables inVariables;
+  input BackendDAE.Variables inKnvars;
+  input Boolean inBoolean;
+  output Boolean outBoolean;
+algorithm
+  (_,(_, _, SOME(outBoolean))) := Expression.traverseExpTopDown(inExp, traversingDiscretesExpFinder, (inVariables, inKnvars, SOME(inBoolean)));
+  //print("traversingDiscretesExpFinder : " + ExpressionDump.printExpStr(inExp) + "\nResult: " +  boolString(outBoolean) + "\n");
+end isExpDiscrete;
+
+protected function traversingDiscretesExpFinder "Helper for isDiscreteExp"
+  input DAE.Exp inExp;
+  input tuple<BackendDAE.Variables,BackendDAE.Variables,Option<Boolean>> inTpl;
+  output DAE.Exp outExp = inExp;
+  output Boolean cont;
+  output tuple<BackendDAE.Variables,BackendDAE.Variables,Option<Boolean>> outTpl = inTpl;
+algorithm
+  (outExp, cont, outTpl) := matchcontinue (inExp, inTpl)
+    local
+      BackendDAE.Variables vars, knvars;
+      DAE.Exp e, e1, e2;
+      Option<Boolean> blst;
+      Boolean b, b1;
+
+    // if expressions
+    case (DAE.IFEXP(expThen = e1,expElse = e2), _)
+    equation
+      (_, cont, outTpl) = traversingDiscretesExpFinder(e1, inTpl);
+      (_, cont, outTpl) = traversingDiscretesExpFinder(e2, outTpl);
+    then (inExp, cont, outTpl);
+
+    case (DAE.LUNARY(), _)
+    then (inExp, false, outTpl);
+
+    case (DAE.LBINARY(), _)
+    then (inExp, false, outTpl);
+
+    case (DAE.RELATION(), _)
+    then (inExp, false, outTpl);
+
+    else equation
+      (vars, knvars, SOME(b)) = inTpl;
+      b1 = hasExpContinuousParts(inExp, vars, knvars, false);
+      b = if b1 then false else b;
+    then (inExp, true, (vars, knvars, SOME(b)));
+
+  end matchcontinue;
+end traversingDiscretesExpFinder;
 
 public function statesAndVarsExp
 "This function investigates an expression and returns as subexpressions

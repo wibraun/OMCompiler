@@ -3129,6 +3129,15 @@ algorithm
   b := not isAlgorithm(inEqn);
 end isNotAlgorithm;
 
+public function isDiscreteEquation
+  input BackendDAE.Equation inEqn;
+  input BackendDAE.Variables vars;
+  input BackendDAE.Variables knvars;
+  output Boolean b;
+algorithm
+  (_, (_, _, b)) := traverseExpsOfEquation(inEqn, BackendDAEUtil.isExpDiscreteWrapper,  (vars, knvars, true));
+end isDiscreteEquation;
+
 public function markDifferentiated
   input BackendDAE.Equation inEqn;
   output BackendDAE.Equation outEqn;

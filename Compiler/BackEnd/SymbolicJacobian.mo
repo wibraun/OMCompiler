@@ -2851,7 +2851,18 @@ algorithm
     case (vars,eqns,m,_,_)
       equation
         eqn_lst = BackendEquation.equationList(eqns);
+        /*
+        print("================  qquation system  =============\n");
+        BackendDump.printEquationList(eqn_lst);
+        BackendDump.printVariables(vars);
+        print(" \n================  DONE Equations  =============\n");
+        */
         (jac, shared) = calculateJacobianRows(eqn_lst,vars,m,1,1,differentiateIfExp,iShared,BackendDAEUtil.varsInEqn,{});
+        /*
+        print("================  calculateJacobian Result  =============\n");
+        print(BackendDump.dumpJacobianStr(SOME(jac)));
+        print(" \n================  DONE Jacobian  =============\n");
+        */
       then
         (SOME(jac),shared);
     else (NONE(), iShared);  /* no analytic jacobian available */
@@ -2893,7 +2904,13 @@ algorithm
     case ({},_,_,_,_,_,_,_,_) then (listReverse(iAcc), iShared);
     case (eqn::eqns,_,_,_,_,_,_,_,_)
       equation
-        (res, size, shared) = calculateJacobianRow(eqn, vars,  m, eqn_indx, scalar_eqn_indx,differentiateIfExp,iShared,varsInEqn,iAcc);
+        if BackendEquation.isDiscreteEquation(eqn, vars, iShared.knownVars) then
+          shared = iShared;
+          res = iAcc;
+          size = 0;
+        else
+          (res, size, shared) = calculateJacobianRow(eqn, vars,  m, eqn_indx, scalar_eqn_indx,differentiateIfExp,iShared,varsInEqn,iAcc);
+        end if;
         (res, shared) = calculateJacobianRows(eqns, vars, m, eqn_indx + 1, scalar_eqn_indx + size,differentiateIfExp,shared,varsInEqn,res);
       then
         (res, shared);
@@ -3251,9 +3268,17 @@ algorithm
   (outExp,cont,outTpl) := matchcontinue (inExp,tpl)
     local
       BackendDAE.Variables vars;
-      DAE.Exp e;
+      DAE.Exp e, e1, e2;
       DAE.ComponentRef cr;
       Boolean b;
+
+    // if expressions
+    case (DAE.IFEXP(expThen = e1,expElse = e2), _)
+    equation
+      (_, cont, outTpl) = traverserjacobianNonlinearExp(e1, tpl);
+      (_, cont, outTpl) = traverserjacobianNonlinearExp(e2, outTpl);
+    then (inExp, false, outTpl);
+
     case (e as DAE.CREF(componentRef=cr),(vars,_))
       equation
         (_::_,_) = BackendVariable.getVar(cr, vars);

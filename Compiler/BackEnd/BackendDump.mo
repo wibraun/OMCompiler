@@ -2150,6 +2150,7 @@ algorithm
       list<String> strs;
       Integer row,col;
       DAE.Exp e;
+      BackendDAE.Equation eqn;
       list<tuple<Integer, Integer, BackendDAE.Equation>> eqns;
     case ({}) then {};
     case (((row,col,BackendDAE.RESIDUAL_EQUATION(exp = e)) :: eqns))
