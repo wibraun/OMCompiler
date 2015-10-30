@@ -701,7 +701,8 @@ constant ConfigFlag PRE_OPT_MODULES = CONFIG_FLAG(12, "preOptModules",
     "resolveLoops",
     "evalFunc",
     "sortEqnsVars",
-    "encapsulateWhenConditions"
+    "encapsulateWhenConditions",
+    "normalInlineFunctions"
     }),
   SOME(STRING_DESC_OPTION({
     ("clockPartitioning", Util.gettext("Does the clock partitioning.")),
@@ -724,6 +725,7 @@ constant ConfigFlag PRE_OPT_MODULES = CONFIG_FLAG(12, "preOptModules",
     ("inlineArrayEqn", Util.gettext("This module expands all array equations to scalar equations.")),
     ("inputDerivativesForDynOpt", Util.gettext("Allowed derivatives of inputs in dyn. optimization.")),
     ("introduceDerAlias", Util.notrans("Adds for every der-call an alias equation e.g. dx = der(x).")),
+    ("normalInlineFunctions", Util.notrans("Inline functions calls with annotation(Inline= true)")),
     ("removeEqualFunctionCalls", Util.notrans("Detects equal function calls of the form a=f(b) and c=f(b) and substitutes them to get speed up.")),
     ("removeProtectedParameters", Util.gettext("Replace all parameters with protected=true in the system.")),
     ("removeSimpleEquations", removeSimpleEquationDesc),

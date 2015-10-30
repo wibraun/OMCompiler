@@ -68,7 +68,7 @@ end lateInlineFunction;
 //
 // =============================================================================
 
-public function inlineCalls
+protected function inlineCalls
 "searches for calls where the inline flag is true, and inlines them"
   input list<DAE.InlineType> inITLst;
   input BackendDAE.BackendDAE inBackendDAE;

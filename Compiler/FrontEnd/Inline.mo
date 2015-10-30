@@ -1142,7 +1142,7 @@ algorithm
   end match;
 end addReplacement;
 
-protected function checkInlineType "
+public function checkInlineType "
 Author: Frenkel TUD, 2010-05"
   input DAE.InlineType inIT;
   input Functiontuple fns;
@@ -1319,7 +1319,7 @@ algorithm
   end matchcontinue;
 end extendCrefRecords2;
 
-protected function getFunctionBody
+public function getFunctionBody
 "returns the body of a function"
   input Absyn.Path p;
   input Functiontuple fns;

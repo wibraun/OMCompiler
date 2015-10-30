@@ -56,8 +56,10 @@ protected import Expression;
 protected import ExpressionDump;
 protected import ExpressionSimplify;
 protected import Flags;
+protected import Global;
 protected import HashSet;
 protected import List;
+protected import System;
 protected import Util;
 protected import Types;
 
@@ -1512,6 +1514,15 @@ algorithm
   cr := ComponentReference.appendStringLastIdent(prependStringCref, inCref);
   outVar := makeVar(cr);
 end createVar;
+
+public function createTmpVar
+"Creates a  variable with <input> as cref and unique index"
+  input DAE.ComponentRef inCref;
+  input String prependStringCref;
+  output BackendDAE.Var outVar;
+algorithm
+  outVar := createVar(inCref, prependStringCref+intString(System.tmpTickIndex(Global.tmpVariableIndex)));
+end createTmpVar;
 
 public function createCSEVar "Creates a cse variable with the name of inCref.
   TODO: discrete real varaibales are not treated correctly"
