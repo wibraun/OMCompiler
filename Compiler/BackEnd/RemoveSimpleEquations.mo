@@ -3597,12 +3597,12 @@ algorithm
         aliasVars = List.fold(varlst, fixAliasConstBindings, aliasVars);
         shared.aliasVars = aliasVars;
 
-        (_, _) = BackendVariable.traverseBackendDAEVarsWithUpdate(knvars, replaceVarTraverser, repl);
+        (_, _) = BackendVariable.traverseBackendDAEVarsWithUpdate(knvars, BackendVarTransform.replaceVarTraverser, repl);
 
-        ((_, eqnslst, b1)) = BackendEquation.traverseEquationArray(shared.initialEqs, replaceEquationTraverser, (repl, {}, false));
+        ((_, eqnslst, b1)) = BackendEquation.traverseEquationArray(shared.initialEqs, BackendVarTransform.replaceEquationTraverser, (repl, {}, false));
         shared.initialEqs = if b1 then BackendEquation.listEquation(eqnslst) else shared.initialEqs;
 
-        ((_, eqnslst, _)) = BackendEquation.traverseEquationArray(shared.removedEqs, replaceEquationTraverser, (repl, {}, false));
+        ((_, eqnslst, _)) = BackendEquation.traverseEquationArray(shared.removedEqs, BackendVarTransform.replaceEquationTraverser, (repl, {}, false));
         eqnslst = List.select(eqnslst, BackendEquation.assertWithCondTrue);
         shared.removedEqs = BackendEquation.listEquation(eqnslst);
 
@@ -3680,25 +3680,6 @@ algorithm
   end matchcontinue;
 end replaceAliasVarTraverser;
 
-protected function replaceVarTraverser "author: Frenkel TUD 2011-03"
- input BackendDAE.Var inVar;
- input BackendVarTransform.VariableReplacements inRepl;
- output BackendDAE.Var outVar;
- output BackendVarTransform.VariableReplacements repl;
-algorithm
-  (outVar,repl) := matchcontinue (inVar,inRepl)
-    local
-      BackendDAE.Var v, v1;
-      DAE.Exp e, e1;
-    case (v as BackendDAE.VAR(bindExp=SOME(e)), repl)
-      equation
-        (e1, true) = BackendVarTransform.replaceExp(e, repl, NONE());
-        v1 = BackendVariable.setBindExp(v, SOME(e1));
-      then (v1, repl);
-    else (inVar,inRepl);
-  end matchcontinue;
-end replaceVarTraverser;
-
 protected function removeSimpleEquationsShared1 "author: Frenkel TUD 2012-12"
   input BackendDAE.EqSystems inSysts;
   input BackendDAE.EqSystems inSysts1;
@@ -3721,7 +3702,7 @@ algorithm
     case ({}, _, _, _, _) then inSysts1;
     case (syst::rest, _, _, _, _)
       algorithm
-        ((_, eqnslst, b)) := BackendEquation.traverseEquationArray(syst.orderedEqs, replaceEquationTraverser, (repl, {}, false));
+        ((_, eqnslst, b)) := BackendEquation.traverseEquationArray(syst.orderedEqs, BackendVarTransform.replaceEquationTraverser, (repl, {}, false));
         (stateSets, b1, statesetrepl1) := removeAliasVarsStateSets(syst.stateSets, statesetrepl, syst.orderedVars, aliasVars, {}, false);
         if b or b1 then
           eqns := BackendEquation.listEquation(listReverse(eqnslst));
@@ -3730,7 +3711,7 @@ algorithm
           syst := BackendDAEUtil.clearEqSyst(syst);
         end if;
 
-        ((_, eqnslst, _)) := BackendEquation.traverseEquationArray(syst.removedEqs, replaceEquationTraverser, (repl, {}, false));
+        ((_, eqnslst, _)) := BackendEquation.traverseEquationArray(syst.removedEqs, BackendVarTransform.replaceEquationTraverser, (repl, {}, false));
         // remove asserts with condition=true from removed equations
         eqnslst := List.select(eqnslst, BackendEquation.assertWithCondTrue);
         syst.removedEqs := BackendEquation.listEquation(eqnslst);
@@ -3933,27 +3914,6 @@ algorithm
   BackendDAE.VAR(varName=cr, bindExp=SOME(exp)) := v;
   repl := BackendVarTransform.addReplacement(inRepl, cr, exp, SOME(BackendVarTransform.skipPreChangeEdgeOperator));
 end getAliasVarReplacements;
-
-protected function replaceEquationTraverser "
-  Helper function to e.g. removeSimpleEquations"
-  input BackendDAE.Equation inEq;
-  input tuple<BackendVarTransform.VariableReplacements, list<BackendDAE.Equation>, Boolean> inTpl;
-  output BackendDAE.Equation outEq;
-  output tuple<BackendVarTransform.VariableReplacements, list<BackendDAE.Equation>, Boolean> outTpl;
-algorithm
-  (outEq,outTpl) := match (inEq,inTpl)
-    local
-      BackendDAE.Equation e;
-      BackendVarTransform.VariableReplacements repl;
-      list<BackendDAE.Equation> eqns, eqns1;
-      Boolean b, b1;
-    case (e, (repl, eqns, b))
-      equation
-        (eqns1, b1) = BackendVarTransform.replaceEquations({e}, repl, SOME(BackendVarTransform.skipPreChangeEdgeOperator));
-        eqns = listAppend(eqns1, eqns);
-      then (e, (repl, eqns, b or b1));
-  end match;
-end replaceEquationTraverser;
 
 protected function replaceExprTraverser "
   Helper function to e.g. removeSimpleEquations"
@@ -4471,7 +4431,7 @@ algorithm
       // Update Alias variables, some might be moved to known variables!!!
       (aliasVars, (_, varlst)) = BackendVariable.traverseBackendDAEVarsWithUpdate(aliasVars, replaceAliasVarTraverser, (repl, {}));
       aliasVars = List.fold(varlst, fixAliasConstBindings, aliasVars);
-      (knvars, _) = BackendVariable.traverseBackendDAEVarsWithUpdate(knvars, replaceVarTraverser, repl);
+      (knvars, _) = BackendVariable.traverseBackendDAEVarsWithUpdate(knvars, BackendVarTransform.replaceVarTraverser, repl);
 
       // BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
       // BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB

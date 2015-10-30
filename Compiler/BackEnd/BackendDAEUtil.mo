@@ -60,6 +60,7 @@ protected import BackendDump;
 protected import BackendEquation;
 protected import BackendDAEEXT;
 protected import BackendInline;
+protected import newBackendInline;
 protected import BackendVarTransform;
 protected import BackendVariable;
 protected import BinaryTree;
@@ -488,6 +489,15 @@ algorithm
   matching := copyMatching(inSystem.matching);
   outSystem := BackendDAE.EQSYSTEM(vars, eqns, m, mt, matching, inSystem.stateSets, inSystem.partitionKind, removedEqs);
 end copyEqSystem;
+
+public function mergeEqSystems
+  input BackendDAE.EqSystem inSystem1;
+  input BackendDAE.EqSystem inSystem2;
+  output BackendDAE.EqSystem outSystem = inSystem2;
+algorithm
+  outSystem.orderedEqs := BackendEquation.mergeEquationArray(inSystem1.orderedEqs,inSystem2.orderedEqs);
+  outSystem.orderedVars := BackendVariable.mergeVariables(inSystem1.orderedVars,inSystem2.orderedVars);
+end mergeEqSystems;
 
 public function copyBackendDAEShared
 "  author: Frenkel TUD, wbraun
