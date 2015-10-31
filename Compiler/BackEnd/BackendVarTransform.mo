@@ -48,6 +48,7 @@ protected import Absyn;
 protected import BaseHashTable;
 protected import BaseHashSet;
 protected import BackendEquation;
+protected import BackendDAEUtil;
 protected import BackendVariable;
 protected import BackendDump;
 protected import ClassInf;
@@ -282,49 +283,9 @@ protected
 algorithm
   eqArr := inEqs.orderedEqs;
   (_, _) := BackendVariable.traverseBackendDAEVarsWithUpdate(inEqs.orderedVars, replaceVarTraverser, inRepl);
-  ((_, eqnslst, b1)) := BackendEquation.traverseEquationArray(eqArr, replaceEquationTraverser, (inRepl, {}, false));
-  outEqs.orderedEqs := if b1 then BackendEquation.listEquation(eqnslst) else inEqs.orderedEqs;
+  ((eqArr, _)) := replaceEquationsArr(eqArr, inRepl, NONE());
+  outEqs.orderedEqs := eqArr;
 end performReplacementsEqSystem;
-
-public function replaceVarTraverser "author: Frenkel TUD 2011-03"
- input BackendDAE.Var inVar;
- input VariableReplacements inRepl;
- output BackendDAE.Var outVar;
- output VariableReplacements repl;
-algorithm
-  (outVar,repl) := matchcontinue (inVar,inRepl)
-    local
-      BackendDAE.Var v, v1;
-      DAE.Exp e, e1;
-    case (v as BackendDAE.VAR(bindExp=SOME(e)), repl)
-      equation
-        (e1, true) = replaceExp(e, repl, NONE());
-        v1 = BackendVariable.setBindExp(v, SOME(e1));
-      then (v1, repl);
-    else (inVar,inRepl);
-  end matchcontinue;
-end replaceVarTraverser;
-
-public function replaceEquationTraverser "
-  Helper function to e.g. removeSimpleEquations"
-  input BackendDAE.Equation inEq;
-  input tuple<VariableReplacements, list<BackendDAE.Equation>, Boolean> inTpl;
-  output BackendDAE.Equation outEq;
-  output tuple<VariableReplacements, list<BackendDAE.Equation>, Boolean> outTpl;
-algorithm
-  (outEq,outTpl) := match (inEq,inTpl)
-    local
-      BackendDAE.Equation e;
-      VariableReplacements repl;
-      list<BackendDAE.Equation> eqns, eqns1;
-      Boolean b, b1;
-    case (e, (repl, eqns, b))
-      equation
-        (eqns1, b1) = replaceEquations({e}, repl, SOME(skipPreChangeEdgeOperator));
-        eqns = listAppend(eqns1, eqns);
-      then (e, (repl, eqns, b or b1));
-  end match;
-end replaceEquationTraverser;
 
 protected function addReplacementNoTransitive "Similar to addReplacement but
 does not make transitive replacement rules.
@@ -2667,6 +2628,20 @@ algorithm
     else (inExp,false);
   end match;
 end controlExp;
+
+/*********************************************************/
+/* variable replacements  */
+/*********************************************************/
+
+public function replaceVarTraverser "author: Frenkel TUD 2011-03"
+  input BackendDAE.Var inVar;
+  input VariableReplacements inRepl;
+  output BackendDAE.Var outVar;
+  output VariableReplacements repl = inRepl;
+algorithm
+  outVar := replaceBindingExp(inVar, inRepl);
+  outVar := replaceVariableAttributesInVar(outVar, inRepl);
+end replaceVarTraverser;
 
 public function replaceBindingExp
   input BackendDAE.Var varIn;
