@@ -195,7 +195,11 @@ protected
   Integer whenClkCnt = 1;
   DAE.Exp e;
   list<BackendDAE.Equation> eqns, reqns;
+  Boolean b;
 algorithm
+  b := Flags.isSet(Flags.INLINE_FUNCTIONS);
+  Flags.set(Flags.INLINE_FUNCTIONS, false);
+
   for el in inElements loop
     _ := match(el)
       // class for external object
@@ -393,6 +397,7 @@ algorithm
           fail();
     end match;
   end for;
+  Flags.set(Flags.INLINE_FUNCTIONS, b);
 end lower2;
 
 // =============================================================================
