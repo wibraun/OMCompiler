@@ -2149,6 +2149,25 @@ algorithm
   BackendDAE.VARIABLES(varArr=BackendDAE.VARIABLE_ARRAY(numberOfElements=outNumVariables)) := inVariables;
 end varsSize;
 
+public function varDim
+  "Returns the dimension of variables in the Variables structure.
+  NOTE: function fail if dimension is not constant
+  "
+  input BackendDAE.Var inVar;
+  output Integer outDimVariables = 1;
+ protected
+  DAE.Dimensions dims;
+  Integer n;
+algorithm
+
+  BackendDAE.VAR(arryDim=dims) := inVar;
+  for dim in dims loop
+    DAE.DIM_INTEGER(n) := dim;
+	outDimVariables := n * outDimVariables;
+  end for;
+
+end varDim;
+
 protected function varsLoadFactor
   input BackendDAE.Variables inVariables;
   input Integer inIncrease = 0;
@@ -2458,7 +2477,12 @@ end existsAnyVar;
 
 public function makeVar
  input DAE.ComponentRef cr;
- output BackendDAE.Var v = BackendDAE.VAR(cr, BackendDAE.VARIABLE(), DAE.BIDIR(), DAE.NON_PARALLEL(), DAE.T_REAL_DEFAULT, NONE(), NONE(), {}, DAE.emptyElementSource, NONE(), NONE(), NONE(), DAE.NON_CONNECTOR(), DAE.NOT_INNER_OUTER(), false);
+ output BackendDAE.Var v;
+protected
+  DAE.Type tp = ComponentReference.crefLastType(cr);
+  DAE.Dimensions dims = Expression.arrayDimension(tp);
+algorithm
+ v := BackendDAE.VAR(cr, BackendDAE.VARIABLE(), DAE.BIDIR(), DAE.NON_PARALLEL(), DAE.T_REAL_DEFAULT, NONE(), NONE(), dims, DAE.emptyElementSource, NONE(), NONE(), NONE(), DAE.NON_CONNECTOR(), DAE.NOT_INNER_OUTER(), false);
 end makeVar;
 
 public function addVarDAE

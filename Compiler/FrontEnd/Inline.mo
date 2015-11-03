@@ -768,7 +768,7 @@ algorithm
   end match;
 end checkExpsTypeEquiv;
 
-protected function inlineCall
+public function inlineCall
 "replaces an inline call with the expression from the function"
   input DAE.Exp inExp;
   input tuple<Functiontuple,Boolean,list<DAE.Statement>> inTuple;
