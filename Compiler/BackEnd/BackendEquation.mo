@@ -2159,14 +2159,16 @@ algorithm
       Boolean b1, b2;
 
     // complex types to complex equations
-    case () equation
-      true = DAEUtil.expTypeComplex(ty) or DAEUtil.expTypeTuple(ty);
+    case ()
+	guard DAEUtil.expTypeComplex(ty) or DAEUtil.expTypeTuple(ty)
+	equation
       size = Expression.sizeOf(ty);
     then BackendDAE.COMPLEX_EQUATION(size, lhs, rhs, source, inEqAttr);
 
     // array types to array equations
-    case () equation
-      true = DAEUtil.expTypeArray(ty);
+    case ()
+    guard 	DAEUtil.expTypeArray(ty)
+	equation
       dims = Expression.arrayDimension(ty);
       ds = Expression.dimensionsSizes(dims);
     then BackendDAE.ARRAY_EQUATION(ds, lhs, rhs, source, inEqAttr);
