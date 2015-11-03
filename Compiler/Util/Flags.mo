@@ -695,13 +695,13 @@ constant ConfigFlag PRE_OPT_MODULES = CONFIG_FLAG(12, "preOptModules",
     "introduceDerAlias",
     "inputDerivativesForDynOpt", // only for dyn. opt.
     "replaceEdgeChange",
-    "normalInlineFunctions",
     "inlineArrayEqn",
     "removeSimpleEquations",
     "comSubExp",
     "resolveLoops",
     "evalFunc",
     "sortEqnsVars",
+	"normalInlineFunctions",
     "encapsulateWhenConditions"
     }),
   SOME(STRING_DESC_OPTION({
