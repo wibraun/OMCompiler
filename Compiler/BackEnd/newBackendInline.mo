@@ -94,20 +94,20 @@ algorithm
       BackendDAE.Shared shared;
 
     case BackendDAE.DAE(eqs, shared)
-      algorithm
-        tpl := (SOME(shared.functionTree), inITLst);
-        eqs := List.map1(eqs, inlineEquationSystem, tpl);
-        /*
-        shared.knownVars := inlineVariables(shared.knownVars, tpl);
-        shared.externalObjects := inlineVariables(shared.externalObjects, tpl);
-        shared.initialEqs := inlineEquationArray(shared.initialEqs, tpl);
-        shared.removedEqs := inlineEquationArray(shared.removedEqs, tpl);
-        shared.eventInfo := inlineEventInfo(shared.eventInfo, tpl);
-        */
-      then
-        BackendDAE.DAE(eqs, shared);
+    algorithm
+      tpl := (SOME(shared.functionTree), inITLst);
+      eqs := List.map1(listReverse(eqs), inlineEquationSystem, tpl);
+      /*
+       shared.knownVars := inlineVariables(shared.knownVars, tpl);
+       shared.externalObjects := inlineVariables(shared.externalObjects, tpl);
+       shared.initialEqs := inlineEquationArray(shared.initialEqs, tpl);
+       shared.removedEqs := inlineEquationArray(shared.removedEqs, tpl);
+       shared.eventInfo := inlineEventInfo(shared.eventInfo, tpl);
+       */
+    then
+      BackendDAE.DAE(eqs, shared);
 
-    else
+      else
       algorithm
         true := Flags.isSet(Flags.FAILTRACE);
         Debug.traceln("Inline.inlineCalls failed");
@@ -153,7 +153,7 @@ algorithm
         (outEqs, oInlined) = inlineEquationOptArray(eqarr,i2,fns);
       then
         (BackendDAE.EQUATION_ARRAY(size,i1,i2,eqarr),outEqs,oInlined);
-    else
+        else
       equation
         true = Flags.isSet(Flags.FAILTRACE);
         Debug.trace("newBackendInline.inlineEquationArray failed\n");
@@ -176,7 +176,7 @@ protected
 algorithm
   outEqs := BackendDAEUtil.createEqSystem( BackendVariable.listVar({}), BackendEquation.listEquation({}));
   for i in 1:arraysize loop
-    (eqn, outEqs, inlined) := inlineEqOpt(inEqnArray[i], fns, outEqs);
+  (eqn, outEqs, inlined) := inlineEqOpt(inEqnArray[i], fns, outEqs);
 
     if inlined then
       arrayUpdate(inEqnArray, i, eqn);
@@ -230,18 +230,18 @@ algorithm
         (e2,source,outEqs,b2) = inlineCalls(e2,fns,source,outEqs);
         b3 = b1 or b2;
       then
-       (BackendEquation.generateEquation(e1,e2,source,attr),outEqs,b3);
+        (BackendEquation.generateEquation(e1,e2,source,attr),outEqs,b3);
     case BackendDAE.COMPLEX_EQUATION(left=e1, right=e2, source=source, attr=attr)
       equation
-	    BackendDump.printEquation(inEquation);
+        //BackendDump.printEquation(inEquation);
         (e1,source,outEqs,b1) = inlineCalls(e1,fns,source,inEqs);
         (e2,source,outEqs,b2) = inlineCalls(e2,fns,source,outEqs);
         b3 = b1 or b2;
       then
-       (BackendEquation.generateEquation(e1,e2,source,attr),outEqs,b3);
-    else
-      then
-        (inEquation,inEqs,false);
+        (BackendEquation.generateEquation(e1,e2,source,attr),outEqs,b3);
+        else
+        then
+          (inEquation,inEqs,false);
   end matchcontinue;
 end inlineEq;
 
@@ -263,22 +263,21 @@ algorithm
       DAE.ElementSource source;
       list<DAE.Statement> assrtLst;
 
-    // never inline WILD!
+      // never inline WILD!
     case (DAE.CREF(componentRef = DAE.WILD())) then (inExp,inSource,inEqs,false);
 
     case (e)
       equation
-	    print("\ninExp: " + ExpressionDump.printExpStr(e));
+        //print("\ninExp: " + ExpressionDump.printExpStr(e));
         (e1,(_,outEqs,true)) = Expression.traverseExpBottomUp(e,inlineCallsWork,(fns,inEqs,false));
         source = DAEUtil.addSymbolicTransformation(inSource,DAE.OP_INLINE(DAE.PARTIAL_EQUATION(e),DAE.PARTIAL_EQUATION(e1)));
         (DAE.PARTIAL_EQUATION(e2),source) = ExpressionSimplify.simplifyAddSymbolicOperation(DAE.PARTIAL_EQUATION(e1), source);
       then
         (e2,source,outEqs,true);
 
-    else (inExp,inSource,inEqs,false);
+        else (inExp,inSource,inEqs,false);
   end matchcontinue;
 end inlineCalls;
-
 
 protected function inlineCallsWork
 "replaces an expression call with the statements from the function"
@@ -308,7 +307,7 @@ algorithm
       String funcname;
       BackendDAE.EqSystem eqSys, newEqSys;
 
-    // If we disable inlining by use of flags, we still inline builtin functions
+      // If we disable inlining by use of flags, we still inline builtin functions
     case (DAE.CALL(attr=DAE.CALL_ATTR(inlineType=inlineType)),_)
       equation
         false = Flags.isSet(Flags.INLINE_FUNCTIONS);
@@ -318,12 +317,10 @@ algorithm
       equation
         true = Inline.checkInlineType(inlineType,fns);
         (fn,comment) = Inline.getFunctionBody(p,fns);
-
         funcname = Util.modelicaStringToCStr(Absyn.pathString(p), false);
 
         // get inputs, body and output
         (outputCrefs, newEqSys) = createEqnSysfromFunction(fn,args,funcname);
-
         newExp = Expression.makeTuple(list( Expression.crefExp(cr) for cr in outputCrefs));
 
         // merge EqSystems
@@ -331,14 +328,13 @@ algorithm
       then
         (newExp,(fns,eqSys,true));
 
-	//case (e1 as DAE.CALL(p,args,DAE.CALL_ATTR(ty=ty,inlineType=inlineType)),(fns,_,_))
-	//  equation
-	//	newExp = Inline.inlineCall(inExp,fns) ;
-	//  then (newExp,inTuple);
+      //case (e1 as DAE.CALL(p,args,DAE.CALL_ATTR(ty=ty,inlineType=inlineType)),(fns,_,_))
+      //  equation
+      //	newExp = Inline.inlineCall(inExp,fns) ;
+      //  then (newExp,inTuple);
 
-    else (inExp,inTuple);
-
-  end matchcontinue;
+      else (inExp,inTuple);
+    end matchcontinue;
 end inlineCallsWork;
 
 protected function createEqnSysfromFunction
@@ -347,164 +343,160 @@ protected function createEqnSysfromFunction
   input String funcname;
   output list<DAE.ComponentRef> oOutput = {};
   output BackendDAE.EqSystem outEqs;
-protected
+  protected
   list<DAE.Exp> args = inArgs;
   BackendVarTransform.VariableReplacements repl;
   DAE.Type tp;
 algorithm
   outEqs := BackendDAEUtil.createEqSystem( BackendVariable.listVar({}), BackendEquation.listEquation({}));
   repl := BackendVarTransform.emptyReplacements();
-  print("\nstart: " + funcname);
+
   for fn in fns loop
-	  _ := match(fn)
-	    local
-	      DAE.ComponentRef cr, crVar;
-	      list<DAE.Statement> st;
-	      DAE.Exp eVar, eBind, e;
-		  list<DAE.Exp> arrExp;
-	      BackendDAE.Var var;
-	      BackendDAE.Equation eq;
-	      list<BackendDAE.Equation> eqlst;
-		  Integer varDim;
-		  list<DAE.ComponentRef> crefs;
-		  Integer n,i;
-		  DAE.Dimensions dims;
-		  DAE.Dimension dim;
+  _ := match(fn)
+    local
+      DAE.ComponentRef cr, crVar;
+      list<DAE.Statement> st;
+      DAE.Exp eVar, eBind, e;
+      list<DAE.Exp> arrExp;
+      BackendDAE.Var var;
+      BackendDAE.Equation eq;
+      list<BackendDAE.Equation> eqlst;
+      Integer varDim;
+      list<DAE.ComponentRef> crefs;
+      Integer n,i;
+      DAE.Dimensions dims;
+      DAE.Dimension dim;
 
-	      /* assume inArgs is syncron to fns.inputs */
-	    case (DAE.VAR(componentRef=cr,direction=DAE.INPUT(),ty=tp))
-	      algorithm
-		    eVar::args := args;
-			dims := Expression.arrayDimension(tp);
+      /* assume inArgs is syncron to fns.inputs */
+    case (DAE.VAR(componentRef=cr,direction=DAE.INPUT(),ty=tp))
+	    algorithm
+	      eVar::args := args;
+	      dims := Expression.arrayDimension(tp);
 
-			for dim in dims loop
-				DAE.DIM_INTEGER(n) := dim;
-				print("\nd:" + intString(n));
+	      for dim in dims loop
+	        DAE.DIM_INTEGER(n) := dim;
+	      end for;
+
+	      repl := BackendVarTransform.addReplacement(repl, cr, eVar, NONE());
+	      repl := addReplacement(cr, eVar,repl);
+	      if Expression.isArray(eVar) then
+	        false := listEmpty(dims);
+	        i := 1;
+	        DAE.ARRAY(array=arrExp) := eVar;
+	        for e in arrExp loop
+	        repl := BackendVarTransform.addReplacement(repl, ComponentReference.subscriptCrefWithInt(cr,i), e, NONE());
+	          i := i + 1;
 	        end for;
+	      end if;
 
-			repl := BackendVarTransform.addReplacement(repl, cr, eVar, NONE());
-			repl := addReplacement(cr, eVar,repl);
-			if Expression.isArray(eVar) then
-			  false := listEmpty(dims);
-			  i := 1;
-			  DAE.ARRAY(array=arrExp) := eVar;
-			  for e in arrExp loop
-				repl := BackendVarTransform.addReplacement(repl, ComponentReference.subscriptCrefWithInt(cr,i), e, NONE());
-				i := i + 1;
-			  end for;
+	        //print("\n" +ExpressionDump.printExpStr(Expression.crefExp(cr)) + "--" + ExpressionDump.printExpStr(eVar) + "\n");
+      then ();
 
+    case (DAE.VAR(componentRef=cr,direction=DAE.OUTPUT()))
+	    algorithm
+	      var := BackendVariable.createTmpVar(cr, funcname);
 
-			end if;
+	      crVar := BackendVariable.varCref(var);
+	      eVar := Expression.crefExp(crVar);
+	      repl := BackendVarTransform.addReplacement(repl, cr, eVar, NONE());
+	      repl := addReplacement(cr, eVar,repl);
+	      oOutput := crVar::oOutput;
 
-			print("\n" +ExpressionDump.printExpStr(Expression.crefExp(cr)) + "--" + ExpressionDump.printExpStr(eVar) + "\n");
-	      then ();
+	      varDim := BackendVariable.varDim(var);
+	      if varDim == 1 then
+	        outEqs := BackendVariable.addVarDAE(var, outEqs);
+	        else
+	          crefs := ComponentReference.expandCref(crVar, false);
+	          for c in crefs loop
+	          var.varName := c;
+	            outEqs := BackendVariable.addVarDAE(var, outEqs);
+	          end for;
+	      end if;
+      then ();
 
-	    case (DAE.VAR(componentRef=cr,direction=DAE.OUTPUT()))
-	      algorithm
-	        var := BackendVariable.createTmpVar(cr, funcname);
+    case (DAE.VAR(componentRef=cr,protection=DAE.PROTECTED(),ty=tp,binding=NONE()))
+	    algorithm
+	      var := BackendVariable.createTmpVar(cr, funcname);
+	      crVar := BackendVariable.varCref(var);
+	      eVar := Expression.crefExp(crVar);
+	      //print(ExpressionDump.printExpStr(Expression.crefExp(cr)) + "--In\n");
 
-	        crVar := BackendVariable.varCref(var);
-	        eVar := Expression.crefExp(crVar);
-	        repl := BackendVarTransform.addReplacement(repl, cr, eVar, NONE());
-			repl := addReplacement(cr, eVar,repl);
-	        oOutput := crVar::oOutput;
-
-			varDim := BackendVariable.varDim(var);
-			if varDim == 1 then
-	          outEqs := BackendVariable.addVarDAE(var, outEqs);
-			else
-			  crefs := ComponentReference.expandCref(crVar, false);
-			  for c in crefs loop
-			    var.varName := c;
-				outEqs := BackendVariable.addVarDAE(var, outEqs);
-			  end for;
-			end if;
-	      then ();
-
-	    case (DAE.VAR(componentRef=cr,protection=DAE.PROTECTED(),ty=tp,binding=NONE()))
-	      algorithm
-	        var := BackendVariable.createTmpVar(cr, funcname);
-	        crVar := BackendVariable.varCref(var);
-	        eVar := Expression.crefExp(crVar);
-                //print(ExpressionDump.printExpStr(Expression.crefExp(cr)) + "--In\n");
-
-	        varDim := BackendVariable.varDim(var);
-			if varDim == 1 then
-	          outEqs := BackendVariable.addVarDAE(var, outEqs);
-			else
-			  crefs := ComponentReference.expandCref(crVar, false);
-			  for c in crefs loop
-			    var.varName := c;
-				outEqs := BackendVariable.addVarDAE(var, outEqs);
-			  end for;
-			end if;
+	      varDim := BackendVariable.varDim(var);
+	      if varDim == 1 then
+	        outEqs := BackendVariable.addVarDAE(var, outEqs);
+	        else
+	          crefs := ComponentReference.expandCref(crVar, false);
+	          for c in crefs loop
+	          var.varName := c;
+	            outEqs := BackendVariable.addVarDAE(var, outEqs);
+	          end for;
+	      end if;
 
 	        repl := BackendVarTransform.addReplacement(repl, cr, eVar, NONE());
-			repl := addReplacement(cr, eVar,repl);
+	        repl := addReplacement(cr, eVar,repl);
 
-	      then ();
+      then ();
 
-	    case (DAE.VAR(componentRef=cr,protection=DAE.PROTECTED(),ty=tp,binding=SOME(eBind)))
-	      algorithm
+    case (DAE.VAR(componentRef=cr,protection=DAE.PROTECTED(),ty=tp,binding=SOME(eBind)))
+	    algorithm
 
-	        var := BackendVariable.createTmpVar(cr, funcname);
+	      var := BackendVariable.createTmpVar(cr, funcname);
 
-	        crVar := BackendVariable.varCref(var);
-	        eVar := Expression.crefExp(crVar);
+	      crVar := BackendVariable.varCref(var);
+	      eVar := Expression.crefExp(crVar);
 
 
-			varDim := BackendVariable.varDim(var);
-			if varDim == 1 then
-	          outEqs := BackendVariable.addVarDAE(var, outEqs);
-			else
-			  crefs := ComponentReference.expandCref(crVar, false);
-			  for c in crefs loop
-			    var.varName := c;
-				outEqs := BackendVariable.addVarDAE(var, outEqs);
-			  end for;
-			end if;
+	      varDim := BackendVariable.varDim(var);
+	      if varDim == 1 then
+	        outEqs := BackendVariable.addVarDAE(var, outEqs);
+	        else
+	          crefs := ComponentReference.expandCref(crVar, false);
+	          for c in crefs loop
+	          var.varName := c;
+	            outEqs := BackendVariable.addVarDAE(var, outEqs);
+	          end for;
+	      end if;
 
-			repl := BackendVarTransform.addReplacement(repl, cr, eVar, NONE());
-			repl := addReplacement(cr, eVar,repl);
+	        repl := BackendVarTransform.addReplacement(repl, cr, eVar, NONE());
+	        repl := addReplacement(cr, eVar,repl);
 
 	        eq := BackendEquation.generateEquation(eVar,eBind);
-			outEqs := BackendEquation.equationAddDAE(eq, outEqs);
+	        outEqs := BackendEquation.equationAddDAE(eq, outEqs);
 
-	      then ();
+      then ();
 
-	    case (DAE.ALGORITHM(algorithm_ = DAE.ALGORITHM_STMTS(st)))
-	      equation
+    case (DAE.ALGORITHM(algorithm_ = DAE.ALGORITHM_STMTS(st)))
+      equation
 
-	        eqlst = List.map(st, BackendEquation.statementEq);
-	        outEqs = BackendEquation.equationsAddDAE(eqlst, outEqs);
-	      then ();
-
-	  end match;
+        eqlst = List.map(st, BackendEquation.statementEq);
+        outEqs = BackendEquation.equationsAddDAE(eqlst, outEqs);
+      then ();
+  end match;
   end for;
   oOutput := listReverse(oOutput);
-  print("\nend: "+funcname);
-  BackendDump.printEqSystem(outEqs);
+  //print("\nend: "+funcname);
+  //BackendDump.printEqSystem(outEqs);
 
   if (BackendDAEUtil.systemSize(outEqs) <> BackendVariable.daenumVariables(outEqs)) then
     if Flags.isSet(Flags.FAILTRACE) then
       Debug.trace("newBackendInline.createEqnSysfromFunction failed for function " + funcname + "with different sizes\n");
-	  print(intString(BackendDAEUtil.systemSize(outEqs)) + " <> "  + intString(BackendVariable.daenumVariables(outEqs)));
+      print(intString(BackendDAEUtil.systemSize(outEqs)) + " <> "  + intString(BackendVariable.daenumVariables(outEqs)));
     end if;
-    fail();
+      fail();
   end if;
 
 
-  // MSL 3.2.1 need GenerateEvents to disable this
-  //generateEvents = hasGenerateEventsAnnotation(comment);
-  //newExp = if not generateEvents then Expression.addNoEventToRelationsAndConds(newExp) else newExp;
+    // MSL 3.2.1 need GenerateEvents to disable this
+    //generateEvents = hasGenerateEventsAnnotation(comment);
+    //newExp = if not generateEvents then Expression.addNoEventToRelationsAndConds(newExp) else newExp;
 
 
-  //outEqs := BackendVarTransform.performReplacementsEqSystem(outEqs, repl);
-  outEqs.orderedEqs := BackendEquation.listEquation(InlineArrayEquations.getScalarArrayEqns(BackendEquation.equationList(outEqs.orderedEqs)));
-  outEqs := BackendVarTransform.performReplacementsEqSystem(outEqs, repl);
-  BackendVarTransform.dumpReplacements(repl);
-  print("\nupdated: "+funcname);
-  BackendDump.printEqSystem(outEqs);
+    //outEqs := BackendVarTransform.performReplacementsEqSystem(outEqs, repl);
+    outEqs.orderedEqs := BackendEquation.listEquation(InlineArrayEquations.getScalarArrayEqns(BackendEquation.equationList(outEqs.orderedEqs)));
+    outEqs := BackendVarTransform.performReplacementsEqSystem(outEqs, repl);
+    //BackendVarTransform.dumpReplacements(repl);
+    //print("\nupdated: "+funcname);
+    //BackendDump.printEqSystem(outEqs);
 
 end createEqnSysfromFunction;
 
@@ -517,26 +509,26 @@ algorithm
   oRepl := match(iCr,iExp,iRepl)
     local
       DAE.Type tp;
-	  BackendVarTransform.VariableReplacements repl;
-	  list<DAE.ComponentRef> crefs;
-	  list<DAE.Exp> arrExp;
-	  DAE.Exp e;
+      BackendVarTransform.VariableReplacements repl;
+      list<DAE.ComponentRef> crefs;
+      list<DAE.Exp> arrExp;
+      DAE.Exp e;
 
     case (DAE.CREF_IDENT(identType=tp),_,_)
-	guard not Expression.isRecordType(tp) and not Expression.isArrayType(tp)
-      equation
-      then BackendVarTransform.addReplacement(iRepl, iCr, iExp, NONE());
-	case (DAE.CREF_IDENT(identType=tp),_,_)
-	guard Expression.isArrayType(tp)
+      guard not Expression.isRecordType(tp) and not Expression.isArrayType(tp)
+    then BackendVarTransform.addReplacement(iRepl, iCr, iExp, NONE());
+
+    case (DAE.CREF_IDENT(identType=tp),_,_)
+      guard Expression.isArrayType(tp)
       algorithm
-	  crefs := ComponentReference.expandCref(iCr, false);
-	  repl := iRepl;
-	  arrExp := Expression.getArrayOrRangeContents(iExp);
-	  for c in crefs loop
-	    e :: arrExp := arrExp;
-		repl := BackendVarTransform.addReplacement(repl, c, e, NONE());
-	  end for;
-      then repl;
+        crefs := ComponentReference.expandCref(iCr, false);
+        repl := iRepl;
+        arrExp := Expression.getArrayOrRangeContents(iExp);
+        for c in crefs loop
+        e :: arrExp := arrExp;
+          repl := BackendVarTransform.addReplacement(repl, c, e, NONE());
+        end for;
+    then repl;
   end match;
 end addReplacement;
 
