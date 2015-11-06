@@ -328,10 +328,10 @@ algorithm
       then
         (newExp,(fns,eqSys,true));
 
-      //case (e1 as DAE.CALL(p,args,DAE.CALL_ATTR(ty=ty,inlineType=inlineType)),(fns,_,_))
-      //  equation
-      //	newExp = Inline.inlineCall(inExp,fns) ;
-      //  then (newExp,inTuple);
+      case (e1 as DAE.CALL(p,args,DAE.CALL_ATTR(ty=ty,inlineType=inlineType)),(fns,_,_))
+        equation
+      	newExp = Inline.inlineCall(inExp,(fns,false,{})) ;
+      then (newExp,inTuple);
 
       else (inExp,inTuple);
     end matchcontinue;
