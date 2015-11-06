@@ -234,8 +234,8 @@ algorithm
     case BackendDAE.COMPLEX_EQUATION(left=e1, right=e2, source=source, attr=attr)
       equation
         //BackendDump.printEquation(inEquation);
-        (e1,source,outEqs,b1) = inlineCalls(e1,fns,source,inEqs);
-        (e2,source,outEqs,b2) = inlineCalls(e2,fns,source,outEqs);
+        (e1,source,outEqs,b1) = inlineCalls(e1,fns,source,inEqs,true);
+        (e2,source,outEqs,b2) = inlineCalls(e2,fns,source,outEqs,true);
         b3 = b1 or b2;
       then
         (BackendEquation.generateEquation(e1,e2,source,attr),outEqs,b3);
@@ -252,6 +252,7 @@ function: inlineCalls
   input Inline.Functiontuple fns;
   input DAE.ElementSource inSource;
   input BackendDAE.EqSystem inEqs;
+  input Boolean inCoplexFunction = false;
   output DAE.Exp outExp;
   output DAE.ElementSource outSource;
   output BackendDAE.EqSystem outEqs;
@@ -269,7 +270,7 @@ algorithm
     case (e)
       equation
         //print("\ninExp: " + ExpressionDump.printExpStr(e));
-        (e1,(_,outEqs,true)) = Expression.traverseExpBottomUp(e,inlineCallsWork,(fns,inEqs,false));
+        (e1,(_,outEqs,true,_)) = Expression.traverseExpBottomUp(e,inlineCallsWork,(fns,inEqs,false,inCoplexFunction));
         source = DAEUtil.addSymbolicTransformation(inSource,DAE.OP_INLINE(DAE.PARTIAL_EQUATION(e),DAE.PARTIAL_EQUATION(e1)));
         (DAE.PARTIAL_EQUATION(e2),source) = ExpressionSimplify.simplifyAddSymbolicOperation(DAE.PARTIAL_EQUATION(e1), source);
       then
@@ -282,9 +283,9 @@ end inlineCalls;
 protected function inlineCallsWork
 "replaces an expression call with the statements from the function"
   input DAE.Exp inExp;
-  input tuple<Inline.Functiontuple,BackendDAE.EqSystem,Boolean> inTuple;
+  input tuple<Inline.Functiontuple,BackendDAE.EqSystem,Boolean,Boolean> inTuple;
   output DAE.Exp outExp;
-  output tuple<Inline.Functiontuple,BackendDAE.EqSystem,Boolean> outTuple;
+  output tuple<Inline.Functiontuple,BackendDAE.EqSystem,Boolean,Boolean> outTuple;
 algorithm
   (outExp,outTuple) := matchcontinue (inExp,inTuple)
     local
@@ -302,20 +303,20 @@ algorithm
       HashTableCG.HashTable checkcr;
       list<DAE.Statement> stmts,assrtStmts, assrtLstIn, assrtLst;
       Boolean generateEvents;
+	  Boolean inCoplexFunction;
       Option<SCode.Comment> comment;
       DAE.Type ty;
       String funcname;
       BackendDAE.EqSystem eqSys, newEqSys;
 
       // If we disable inlining by use of flags, we still inline builtin functions
-    case (DAE.CALL(attr=DAE.CALL_ATTR(inlineType=inlineType)),_)
-      equation
-        false = Flags.isSet(Flags.INLINE_FUNCTIONS);
+    case (_,_)
+	guard not Flags.isSet(Flags.INLINE_FUNCTIONS)
       then (inExp,inTuple);
 
-    case (e1 as DAE.CALL(p,args,DAE.CALL_ATTR(ty=ty,inlineType=inlineType)),(fns,eqSys,_))
+    case (e1 as DAE.CALL(p,args,DAE.CALL_ATTR(ty=ty,inlineType=inlineType)),(fns,eqSys,_,inCoplexFunction))
+	guard Inline.checkInlineType(inlineType,fns) or inCoplexFunction
       equation
-        true = Inline.checkInlineType(inlineType,fns);
         (fn,comment) = Inline.getFunctionBody(p,fns);
         funcname = Util.modelicaStringToCStr(Absyn.pathString(p), false);
 
@@ -326,10 +327,11 @@ algorithm
         // merge EqSystems
         eqSys = BackendDAEUtil.mergeEqSystems(newEqSys,eqSys);
       then
-        (newExp,(fns,eqSys,true));
-
-      case (e1 as DAE.CALL(p,args,DAE.CALL_ATTR(ty=ty,inlineType=inlineType)),(fns,_,_))
-        equation
+        (newExp,(fns,eqSys,true,inCoplexFunction));
+      //fallback
+      case (e1 as DAE.CALL(p,args,DAE.CALL_ATTR(ty=ty,inlineType=inlineType)),(fns,_,_,_))
+	  guard Inline.checkInlineType(inlineType,fns)
+      equation
       	newExp = Inline.inlineCall(inExp,(fns,false,{})) ;
       then (newExp,inTuple);
 
