@@ -329,11 +329,14 @@ algorithm
       then
         (newExp,(fns,eqSys,true,inCoplexFunction));
       //fallback
-      case (e1 as DAE.CALL(p,args,DAE.CALL_ATTR(ty=ty,inlineType=inlineType)),(fns,_,_,_))
-	  guard Inline.checkInlineType(inlineType,fns)
+      case (e1 as DAE.CALL(p,args,DAE.CALL_ATTR(ty=ty,inlineType=inlineType)),(fns,eqSys,_,inCoplexFunction))
+	  guard Inline.checkInlineType(inlineType,fns) or inCoplexFunction
       equation
+	    //print("\n ############## \n");
+		//print("in:" + ExpressionDump.printExpStr(inExp) + "\n");
       	newExp = Inline.inlineCall(inExp,(fns,false,{})) ;
-      then (newExp,inTuple);
+		//print("out:" + ExpressionDump.printExpStr(newExp) + "\n");
+      then (newExp,(fns,eqSys,true,inCoplexFunction));
 
       else (inExp,inTuple);
     end matchcontinue;
