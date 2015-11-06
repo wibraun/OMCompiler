@@ -115,7 +115,7 @@ algorithm
         fail();
   end matchcontinue;
 
-  outBackendDAE := BackendDAEOptimize.simplifyComplexFunction(outBackendDAE);
+  outBackendDAE := BackendDAEOptimize.simplifyComplexFunction1(outBackendDAE);
 end inlineCallsBDAE;
 
 protected function inlineEquationSystem
