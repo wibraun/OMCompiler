@@ -4176,13 +4176,14 @@ algorithm
   if Flags.isSet(Flags.DIS_SIMP_FUN) then
     outDAE := inDAE;
   else
-    outDAE := simplifyComplexFunction1(inDAE);
+    outDAE := simplifyComplexFunction1(inDAE, true);
   end if;
 end simplifyComplexFunction;
 
 
 public function simplifyComplexFunction1
   input BackendDAE.BackendDAE inDAE;
+  input Boolean withTmpVars = false;
   output BackendDAE.BackendDAE outDAE = inDAE;
 protected
   list<BackendDAE.EqSystem> systlst = {};
@@ -4286,7 +4287,8 @@ algorithm
 		  else
 		    continue;
 		  end try;
-         elseif Expression.isTuple(left) and Expression.isCall(right) then //tuple() = call()
+         elseif withTmpVars and  Expression.isTuple(left) and Expression.isCall(right)  //tuple() = call()
+		 then
           DAE.TUPLE(PR = left_lst) := left;
           DAE.CALL(path=path,expLst = expLst, attr= cattr) := right;
           expLst := {};
@@ -4349,7 +4351,7 @@ algorithm
             expLst := e :: expLst;
           end for; // lhs
           left := DAE.TUPLE(listReverse(expLst));
-          eqn := BackendDAE.COMPLEX_EQUATION(size, left, right, source, attr);
+          eqn := BackendEquation.generateEquation(left, right, source, attr);
           eqns := BackendEquation.setAtIndex(eqns, i, eqn);
         end if; // lhs <-> rhs
       end if; // complex
