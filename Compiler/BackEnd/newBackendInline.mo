@@ -374,13 +374,13 @@ algorithm
 
       /* assume inArgs is syncron to fns.inputs */
     case (DAE.VAR(componentRef=cr,direction=DAE.INPUT(),ty=tp))
-    guard not Expression.isArrayType(tp)
 	    algorithm
 	      eVar::args := args;
               false := Expression.isArray(eVar);
+              false := Expression.isRecord(eVar);
 
 	      repl := BackendVarTransform.addReplacement(repl, cr, eVar, NONE());
-	      //repl := addReplacement(cr, eVar,repl);
+	      repl := addReplacement(cr, eVar,repl);
 
 	      //print("\n" +ExpressionDump.printExpStr(Expression.crefExp(cr)) + "--" + ExpressionDump.printExpStr(eVar) + "\n");
       then ();
@@ -391,6 +391,7 @@ algorithm
 
 	      crVar := BackendVariable.varCref(var);
 	      eVar := Expression.crefExp(crVar);
+              false := Expression.isRecord(eVar);
 	      repl := BackendVarTransform.addReplacement(repl, cr, eVar, NONE());
 	      repl := addReplacement(cr, eVar,repl);
 	      oOutput := crVar::oOutput;
@@ -412,6 +413,7 @@ algorithm
 	      var := BackendVariable.createTmpVar(cr, funcname);
 	      crVar := BackendVariable.varCref(var);
 	      eVar := Expression.crefExp(crVar);
+              false := Expression.isRecord(eVar);
 	      //print(ExpressionDump.printExpStr(Expression.crefExp(cr)) + "--In\n");
 
 	      varDim := BackendVariable.varDim(var);
@@ -437,6 +439,7 @@ algorithm
 
 	      crVar := BackendVariable.varCref(var);
 	      eVar := Expression.crefExp(crVar);
+              false := Expression.isRecord(eVar);
 
 
 	      varDim := BackendVariable.varDim(var);
