@@ -332,10 +332,10 @@ algorithm
       case (e1 as DAE.CALL(p,args,DAE.CALL_ATTR(ty=ty,inlineType=inlineType)),(fns,eqSys,_,inCoplexFunction))
 	  guard Inline.checkInlineType(inlineType,fns) or inCoplexFunction
       equation
-	    //print("\n ############## \n");
-		//print("in:" + ExpressionDump.printExpStr(inExp) + "\n");
+	//print("\n ############## \n");
+        //print("in:" + ExpressionDump.printExpStr(inExp) + "\n");
       	newExp = Inline.inlineCall(inExp,(fns,false,{})) ;
-		//print("out:" + ExpressionDump.printExpStr(newExp) + "\n");
+        //print("out:" + ExpressionDump.printExpStr(newExp) + "\n");
       then (newExp,(fns,eqSys,true,inCoplexFunction));
 
       else (inExp,inTuple);
@@ -374,27 +374,15 @@ algorithm
 
       /* assume inArgs is syncron to fns.inputs */
     case (DAE.VAR(componentRef=cr,direction=DAE.INPUT(),ty=tp))
+    guard not Expression.isArrayType(tp)
 	    algorithm
 	      eVar::args := args;
-	      dims := Expression.arrayDimension(tp);
-
-	      for dim in dims loop
-	        DAE.DIM_INTEGER(n) := dim;
-	      end for;
+              false := Expression.isArray(eVar);
 
 	      repl := BackendVarTransform.addReplacement(repl, cr, eVar, NONE());
-	      repl := addReplacement(cr, eVar,repl);
-	      if Expression.isArray(eVar) then
-	        false := listEmpty(dims);
-	        i := 1;
-	        DAE.ARRAY(array=arrExp) := eVar;
-	        for e in arrExp loop
-	        repl := BackendVarTransform.addReplacement(repl, ComponentReference.subscriptCrefWithInt(cr,i), e, NONE());
-	          i := i + 1;
-	        end for;
-	      end if;
+	      //repl := addReplacement(cr, eVar,repl);
 
-	        //print("\n" +ExpressionDump.printExpStr(Expression.crefExp(cr)) + "--" + ExpressionDump.printExpStr(eVar) + "\n");
+	      //print("\n" +ExpressionDump.printExpStr(Expression.crefExp(cr)) + "--" + ExpressionDump.printExpStr(eVar) + "\n");
       then ();
 
     case (DAE.VAR(componentRef=cr,direction=DAE.OUTPUT()))
@@ -521,7 +509,7 @@ algorithm
 
     case (DAE.CREF_IDENT(identType=tp),_,_)
       guard not Expression.isRecordType(tp) and not Expression.isArrayType(tp)
-    then BackendVarTransform.addReplacement(iRepl, iCr, iExp, NONE());
+    then iRepl;
 
     case (DAE.CREF_IDENT(identType=tp),_,_)
       guard Expression.isArrayType(tp)
@@ -530,7 +518,7 @@ algorithm
         repl := iRepl;
         arrExp := Expression.getArrayOrRangeContents(iExp);
         for c in crefs loop
-        e :: arrExp := arrExp;
+          e :: arrExp := arrExp;
           repl := BackendVarTransform.addReplacement(repl, c, e, NONE());
         end for;
     then repl;
