@@ -124,11 +124,11 @@ protected function inlineEquationSystem
   output BackendDAE.EqSystem oeqs = eqs;
 protected
   BackendDAE.EqSystem new;
-  Boolean inlined;
+  Boolean inlined=true;
   BackendDAE.EquationArray eqnsArray;
 algorithm
   //inlineVariables(oeqs.orderedVars, tpl);
-  (eqnsArray, new, inlined) := inlineEquationArray(oeqs.orderedEqs, tpl);
+    (eqnsArray, new, inlined) := inlineEquationArray(oeqs.orderedEqs, tpl);
   //inlineEquationArray(oeqs.removedEqs, tpl);
   oeqs.orderedEqs := eqnsArray;
   oeqs := BackendDAEUtil.mergeEqSystems(new, oeqs);
@@ -217,6 +217,7 @@ protected function inlineEq "
   output BackendDAE.EqSystem outEqs;
   output Boolean inlined;
 algorithm
+   //BackendDump.printEquation(inEquation);
   (outEquation,outEqs,inlined) := matchcontinue(inEquation)
     local
       DAE.Exp e1,e2;
@@ -226,22 +227,40 @@ algorithm
 
     case BackendDAE.EQUATION(e1,e2,source,attr)
       equation
+        //print("\neq:");
+        //BackendDump.printEquation(inEquation);
         (e1,source,outEqs,b1) = inlineCalls(e1,fns,source,inEqs);
         (e2,source,outEqs,b2) = inlineCalls(e2,fns,source,outEqs);
         b3 = b1 or b2;
       then
         (BackendEquation.generateEquation(e1,e2,source,attr),outEqs,b3);
+
     case BackendDAE.COMPLEX_EQUATION(left=e1, right=e2, source=source, attr=attr)
       equation
+        //print("\nceq:");
         //BackendDump.printEquation(inEquation);
         (e1,source,outEqs,b1) = inlineCalls(e1,fns,source,inEqs,true);
         (e2,source,outEqs,b2) = inlineCalls(e2,fns,source,outEqs,true);
         b3 = b1 or b2;
       then
         (BackendEquation.generateEquation(e1,e2,source,attr),outEqs,b3);
-        else
-        then
-          (inEquation,inEqs,false);
+
+    case BackendDAE.ARRAY_EQUATION(left=e1, right=e2, source=source, attr=attr)
+      equation
+        //print("\naeq:");
+        //BackendDump.printEquation(inEquation);
+        (e1,source,outEqs,b1) = inlineCalls(e1,fns,source,inEqs,true);
+        (e2,source,outEqs,b2) = inlineCalls(e2,fns,source,outEqs,true);
+        b3 = b1 or b2;
+        //print("\naeq':");
+        //BackendDump.printEquation(inEquation);
+        (e1,source,outEqs,b1) = inlineCalls(e1,fns,source,inEqs,true);
+      then
+        (BackendEquation.generateEquation(e1,e2,source,attr),outEqs,b3);
+
+     else (inEquation,inEqs,false);
+
+
   end matchcontinue;
 end inlineEq;
 
@@ -273,6 +292,7 @@ algorithm
         (e1,(_,outEqs,true,_)) = Expression.traverseExpBottomUp(e,inlineCallsWork,(fns,inEqs,false,inCoplexFunction));
         source = DAEUtil.addSymbolicTransformation(inSource,DAE.OP_INLINE(DAE.PARTIAL_EQUATION(e),DAE.PARTIAL_EQUATION(e1)));
         (DAE.PARTIAL_EQUATION(e2),source) = ExpressionSimplify.simplifyAddSymbolicOperation(DAE.PARTIAL_EQUATION(e1), source);
+        //print("\noutExp: " + ExpressionDump.printExpStr(e));
       then
         (e2,source,outEqs,true);
 
@@ -323,7 +343,7 @@ algorithm
         // get inputs, body and output
         (outputCrefs, newEqSys) = createEqnSysfromFunction(fn,args,funcname);
         newExp = Expression.makeTuple(list( Expression.crefExp(cr) for cr in outputCrefs));
-        print("out:" + ExpressionDump.printExpStr(newExp) + "\n");
+        //print("out:" + ExpressionDump.printExpStr(newExp) + "\n");
 
         // MSL 3.2.1 need GenerateEvents to disable this
         if not Inline.hasGenerateEventsAnnotation(comment) then
@@ -336,11 +356,14 @@ algorithm
         (newExp,(fns,eqSys,true,inCoplexFunction));
       //fallback
       case (e1 as DAE.CALL(p,args,DAE.CALL_ATTR(ty=ty,inlineType=inlineType)),(fns,eqSys,_,inCoplexFunction))
-	  guard Inline.checkInlineType(inlineType,fns) or inCoplexFunction
       equation
 	//print("\n ############## \n");
         //print("in:" + ExpressionDump.printExpStr(inExp) + "\n");
-      	newExp = Inline.inlineCall(inExp,(fns,false,{})) ;
+        if inCoplexFunction then
+      	  newExp = Inline.inlineCall(inExp,(fns,false,{}));
+        else
+      	  newExp = Inline.forceInlineCall(inExp,(fns,false,{}));
+        end if;
         //print("out:" + ExpressionDump.printExpStr(newExp) + "\n");
       then (newExp,(fns,eqSys,true,inCoplexFunction));
 
