@@ -247,13 +247,17 @@ algorithm
 
     case BackendDAE.ARRAY_EQUATION(left=e1, right=e2, source=source, attr=attr)
       equation
+      (e1,source,outEqs,b1) = inlineCalls(e1,fns,source,inEqs,false,true);
+        (e2,source,outEqs,b2) = inlineCalls(e2,fns,source,outEqs,false,true);
+         b3 = b1 or b2;
+        //if b3 then
         //print("\naeq:");
         //BackendDump.printEquation(inEquation);
-        (e1,source,outEqs,b1) = inlineCalls(e1,fns,source,inEqs,true);
-        (e2,source,outEqs,b2) = inlineCalls(e2,fns,source,outEqs,true);
-        b3 = b1 or b2;
         //print("\naeq':");
-        //BackendDump.printEquation(inEquation);
+        //BackendDump.printEquation(BackendEquation.generateEquation(e1,e2,source,attr));
+        //BackendDump.printEqSystem(outEqs);
+
+        //end if;
         (e1,source,outEqs,b1) = inlineCalls(e1,fns,source,inEqs,true);
       then
         (BackendEquation.generateEquation(e1,e2,source,attr),outEqs,b3);
@@ -272,6 +276,7 @@ function: inlineCalls
   input DAE.ElementSource inSource;
   input BackendDAE.EqSystem inEqs;
   input Boolean inCoplexFunction = false;
+  input Boolean inArrayEq = false;
   output DAE.Exp outExp;
   output DAE.ElementSource outSource;
   output BackendDAE.EqSystem outEqs;
@@ -289,7 +294,7 @@ algorithm
     case (e)
       equation
         //print("\ninExp: " + ExpressionDump.printExpStr(e));
-        (e1,(_,outEqs,true,_)) = Expression.traverseExpBottomUp(e,inlineCallsWork,(fns,inEqs,false,inCoplexFunction));
+        (e1,(_,outEqs,true,_,_)) = Expression.traverseExpBottomUp(e,inlineCallsWork,(fns,inEqs,false,inCoplexFunction,inArrayEq));
         source = DAEUtil.addSymbolicTransformation(inSource,DAE.OP_INLINE(DAE.PARTIAL_EQUATION(e),DAE.PARTIAL_EQUATION(e1)));
         (DAE.PARTIAL_EQUATION(e2),source) = ExpressionSimplify.simplifyAddSymbolicOperation(DAE.PARTIAL_EQUATION(e1), source);
         //print("\noutExp: " + ExpressionDump.printExpStr(e));
@@ -303,9 +308,9 @@ end inlineCalls;
 protected function inlineCallsWork
 "replaces an expression call with the statements from the function"
   input DAE.Exp inExp;
-  input tuple<Inline.Functiontuple,BackendDAE.EqSystem,Boolean,Boolean> inTuple;
+  input tuple<Inline.Functiontuple,BackendDAE.EqSystem,Boolean,Boolean,Boolean> inTuple;
   output DAE.Exp outExp;
-  output tuple<Inline.Functiontuple,BackendDAE.EqSystem,Boolean,Boolean> outTuple;
+  output tuple<Inline.Functiontuple,BackendDAE.EqSystem,Boolean,Boolean,Boolean> outTuple;
 algorithm
   (outExp,outTuple) := matchcontinue (inExp,inTuple)
     local
@@ -323,7 +328,7 @@ algorithm
       HashTableCG.HashTable checkcr;
       list<DAE.Statement> stmts,assrtStmts, assrtLstIn, assrtLst;
       Boolean generateEvents;
-	  Boolean inCoplexFunction;
+      Boolean inCoplexFunction, inArrayEq;
       Option<SCode.Comment> comment;
       DAE.Type ty;
       String funcname;
@@ -334,7 +339,7 @@ algorithm
 	guard not Flags.isSet(Flags.INLINE_FUNCTIONS)
       then (inExp,inTuple);
 
-    case (e1 as DAE.CALL(p,args,DAE.CALL_ATTR(ty=ty,inlineType=inlineType)),(fns,eqSys,_,inCoplexFunction))
+    case (e1 as DAE.CALL(p,args,DAE.CALL_ATTR(ty=ty,inlineType=inlineType)),(fns,eqSys,_,inCoplexFunction,false))
 	guard Inline.checkInlineType(inlineType,fns) or inCoplexFunction
       equation
         (fn,comment) = Inline.getFunctionBody(p,fns);
@@ -353,9 +358,9 @@ algorithm
         // merge EqSystems
         eqSys = BackendDAEUtil.mergeEqSystems(newEqSys,eqSys);
       then
-        (newExp,(fns,eqSys,true,inCoplexFunction));
+        (newExp,(fns,eqSys,true,inCoplexFunction,false));
       //fallback
-      case (e1 as DAE.CALL(p,args,DAE.CALL_ATTR(ty=ty,inlineType=inlineType)),(fns,eqSys,_,inCoplexFunction))
+      case (e1 as DAE.CALL(p,args,DAE.CALL_ATTR(ty=ty,inlineType=inlineType)),(fns,eqSys,_,inCoplexFunction,inArrayEq))
       equation
 	//print("\n ############## \n");
         //print("in:" + ExpressionDump.printExpStr(inExp) + "\n");
@@ -365,7 +370,7 @@ algorithm
       	  newExp = Inline.forceInlineCall(inExp,(fns,false,{}));
         end if;
         //print("out:" + ExpressionDump.printExpStr(newExp) + "\n");
-      then (newExp,(fns,eqSys,true,inCoplexFunction));
+      then (newExp,(fns,eqSys,true,inCoplexFunction,inArrayEq));
 
       else (inExp,inTuple);
     end matchcontinue;
@@ -412,7 +417,7 @@ algorithm
       DAE.Dimension dim;
 
       /* assume inArgs is syncron to fns.inputs */
-    case (DAE.VAR(componentRef=cr,direction=DAE.INPUT(),ty=tp))
+    case (DAE.VAR(componentRef=cr,direction=DAE.INPUT(),ty=tp, kind=DAE.VARIABLE()))
 	    algorithm
 	      eVar::args := args;
               false := Expression.isArray(eVar);
@@ -424,7 +429,7 @@ algorithm
 	      //print("\n" +ExpressionDump.printExpStr(Expression.crefExp(cr)) + "--" + ExpressionDump.printExpStr(eVar) + "\n");
       then ();
 
-    case (DAE.VAR(componentRef=cr,direction=DAE.OUTPUT()))
+    case DAE.VAR(componentRef=cr,direction=DAE.OUTPUT(),kind=DAE.VARIABLE())
 	    algorithm
 	      var := BackendVariable.createTmpVar(cr, funcname);
 
