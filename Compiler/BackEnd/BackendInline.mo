@@ -409,7 +409,7 @@ algorithm
   end for;
 end inlineWhenOps;
 
-protected function inlineVariables
+public function inlineVariables
 "inlines function calls in variables"
   input BackendDAE.Variables inVariables;
   input Inline.Functiontuple inElementList;

@@ -99,8 +99,8 @@ algorithm
       tpl := (SOME(shared.functionTree), inITLst);
       eqs := List.map1(listReverse(eqs), inlineEquationSystem, tpl);
       // ToDo
-       //shared.knownVars := BackendInline.inlineVariables(shared.knownVars, tpl);
-       //shared.externalObjects := BackendInline.inlineVariables(shared.externalObjects, tpl);
+       shared.knownVars := BackendInline.inlineVariables(shared.knownVars, tpl);
+       shared.externalObjects := BackendInline.inlineVariables(shared.externalObjects, tpl);
        shared.initialEqs := BackendInline.inlineEquationArray(shared.initialEqs, tpl);
        shared.removedEqs := BackendInline.inlineEquationArray(shared.removedEqs, tpl);
        //shared.eventInfo := BackendInline.inlineEventInfo(shared.eventInfo, tpl);
@@ -323,6 +323,7 @@ algorithm
         // get inputs, body and output
         (outputCrefs, newEqSys) = createEqnSysfromFunction(fn,args,funcname);
         newExp = Expression.makeTuple(list( Expression.crefExp(cr) for cr in outputCrefs));
+        print("out:" + ExpressionDump.printExpStr(newExp) + "\n");
 
         // MSL 3.2.1 need GenerateEvents to disable this
         if not Inline.hasGenerateEventsAnnotation(comment) then
