@@ -893,7 +893,7 @@ algorithm
 end inlineAssert;
 
 
-protected function hasGenerateEventsAnnotation
+public function hasGenerateEventsAnnotation
   input Option<SCode.Comment> comment;
   output Boolean b;
 algorithm

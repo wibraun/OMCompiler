@@ -112,7 +112,7 @@ algorithm
   inlineEquationArray(oeqs.removedEqs, tpl);
 end inlineEquationSystem;
 
-protected function inlineEquationArray "
+public function inlineEquationArray "
 function: inlineEquationArray
   inlines function calls in an equation array"
   input BackendDAE.EquationArray inEquationArray;

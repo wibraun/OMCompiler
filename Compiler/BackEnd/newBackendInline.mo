@@ -49,6 +49,7 @@ protected import BackendDAEUtil;
 protected import BackendDump;
 protected import BackendDAEOptimize;
 protected import BackendEquation;
+protected import BackendInline;
 protected import BackendVariable;
 protected import BackendVarTransform;
 protected import ComponentReference;
@@ -97,13 +98,12 @@ algorithm
     algorithm
       tpl := (SOME(shared.functionTree), inITLst);
       eqs := List.map1(listReverse(eqs), inlineEquationSystem, tpl);
-      /*
-       shared.knownVars := inlineVariables(shared.knownVars, tpl);
-       shared.externalObjects := inlineVariables(shared.externalObjects, tpl);
-       shared.initialEqs := inlineEquationArray(shared.initialEqs, tpl);
-       shared.removedEqs := inlineEquationArray(shared.removedEqs, tpl);
-       shared.eventInfo := inlineEventInfo(shared.eventInfo, tpl);
-       */
+      // ToDo
+       //shared.knownVars := BackendInline.inlineVariables(shared.knownVars, tpl);
+       //shared.externalObjects := BackendInline.inlineVariables(shared.externalObjects, tpl);
+       shared.initialEqs := BackendInline.inlineEquationArray(shared.initialEqs, tpl);
+       shared.removedEqs := BackendInline.inlineEquationArray(shared.removedEqs, tpl);
+       //shared.eventInfo := BackendInline.inlineEventInfo(shared.eventInfo, tpl);
     then
       BackendDAE.DAE(eqs, shared);
 
@@ -324,6 +324,11 @@ algorithm
         (outputCrefs, newEqSys) = createEqnSysfromFunction(fn,args,funcname);
         newExp = Expression.makeTuple(list( Expression.crefExp(cr) for cr in outputCrefs));
 
+        // MSL 3.2.1 need GenerateEvents to disable this
+        if not Inline.hasGenerateEventsAnnotation(comment) then
+          _ = BackendDAEUtil.traverseBackendDAEExpsEqSystemWithUpdate(newEqSys, addNoEvent, false);
+        end if;
+
         // merge EqSystems
         eqSys = BackendDAEUtil.mergeEqSystems(newEqSys,eqSys);
       then
@@ -342,6 +347,16 @@ algorithm
     end matchcontinue;
 end inlineCallsWork;
 
+function addNoEvent
+ input DAE.Exp inExp;
+ input Boolean inB;
+ output DAE.Exp outExp;
+ output Boolean outB = inB;
+algorithm
+ outExp := Expression.addNoEventToRelationsAndConds(inExp);
+ outExp := Expression.addNoEventToEventTriggeringFunctions(outExp);
+
+end addNoEvent;
 protected function createEqnSysfromFunction
   input list<DAE.Element> fns;
   input list<DAE.Exp> inArgs;
@@ -481,10 +496,6 @@ algorithm
       fail();
   end if;
 
-
-    // MSL 3.2.1 need GenerateEvents to disable this
-    //generateEvents = hasGenerateEventsAnnotation(comment);
-    //newExp = if not generateEvents then Expression.addNoEventToRelationsAndConds(newExp) else newExp;
 
 
     //outEqs := BackendVarTransform.performReplacementsEqSystem(outEqs, repl);
