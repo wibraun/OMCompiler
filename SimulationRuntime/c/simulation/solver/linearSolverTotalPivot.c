@@ -40,6 +40,8 @@
 #include "util/omc_error.h"
 #include "util/varinfo.h"
 #include "model_help.h"
+#include "omc_math.h"
+#include "omc_jacobian.h"
 
 #include "linearSystem.h"
 #include "linearSolverTotalPivot.h"
@@ -305,60 +307,6 @@ int freeTotalPivotData(void** voiddata)
   return 0;
 }
 
-/*! \fn getAnalyticalJacobian
- *
- *  function calculates analytical jacobian
- *
- *  \param [ref] [data]
- *  \param [out] [jac]
- *
- *  \author wbraun
- *
- */
-int getAnalyticalJacobianTotalPivot(DATA* data, threadData_t *threadData, double* jac, int sysNumber)
-{
-  int i,j,k,l,ii,currentSys = sysNumber;
-  LINEAR_SYSTEM_DATA* systemData = &(((DATA*)data)->simulationInfo->linearSystemData[currentSys]);
-
-  const int index = systemData->jacobianIndex;
-
-  memset(jac, 0, (systemData->size)*(systemData->size)*sizeof(double));
-
-  for(i=0; i < data->simulationInfo->analyticJacobians[index].sparsePattern.maxColors; i++)
-  {
-    /* activate seed variable for the corresponding color */
-    for(ii=0; ii < data->simulationInfo->analyticJacobians[index].sizeCols; ii++)
-      if(data->simulationInfo->analyticJacobians[index].sparsePattern.colorCols[ii]-1 == i)
-        data->simulationInfo->analyticJacobians[index].seedVars[ii] = 1;
-
-    ((systemData->analyticalJacobianColumn))(data, threadData);
-
-    for(j = 0; j < data->simulationInfo->analyticJacobians[index].sizeCols; j++)
-    {
-      if(data->simulationInfo->analyticJacobians[index].seedVars[j] == 1)
-      {
-        if(j==0) {
-          ii = 0;
-        } else {
-          ii = data->simulationInfo->analyticJacobians[index].sparsePattern.leadindex[j-1];
-        }
-        while(ii < data->simulationInfo->analyticJacobians[index].sparsePattern.leadindex[j]) {
-          l  = data->simulationInfo->analyticJacobians[index].sparsePattern.index[ii];
-          k  = j*data->simulationInfo->analyticJacobians[index].sizeRows + l;
-          jac[k] = data->simulationInfo->analyticJacobians[index].resultVars[l];
-          ii++;
-        }
-      }
-      /* de-activate seed variable for the corresponding color */
-      if(data->simulationInfo->analyticJacobians[index].sparsePattern.colorCols[j]-1 == i) {
-        data->simulationInfo->analyticJacobians[index].seedVars[j] = 0;
-      }
-    }
-
-  }
-  return 0;
-}
-
 /*! \fn wrapper_fvec_hybrd for the residual Function
  *      calls for the subroutine fcn(n, x, fvec, iflag, data)
  *
@@ -411,11 +359,17 @@ int solveTotalPivot(DATA *data, threadData_t *threadData, int sysNumber)
   rt_ext_tp_tick(&(solverData->timeClock));
   if (0 == systemData->method){
 
+    /* tick for time measurement of create A */
+    rt_ext_tp_tick(&(systemData->clockPrepareA));
+
     /* reset matrix A */
     vecConstLS(n*n, 0.0, systemData->A);
     /* update matrix A -> first n columns of matrix Ab*/
     systemData->setA(data, threadData, systemData);
     vecCopyLS(n*n, systemData->A, solverData->Ab);
+
+    /* tock for time measurement of create A */
+    systemData->totalTimePrepareA += rt_ext_tp_tock(&(systemData->clockPrepareA));
 
     /* update vector b (rhs) -> -b is last column of matrix Ab*/
     rt_ext_tp_tick(&(solverData->timeClock));
@@ -424,12 +378,21 @@ int solveTotalPivot(DATA *data, threadData_t *threadData, int sysNumber)
 
   } else {
 
+    /* tick for time measurement of create A */
+    rt_ext_tp_tick(&(systemData->clockPrepareA));
+
     /* calculate jacobian -> first n columns of matrix Ab*/
     if(systemData->jacobianIndex != -1){
-      getAnalyticalJacobianTotalPivot(data, threadData, solverData->Ab, sysNumber);
+      memset(solverData->Ab, 0, (systemData->size)*(systemData->size)*sizeof(double));
+      getSymbolicalJacobian(data, threadData, &(data->simulationInfo->analyticJacobians[systemData->jacobianIndex]), systemData->analyticalJacobianColumn, solverData->Ab);
+      _omc_negateMatrix(_omc_createMatrix(systemData->size, systemData->size, solverData->Ab));
     } else {
       assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
     }
+
+    /* tock for time measurement of create A */
+    systemData->totalTimePrepareA += rt_ext_tp_tock(&(systemData->clockPrepareA));
+
     /* calculate vector b (rhs) -> -b is last column of matrix Ab */
     wrapper_fvec_totalpivot(systemData->x, solverData->Ab + n*n, dataAndThreadData, sysNumber);
   }

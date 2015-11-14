@@ -806,7 +806,7 @@ int functionJacAColored(DATA* data, threadData_t *threadData, double* jac)
       if(data->simulationInfo->analyticJacobians[index].sparsePattern.colorCols[ii]-1 == i)
         data->simulationInfo->analyticJacobians[index].seedVars[ii] = 1;
 
-    data->callback->functionJacA_column(data, threadData);
+    data->callback->functionJacA_column(data, threadData, &(data->simulationInfo->analyticJacobians[index]));
 
     for(j = 0; j < data->simulationInfo->analyticJacobians[index].sizeCols; j++)
     {
@@ -846,7 +846,7 @@ int functionJacASym(DATA* data, threadData_t *threadData, double* jac)
   {
     data->simulationInfo->analyticJacobians[index].seedVars[i] = 1.0;
 
-    data->callback->functionJacA_column(data, threadData);
+    data->callback->functionJacA_column(data, threadData, &(data->simulationInfo->analyticJacobians[index]));
 
     for(j = 0; j < data->simulationInfo->analyticJacobians[index].sizeRows; j++)
     {

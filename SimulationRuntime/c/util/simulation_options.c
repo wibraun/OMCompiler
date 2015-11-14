@@ -59,6 +59,7 @@ const char *FLAG_NAME[FLAG_MAX+1] = {
   /* FLAG_IPOPT_MAX_ITER */        "ipopt_max_iter",
   /* FLAG_IPOPT_WARM_START */      "ipopt_warm_start",
   /* FLAG_JACOBIAN */              "jacobian",
+  /* FLAG_JACPAR */                "jacPar",
   /* FLAG_L */                     "l",
   /* FLAG_L_DATA_RECOVERY */       "l_datarec",
   /* FLAG_LOG_FORMAT */            "logFormat",
@@ -126,6 +127,7 @@ const char *FLAG_DESC[FLAG_MAX+1] = {
   /* FLAG_IPOPT_MAX_ITER */        "value specifies the max number of iteration for ipopt",
   /* FLAG_IPOPT_WARM_START */      "value specifies lvl for a warm start in ipopt: 1,2,3,...",
   /* FLAG_JACOBIAN */              "selects the type of the jacobians that is used for the integrator.\n  jacobian=[coloredNumerical (default) |numerical|internalNumerical|coloredSymbolical|symbolical].",
+  /* FLAG_PARJAC */                "flag for parallel jacobian evaluation",
   /* FLAG_L */                     "value specifies a time where the linearization of the model should be performed",
   /* FLAG_L_DATA_RECOVERY */       "emit data recovery matrices with model linearization",
   /* FLAG_LOG_FORMAT */            "value specifies the log format of the executable. -logFormat=text (default) or -logFormat=xml",
@@ -232,6 +234,8 @@ const char *FLAG_DETAILED_DESC[FLAG_MAX+1] = {
   "  * coloredSymbolical (colored symbolical Jacobian. Only usable if the simulation is compiled with --generateSymbolicJacobian or --generateSymbolicLinearization.\n"
   "  * numerical - numerical Jacobian.\n\n"
   "  * symbolical - symbolical Jacobian. Only usable if the simulation is compiled with --generateSymbolicJacobian or --generateSymbolicLinearization.",
+  /* FLAG_PARJAC */
+  "flag for parallel jacobian evaluation",
   /* FLAG_L */
   "  Value specifies a time where the linearization of the model should be performed.",
   /* FLAG_L_DATA_RECOVERY */
@@ -364,6 +368,7 @@ const int FLAG_TYPE[FLAG_MAX] = {
   /* FLAG_IPOPT_MAX_ITER */        FLAG_TYPE_OPTION,
   /* FLAG_IPOPT_WARM_START */      FLAG_TYPE_OPTION,
   /* FLAG_JACOBIAN */              FLAG_TYPE_OPTION,
+  /* FLAG_JACPAR */                FLAG_TYPE_OPTION,
   /* FLAG_L */                     FLAG_TYPE_OPTION,
   /* FLAG_L_DATA_RECOVERY */       FLAG_TYPE_FLAG,
   /* FLAG_LOG_FORMAT */            FLAG_TYPE_OPTION,

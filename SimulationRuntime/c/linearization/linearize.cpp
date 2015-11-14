@@ -291,7 +291,7 @@ int functionJacA(DATA* data, threadData_t *threadData, double* jac){
       }
     }
 
-    data->callback->functionJacA_column(data, threadData);
+    data->callback->functionJacA_column(data, threadData, &(data->simulationInfo->analyticJacobians[index]));
 
     for(j = 0; j < data->simulationInfo->analyticJacobians[index].sizeRows; j++)
     {
@@ -332,7 +332,7 @@ int functionJacB(DATA* data, threadData_t *threadData, double* jac){
       }
     }
 
-    data->callback->functionJacB_column(data, threadData);
+    data->callback->functionJacB_column(data, threadData, &(data->simulationInfo->analyticJacobians[index]));
 
     for(j = 0; j < data->simulationInfo->analyticJacobians[index].sizeRows; j++)
     {
@@ -370,7 +370,7 @@ int functionJacC(DATA* data, threadData_t *threadData, double* jac){
         infoStreamPrint(LOG_JAC,0,"seed: data->simulationInfo->analyticJacobians[index].seedVars[%d]= %f",j,data->simulationInfo->analyticJacobians[index].seedVars[j]);
     }
 
-    data->callback->functionJacC_column(data, threadData);
+    data->callback->functionJacC_column(data, threadData, &(data->simulationInfo->analyticJacobians[index]));
 
     for(j = 0; j < data->simulationInfo->analyticJacobians[index].sizeRows; j++)
     {
@@ -409,7 +409,7 @@ int functionJacD(DATA* data, threadData_t *threadData, double* jac){
       }
     }
 
-    data->callback->functionJacD_column(data, threadData);
+    data->callback->functionJacD_column(data, threadData, &(data->simulationInfo->analyticJacobians[index]));
 
     for(j = 0; j < data->simulationInfo->analyticJacobians[index].sizeRows; j++)
     {

@@ -246,10 +246,10 @@ int (*initialAnalyticJacobianD)(void* data, threadData_t *threadData);
 /*
  * These functions calculate specific jacobian column.
  */
-int (*functionJacA_column)(void* data, threadData_t *threadData);
-int (*functionJacB_column)(void* data, threadData_t *threadData);
-int (*functionJacC_column)(void* data, threadData_t *threadData);
-int (*functionJacD_column)(void* data, threadData_t *threadData);
+int (*functionJacA_column)(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* analyticJacobian);
+int (*functionJacB_column)(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* analyticJacobian);
+int (*functionJacC_column)(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* analyticJacobian);
+int (*functionJacD_column)(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* analyticJacobian);
 
 /*#endif*/
 

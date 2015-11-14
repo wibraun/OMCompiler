@@ -37,6 +37,7 @@
 #include "model_help.h"
 #include "util/omc_error.h"
 #include "util/rtclock.h"
+#include "omc_jacobian.h"
 #include "linearSystem.h"
 #include "linearSolverLapack.h"
 #if !defined(OMC_MINIMAL_RUNTIME)
@@ -104,8 +105,16 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
       {
         linsys[i].jacobianIndex = -1;
       }
-      nnz = data->simulationInfo->analyticJacobians[linsys[i].jacobianIndex].sparsePattern.numberOfNoneZeros;
-      linsys[i].nnz = nnz;
+      else
+      {
+        ANALYTIC_JACOBIAN* jac = &(data->simulationInfo->analyticJacobians[linsys[i].jacobianIndex]);
+        if (data->simulationInfo->parJacEval)
+        {
+          jac->parJacobian = allocateSymbolicJacParData(data->simulationInfo->parJacEval, jac->sizeCols, jac->sizeTmpVars, jac->sizeRows, &(jac->sparsePattern));
+        }
+        nnz = jac->sparsePattern.numberOfNoneZeros;
+        linsys[i].nnz = nnz;
+      }
     }
 
     if(nnz/(double)(size*size)<=linearSparseSolverMaxDensity && size>=linearSparseSolverMinSize)
@@ -261,8 +270,10 @@ void printLinearSystemSolvingStatistics(DATA *data, int sysNumber, int logLevel)
                                (int)linsys[sysNumber].equationIndex, (int)linsys[sysNumber].size, (int)linsys[sysNumber].nnz,
                                (((double) linsys[sysNumber].nnz) / ((double)(linsys[sysNumber].size*linsys[sysNumber].size)))*100 );
   infoStreamPrint(logLevel, 0, " number of calls                : %ld", linsys[sysNumber].numberOfCall);
-  infoStreamPrint(logLevel, 0, " average time per call          : %g", linsys[sysNumber].totalTime/linsys[sysNumber].numberOfCall);
-  infoStreamPrint(logLevel, 0, " total time                     : %g", linsys[sysNumber].totalTime);
+  infoStreamPrint(logLevel, 0, " average time to prepare A      : %f", linsys[sysNumber].totalTimePrepareA/linsys[sysNumber].numberOfCall);
+  infoStreamPrint(logLevel, 0, " total time to prepare A        : %f", linsys[sysNumber].totalTimePrepareA);
+  infoStreamPrint(logLevel, 0, " average time per call          : %f", linsys[sysNumber].totalTime/linsys[sysNumber].numberOfCall);
+  infoStreamPrint(logLevel, 0, " total time                     : %f", linsys[sysNumber].totalTime);
   messageClose(logLevel);
 }
 
@@ -287,6 +298,16 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
     free(linsys[i].nominal);
     free(linsys[i].min);
     free(linsys[i].max);
+
+    /* check if analytical jacobian is created */
+    if (1 == linsys[i].method)
+    {
+      if (data->simulationInfo->parJacEval && linsys[i].size > 10)
+      {
+        ANALYTIC_JACOBIAN* jac = &(data->simulationInfo->analyticJacobians[linsys[i].jacobianIndex]);
+        freeSymbolicJacParData(jac->parJacobian);
+      }
+    }
 
     if(linsys[i].useSparseSolver == 1)
     {

@@ -834,9 +834,9 @@ void diffSynColoredOptimizerSystem(OptData *optData, modelica_real **J, const in
     data->simulationInfo->analyticJacobians[h_index].seedVars = sV[i];
 
     if(index == 2){
-      data->callback->functionJacB_column(data, threadData);
+      data->callback->functionJacB_column(data, threadData, &(data->simulationInfo->analyticJacobians[h_index]));
     }else if(index == 3){
-      data->callback->functionJacC_column(data, threadData);
+      data->callback->functionJacC_column(data, threadData, &(data->simulationInfo->analyticJacobians[h_index]));
     }else
       assert(0);
 
@@ -880,7 +880,7 @@ void diffSynColoredOptimizerSystemF(OptData *optData, modelica_real **J){
     for(i = 1; i < Cmax; ++i){
       data->simulationInfo->analyticJacobians[h_index].seedVars = sV[i];
 
-      data->callback->functionJacD_column(data, threadData);
+      data->callback->functionJacD_column(data, threadData, &(data->simulationInfo->analyticJacobians[h_index]));
 
       for(ii = 0; ii < nx; ++ii){
         if(cC[ii] == i){

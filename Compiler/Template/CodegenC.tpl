@@ -142,11 +142,11 @@ end translateModel;
     extern int <%symbolName(modelNamePrefixStr,"initialAnalyticJacobianB")%>(void* data, threadData_t *threadData);
     extern int <%symbolName(modelNamePrefixStr,"initialAnalyticJacobianC")%>(void* data, threadData_t *threadData);
     extern int <%symbolName(modelNamePrefixStr,"initialAnalyticJacobianD")%>(void* data, threadData_t *threadData);
-    extern int <%symbolName(modelNamePrefixStr,"functionJacG_column")%>(void* data, threadData_t *threadData);
-    extern int <%symbolName(modelNamePrefixStr,"functionJacA_column")%>(void* data, threadData_t *threadData);
-    extern int <%symbolName(modelNamePrefixStr,"functionJacB_column")%>(void* data, threadData_t *threadData);
-    extern int <%symbolName(modelNamePrefixStr,"functionJacC_column")%>(void* data, threadData_t *threadData);
-    extern int <%symbolName(modelNamePrefixStr,"functionJacD_column")%>(void* data, threadData_t *threadData);
+    extern int <%symbolName(modelNamePrefixStr,"functionJacG_column")%>(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* analyticJacobian);
+    extern int <%symbolName(modelNamePrefixStr,"functionJacA_column")%>(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* analyticJacobian);
+    extern int <%symbolName(modelNamePrefixStr,"functionJacB_column")%>(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* analyticJacobian);
+    extern int <%symbolName(modelNamePrefixStr,"functionJacC_column")%>(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* analyticJacobian);
+    extern int <%symbolName(modelNamePrefixStr,"functionJacD_column")%>(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* analyticJacobian);
     extern const char* <%symbolName(modelNamePrefixStr,"linear_model_frame")%>(void);
     extern const char* <%symbolName(modelNamePrefixStr,"linear_model_datarecovery_frame")%>(void);
     extern int <%symbolName(modelNamePrefixStr,"mayer")%>(DATA* data, modelica_real** res, short *);
@@ -1416,7 +1416,7 @@ template variableDefinitionsJacobians(list<JacobianMatrix> JacobianMatrixes, Str
     extern "C" {
     #endif
       #define <%symbolName(modelNamePrefix,"INDEX_JAC_")%><%name%> <%indexJacobian%>
-      int <%symbolName(modelNamePrefix,"functionJac")%><%name%>_column(void* data, threadData_t *threadData);
+      int <%symbolName(modelNamePrefix,"functionJac")%><%name%>_column(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* analyticJacobian);
       int <%symbolName(modelNamePrefix,"initialAnalyticJacobian")%><%name%>(void* data, threadData_t *threadData);
     #if defined(__cplusplus)
     }
@@ -1462,7 +1462,7 @@ template jacobianVarDefine(SimVar simVar, String array, Integer indexJac, Intege
       let optDefineLangrangeB = if stringEq('<%crefName%>', '$P<%BackendDAE.optimizationLagrangeTermName%>$P$pDERB$PdummyVarB') then "\n"+'#define <%crefName%>$indexdiffed <%index%>' else ''
       let optDefineLangrangeC = if stringEq('<%crefName%>', '$P<%BackendDAE.optimizationLagrangeTermName%>$P$pDERC$PdummyVarC') then "\n"+'#define <%crefName%>$indexdiffed <%index%>' else ''
         <<
-        #define _<%crefName%>(i) data->simulationInfo->analyticJacobians[<%indexJac%>].<%arrayName%>
+        #define _<%crefName%>(i) analyticJacobian-><%arrayName%>
         #define <%crefName%> _<%crefName%>(0)
         #define <%crefName%>__varInfo dummyVAR_INFO
         #define $P$ATTRIBUTE<%crefName%> dummyREAL_ATTRIBUTE<%optDefineMayer%><%optDefineLangrangeB%><%optDefineLangrangeC%>
@@ -1474,7 +1474,7 @@ template jacobianVarDefine(SimVar simVar, String array, Integer indexJac, Intege
       let tmp = System.tmpTick()
       let crefName = cref(name)
       <<
-      #define <%crefName%> data->simulationInfo->analyticJacobians[<%indexJac%>].seedVars[<%index0%>]
+      #define <%crefName%> analyticJacobian->seedVars[<%index0%>]
       #define <%crefName%>__varInfo dummyVAR_INFO
       >>
     end match
@@ -4325,7 +4325,7 @@ template generateMatrix(list<JacobianColumn> jacobianColumn, list<SimVar> seedVa
   match indxColumn
   case "0" then
     <<
-    int <%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_column(void* data, threadData_t *threadData)
+    int <%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_column(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* analyticJacobian)
     {
       TRACE_PUSH
       TRACE_POP
@@ -4336,7 +4336,7 @@ template generateMatrix(list<JacobianColumn> jacobianColumn, list<SimVar> seedVa
     match seedVars
      case {} then
         <<
-        int <%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_column(void* data, threadData_t *threadData)
+        int <%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_column(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* analyticJacobian)
         {
           TRACE_PUSH
           TRACE_POP
@@ -4363,11 +4363,11 @@ template functionJac(list<SimEqSystem> jacEquations, list<SimVar> tmpVars, Strin
 ::=
   let &tmp = buffer ""
   let eqns_ = (jacEquations |> eq =>
-    equation_(-1, eq, contextSimulationNonDiscrete, &tmp, modelNamePrefix); separator="\n")
+    equation_(-1, eq, contextJacobian, &tmp, modelNamePrefix); separator="\n")
 
   <<
   <%&tmp%>
-  int <%symbolName(modelNamePrefix,"functionJac")%><%matrixName%>_column(void* inData, threadData_t *threadData)
+  int <%symbolName(modelNamePrefix,"functionJac")%><%matrixName%>_column(void* inData, threadData_t *threadData, ANALYTIC_JACOBIAN* analyticJacobian)
   {
     TRACE_PUSH
 
@@ -4563,6 +4563,30 @@ template equation_(Integer clockIndex, SimEqSystem eq, Context context, Text &eq
 
   // no dynamic tearing
   else
+  match context
+  case JACOBIAN_CONTEXT() then
+  let &eqs +=
+  <<
+  <%tempeqns%>
+  /*
+   <%dumpEqs(fill(eq,1))%>
+   */
+  void <%symbolName(modelNamePrefix,"eqFunction")%>_<%ix%>(DATA *data, threadData_t *threadData, ANALYTIC_JACOBIAN* analyticJacobian)
+  {
+    TRACE_PUSH
+    <%clockIndex_%>
+    const int equationIndexes[2] = {1,<%ix%>};
+    <%&varD%>
+    <%x%>
+    TRACE_POP
+  }
+  >>
+  <<
+  <% if profileAll() then 'SIM_PROF_TICK_EQ(<%ix%>);' %>
+  <%symbolName(modelNamePrefix,"eqFunction")%>_<%ix%>(data, threadData, analyticJacobian);
+  <% if profileAll() then 'SIM_PROF_ACC_EQ(<%ix%>);' %>
+  >>
+  else
   let &eqs +=
   <<
 
@@ -4586,6 +4610,7 @@ template equation_(Integer clockIndex, SimEqSystem eq, Context context, Text &eq
   <%symbolName(modelNamePrefix,"eqFunction")%>_<%ix%>(data, threadData);
   <% if profileAll() then 'SIM_PROF_ACC_EQ(<%ix%>);' %>
   >>
+  end match
   )
 end equation_;
 

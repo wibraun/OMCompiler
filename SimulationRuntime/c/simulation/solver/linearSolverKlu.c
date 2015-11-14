@@ -130,7 +130,7 @@ int getAnalyticalJacobian(DATA* data, threadData_t *threadData, int sysNumber)
   {
     data->simulationInfo->analyticJacobians[index].seedVars[i] = 1;
 
-    ((systemData->analyticalJacobianColumn))(data, threadData);
+    ((systemData->analyticalJacobianColumn))(data, threadData, &(data->simulationInfo->analyticJacobians[index]));
 
     for(j = 0; j < data->simulationInfo->analyticJacobians[index].sizeCols; j++)
     {
@@ -192,6 +192,9 @@ solveKlu(DATA *data, threadData_t *threadData, int sysNumber)
   rt_ext_tp_tick(&(solverData->timeClock));
   if (0 == systemData->method)
   {
+    /* tick for time measurement of create A */
+    rt_ext_tp_tick(&(systemData->clockPrepareA));
+
     /* set A matrix */
     solverData->Ap[0] = 0;
     systemData->setA(data, threadData, systemData);
@@ -204,9 +207,15 @@ solveKlu(DATA *data, threadData_t *threadData, int sysNumber)
       messageClose(LOG_LS_V);
     }
 
+    /* tock for time measurement of create A */
+    systemData->totalTimePrepareA += rt_ext_tp_tock(&(systemData->clockPrepareA));
+
     /* set b vector */
     systemData->setb(data, threadData, systemData);
   } else {
+
+    /* tick for time measurement of create A */
+    rt_ext_tp_tick(&(systemData->clockPrepareA));
 
     solverData->Ap[0] = 0;
     /* calculate jacobian -> matrix A*/
@@ -216,6 +225,9 @@ solveKlu(DATA *data, threadData_t *threadData, int sysNumber)
       assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
     }
     solverData->Ap[solverData->n_row] = solverData->nnz;
+
+    /* tock for time measurement of create A */
+    systemData->totalTimePrepareA += rt_ext_tp_tock(&(systemData->clockPrepareA));
 
     /* calculate vector b (rhs) */
     memcpy(solverData->work, systemData->x, sizeof(double)*solverData->n_row);

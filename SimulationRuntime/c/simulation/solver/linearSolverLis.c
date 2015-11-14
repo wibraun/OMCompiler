@@ -150,7 +150,7 @@ int getAnalyticalJacobianLis(DATA* data, threadData_t *threadData, int sysNumber
   {
     data->simulationInfo->analyticJacobians[index].seedVars[i] = 1;
 
-    ((systemData->analyticalJacobianColumn))(data, threadData);
+    ((systemData->analyticalJacobianColumn))(data, threadData, &(data->simulationInfo->analyticJacobians[index]));
 
     for(j = 0; j < data->simulationInfo->analyticJacobians[index].sizeCols; j++)
     {
@@ -219,15 +219,24 @@ solveLis(DATA *data, threadData_t *threadData, int sysNumber)
   if (0 == systemData->method)
   {
 
+    /* tick for time measurement of create A */
+    rt_ext_tp_tick(&(systemData->clockPrepareA));
+
     lis_matrix_set_size(solverData->A, solverData->n_row, 0);
     /* set A matrix */
     systemData->setA(data, threadData, systemData);
     lis_matrix_assemble(solverData->A);
 
+    /* tock for time measurement of create A */
+    systemData->totalTimePrepareA += rt_ext_tp_tock(&(systemData->clockPrepareA));
+
     /* set b vector */
     systemData->setb(data, threadData, systemData);
 
   } else {
+
+    /* tick for time measurement of create A */
+    rt_ext_tp_tick(&(systemData->clockPrepareA));
 
     lis_matrix_set_size(solverData->A, solverData->n_row, 0);
     /* calculate jacobian -> matrix A*/
@@ -237,6 +246,9 @@ solveLis(DATA *data, threadData_t *threadData, int sysNumber)
       assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
     }
     lis_matrix_assemble(solverData->A);
+
+    /* tock for time measurement of create A */
+    systemData->totalTimePrepareA += rt_ext_tp_tock(&(systemData->clockPrepareA));
 
     /* calculate vector b (rhs) */
     memcpy(solverData->work, systemData->x, sizeof(double)*solverData->n_row);

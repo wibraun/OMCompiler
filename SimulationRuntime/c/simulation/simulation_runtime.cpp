@@ -538,6 +538,17 @@ int startNonInteractiveSimulation(int argc, char**argv, DATA* data, threadData_t
     outputVariablesAtEnd = omc_flagValue[FLAG_OUTPUT];
   }
 
+  /* jacobian par eval */
+  if(omc_flag[FLAG_JACPAR])
+  {
+    string numParJacEval = omc_flagValue[FLAG_JACPAR];
+    data->simulationInfo->parJacEval = atoi(numParJacEval.c_str());
+  }
+  else
+  {
+    data->simulationInfo->parJacEval = 0;
+  }
+
   retVal = callSolver(data, threadData, init_initMethod, init_file, init_time, init_lambda_steps, outputVariablesAtEnd, cpuTime, argv[0]);
 
   if (omc_flag[FLAG_ALARM]) {
@@ -805,6 +816,17 @@ int initRuntimeAndSimulation(int argc, char**argv, DATA *data, threadData_t *thr
   rt_tick(SIM_TIMER_INIT_XML);
   read_input_xml(data->modelData, data->simulationInfo);
   rt_accumulate(SIM_TIMER_INIT_XML);
+
+  /* jacobian par eval */
+  if(omc_flag[FLAG_JACPAR])
+  {
+    string numParJacEval = omc_flagValue[FLAG_JACPAR];
+    data->simulationInfo->parJacEval = atoi(numParJacEval.c_str());
+  }
+  else
+  {
+    data->simulationInfo->parJacEval = 0;
+  }
 
   /* initialize static data of mixed/linear/non-linear system solvers */
   initializeMixedSystems(data, threadData);

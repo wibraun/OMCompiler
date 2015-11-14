@@ -152,6 +152,7 @@ typedef struct ANALYTIC_JACOBIAN
   modelica_real* tmpVars;
   modelica_real* resultVars;
   modelica_real* jacobian;
+  void* parJacobian;
 }ANALYTIC_JACOBIAN;
 
 /* EXTERNAL_INPUT
@@ -304,7 +305,7 @@ typedef struct LINEAR_SYSTEM_DATA
   void (*setAElement)(int row, int col, double value, int nth, void *data, threadData_t *threadData);
   void (*setBElement)(int row, double value, void *data, threadData_t *threadData);
 
-  int (*analyticalJacobianColumn)(void*, threadData_t*);
+  int (*analyticalJacobianColumn)(void*, threadData_t*, ANALYTIC_JACOBIAN*);
   int (*initialAnalyticalJacobian)(void*, threadData_t*);
   modelica_integer jacobianIndex;
 
@@ -336,7 +337,9 @@ typedef struct LINEAR_SYSTEM_DATA
   /* statistics */
   unsigned long numberOfCall;           /* number of solving calls of this system */
   double totalTime;                     /* save the totalTime */
-  rtclock_t totalTimeClock;             /* time clock for the totalTime  */
+  rtclock_t totalTimeClock;             /* time clock for the totalTime */
+  double totalTimePrepareA;            /* save the time for prepare A */
+  rtclock_t clockPrepareA;             /* clock to time prepare A */
 }LINEAR_SYSTEM_DATA;
 
 typedef struct MIXED_SYSTEM_DATA
@@ -571,6 +574,7 @@ typedef struct SIMULATION_INFO
   EXTERNAL_INPUT external_input;
 
   ANALYTIC_JACOBIAN* analyticJacobians;
+  int parJacEval;
 
   NONLINEAR_SYSTEM_DATA* nonlinearSystemData;
   int currentNonlinearSystemIndex;
