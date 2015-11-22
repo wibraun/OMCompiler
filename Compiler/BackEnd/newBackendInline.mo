@@ -128,10 +128,7 @@ protected
   BackendDAE.EquationArray eqnsArray;
 algorithm
   //inlineVariables(oeqs.orderedVars, tpl);
-    (eqnsArray, new, inlined) := inlineEquationArray(oeqs.orderedEqs, tpl);
-  if inlined then
-    new := inlineEquationSystem(new, tpl);
-  end if;
+  (eqnsArray, new, inlined) := inlineEquationArray(oeqs.orderedEqs, tpl);
   //inlineEquationArray(oeqs.removedEqs, tpl);
   oeqs.orderedEqs := eqnsArray;
   oeqs := BackendDAEUtil.mergeEqSystems(new, oeqs);
@@ -407,6 +404,7 @@ protected function createEqnSysfromFunction
   list<DAE.Exp> args = inArgs;
   BackendVarTransform.VariableReplacements repl;
   DAE.Type tp;
+  Boolean hasProtected = false;
 algorithm
   outEqs := BackendDAEUtil.createEqSystem( BackendVariable.listVar({}), BackendEquation.listEquation({}));
   repl := BackendVarTransform.emptyReplacements();
@@ -431,13 +429,11 @@ algorithm
     case (DAE.VAR(componentRef=cr,direction=DAE.INPUT(),ty=tp, kind=DAE.VARIABLE()))
     guard not Expression.isRecordType(tp)  and (not Expression.isArrayType(tp))
       algorithm
-//expHasFunCall
       eVar::args := args;
       false := Expression.isArray(eVar);
       false := Expression.isRecord(eVar);
 
       repl := addReplacement(cr, eVar,repl);
-      repl := BackendVarTransform.addReplacement(repl, cr, eVar, NONE());
       //print("\n" +ExpressionDump.printExpStr(Expression.crefExp(cr)) + "--" + ExpressionDump.printExpStr(eVar) + "\n");
       then ();
 
@@ -490,7 +486,7 @@ algorithm
 	  end for;
           repl := addReplacement(cr, eVar,repl);
 	end if;
-
+        hasProtected := true;
       then ();
 
     case (DAE.VAR(componentRef=cr,protection=DAE.PROTECTED(),ty=tp,binding=SOME(eBind)))
@@ -520,6 +516,7 @@ algorithm
       repl := BackendVarTransform.addReplacement(repl, cr, eVar, NONE());
       eq := BackendEquation.generateEquation(eVar,eBind);
       outEqs := BackendEquation.equationAddDAE(eq, outEqs);
+      hasProtected := true;
 
       then ();
 
@@ -531,6 +528,11 @@ algorithm
       then ();
   end match;
   end for;
+
+  if not hasProtected then
+    fail();
+  end if;
+
   oOutput := listReverse(oOutput);
   //print("\nend: "+funcname);
   //BackendDump.printEqSystem(outEqs);
