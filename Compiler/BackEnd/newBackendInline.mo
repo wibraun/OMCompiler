@@ -429,11 +429,11 @@ algorithm
 
       /* assume inArgs is syncron to fns.inputs */
     case (DAE.VAR(componentRef=cr,direction=DAE.INPUT(),ty=tp, kind=DAE.VARIABLE()))
-    guard not Expression.isRecordType(tp)
+    guard not Expression.isRecordType(tp)  and (not Expression.isArrayType(tp))
       algorithm
 //expHasFunCall
       eVar::args := args;
-      //false := Expression.isArray(eVar);
+      false := Expression.isArray(eVar);
       false := Expression.isRecord(eVar);
 
       repl := addReplacement(cr, eVar,repl);
@@ -442,7 +442,7 @@ algorithm
       then ();
 
     case DAE.VAR(componentRef=cr,direction=DAE.OUTPUT(),ty=tp,kind=DAE.VARIABLE())
-    guard not Expression.isRecordType(tp)
+    guard (not Expression.isRecordType(tp))
 	    algorithm
 	      var := BackendVariable.createTmpVar(cr, funcname);
 
@@ -536,7 +536,7 @@ algorithm
   //BackendDump.printEqSystem(outEqs);
   outEqs.orderedEqs := BackendEquation.listEquation(InlineArrayEquations.getScalarArrayEqns(BackendEquation.equationList(outEqs.orderedEqs)));
 
-  if (BackendDAEUtil.systemSize(outEqs) <> BackendVariable.daenumVariables(outEqs)) or BackendDAEUtil.traverseBackendDAEExpsEqSystem(outEqs, hasSumCall, false) then
+  if (BackendDAEUtil.systemSize(outEqs) <> BackendVariable.daenumVariables(outEqs)) then
     if Flags.isSet(Flags.FAILTRACE) then
       Debug.trace("newBackendInline.createEqnSysfromFunction failed for function " + funcname + "with different sizes\n");
       print(intString(BackendDAEUtil.systemSize(outEqs)) + " <> "  + intString(BackendVariable.daenumVariables(outEqs)));

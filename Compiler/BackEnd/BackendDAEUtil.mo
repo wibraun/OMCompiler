@@ -7414,7 +7414,9 @@ algorithm
       index := getModuleIndex(name, inOptModules);
 
       if index < maxIndex then
-        Error.addCompilerWarning("Specified ordering will be ignored. Use --" + Flags.configFlagName(Flags.DEFAULT_OPT_MODULES_ORDERING) + "=false to override module ordering.");
+        if Flags.isSet(Flags.FAILTRACE) then
+          Error.addCompilerWarning("Specified ordering will be ignored. Use --" + Flags.configFlagName(Flags.DEFAULT_OPT_MODULES_ORDERING) + "=false to override module ordering.");
+        end if;
         maxIndex := numModules;
       else
         maxIndex := intMax(maxIndex, index);
