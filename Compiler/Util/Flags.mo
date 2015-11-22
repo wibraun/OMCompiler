@@ -683,6 +683,7 @@ constant ConfigFlag PRE_OPT_MODULES = CONFIG_FLAG(12, "preOptModules",
     "simplifyIfEquations",
     "expandDerOperator",
     "removeEqualFunctionCalls",
+    "normalInlineFunctions",
     "clockPartitioning",
     "findStateOrder",
     "replaceEdgeChange",
@@ -690,7 +691,6 @@ constant ConfigFlag PRE_OPT_MODULES = CONFIG_FLAG(12, "preOptModules",
     "removeSimpleEquations",
     "comSubExp",
     "encapsulateWhenConditions"
-    "normalInlineFunctions"
     }),
   SOME(STRING_DESC_OPTION({
     ("clockPartitioning", Util.gettext("Does the clock partitioning.")),

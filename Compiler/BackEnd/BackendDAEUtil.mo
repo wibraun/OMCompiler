@@ -7096,6 +7096,7 @@ protected function allPreOptimizationModules
     (BackendDAEOptimize.removeUnusedVariables, "removeUnusedVariables"),
     (BackendDAEOptimize.residualForm, "residualForm"),
     (BackendDAEOptimize.simplifyAllExpressions, "simplifyAllExpressions"),
+    (newBackendInline.normalInlineFunctions, "normalInlineFunctions"),
     (BackendDump.dumpDAE, "dumpDAE"),
     (EvaluateParameter.evaluateEvaluateParameters, "evaluateEvaluateParameters"),
     (EvaluateParameter.evaluateFinalEvaluateParameters, "evaluateFinalEvaluateParameters"),

@@ -6347,6 +6347,42 @@ algorithm
   end match;
 end traversingexpHasCrefNoPreOrStart;
 
+public function expHasFunCall "
+Returns a true if the exp contains the function-name"
+
+  input DAE.Exp inExp;
+  input String fcnName;
+  output Boolean hasCref;
+algorithm
+  (_,(_,hasCref)) := traverseExpTopDown(inExp,expHasFunCallWork, (fcnName,false));
+end expHasFunCall;
+
+
+public function expHasFunCallWork "
+Returns a true if the exp contains the componentRef in if,sign,semiLinear"
+  input DAE.Exp inExp;
+  input tuple<String, Boolean> inTpl;
+  output DAE.Exp outExp;
+  output Boolean cont;
+  output tuple<String, Boolean> outTpl;
+algorithm
+  (outExp,cont,outTpl) := matchcontinue(inExp,inTpl)
+    local
+      String fcnName;
+      DAE.Exp e1;
+
+    case(e1 as DAE.CALL(),(fcnName,false))
+    guard(isFunCall(e1,fcnName))
+     then (e1, false,(fcnName,true));
+
+    case (_, (_,true)) then (inExp,false,inTpl);
+    else (inExp, true, inTpl);
+
+  end matchcontinue;
+end expHasFunCallWork;
+
+
+
 public function expHasCrefInIf "
 Returns a true if the exp contains the componentRef in if,sign,semiLinear"
 
