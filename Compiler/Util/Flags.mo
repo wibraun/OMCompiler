@@ -476,16 +476,22 @@ constant DebugFlag DUMP_EXCLUDED_EXP = DEBUG_FLAG(153, "dumpExcludedSymJacExps",
   Util.gettext("This flags dumps all expression that are excluded from differentiation of a symbolic Jacobian."));
 constant DebugFlag DEBUG_ALGLOOP_JACOBIAN = DEBUG_FLAG(154, "debugAlgebraicLoopsJacobian", false,
   Util.gettext("Dumps debug output while creating symbolic jacobians for non-linear systems."));
-constant DebugFlag DISABLE_JACSCC = DEBUG_FLAG(155, "disableJacsforSCC", false,
+constant DebugFlag DUMPBACKENDINLINE = DEBUG_FLAG(155, "dumpBackendInline", false,
+  Util.gettext("Dumps debug output while inline function."));
+constant DebugFlag DUMPBACKENDINLINE_VERBOSE = DEBUG_FLAG(156, "dumpBackendInlineVerbose", false,
+  Util.gettext("Dumps debug output while inline function."));
+constant DebugFlag DISABLE_JACSCC = DEBUG_FLAG(157, "disableJacsforSCC", false,
   Util.gettext("Disables calculation of jacobians to detect if a SCC is linear or non-linear. By disabling all SCC will handled like non-linear."));
-constant DebugFlag FORCE_NLS_ANALYTIC_JACOBIAN = DEBUG_FLAG(156, "forceNLSanalyticJacobian", false,
+constant DebugFlag FORCE_NLS_ANALYTIC_JACOBIAN = DEBUG_FLAG(158, "forceNLSanalyticJacobian", false,
   Util.gettext("Forces calculation analytical jacobian also for non-linear strong components with user-defined functions."));
-constant DebugFlag DUMP_LOOPS = DEBUG_FLAG(157, "dumpLoops", false,
+constant DebugFlag DUMP_LOOPS = DEBUG_FLAG(159, "dumpLoops", false,
   Util.gettext("Dumps loop equation."));
-constant DebugFlag SKIP_INPUT_OUTPUT_SYNTACTIC_SUGAR = DEBUG_FLAG(158, "skipInputOutputSyntacticSugar", false,
+constant DebugFlag SKIP_INPUT_OUTPUT_SYNTACTIC_SUGAR = DEBUG_FLAG(160, "skipInputOutputSyntacticSugar", false,
   Util.gettext("Used when bootstrapping to preserve the input output parsing of the code output by the list command."));
-constant DebugFlag OMC_RECORD_ALLOC_WORDS = DEBUG_FLAG(159, "metaModelicaRecordAllocWords", false,
+constant DebugFlag OMC_RECORD_ALLOC_WORDS = DEBUG_FLAG(161, "metaModelicaRecordAllocWords", false,
   Util.gettext("Instrument the source code to record memory allocations (requires run-time and generated files compiled with -DOMC_RECORD_ALLOC_WORDS)."));
+constant DebugFlag FORCE_INLINE_FUNCTIONS = DEBUG_FLAG(162, "forceInlineComplexFunctions", false,
+  Util.gettext("Force inline of complex functions. Complex are multi outout functions."));
 
 // This is a list of all debug flags, to keep track of which flags are used. A
 // flag can not be used unless it's in this list, and the list is checked at
@@ -647,11 +653,14 @@ constant list<DebugFlag> allDebugFlags = {
   MULTIRATE_PARTITION,
   DUMP_EXCLUDED_EXP,
   DEBUG_ALGLOOP_JACOBIAN,
+  DUMPBACKENDINLINE,
+  DUMPBACKENDINLINE_VERBOSE,
   DISABLE_JACSCC,
   FORCE_NLS_ANALYTIC_JACOBIAN,
   DUMP_LOOPS,
   SKIP_INPUT_OUTPUT_SYNTACTIC_SUGAR,
-  OMC_RECORD_ALLOC_WORDS
+  OMC_RECORD_ALLOC_WORDS,
+  FORCE_INLINE_FUNCTIONS
 };
 
 public
@@ -711,6 +720,7 @@ constant ConfigFlag PRE_OPT_MODULES = CONFIG_FLAG(12, "preOptModules",
     "simplifyIfEquations",
     "expandDerOperator",
     "removeEqualFunctionCalls",
+    "normalInlineFunctions",
     "clockPartitioning",
     "findStateOrder",
     "replaceEdgeChange",
@@ -740,6 +750,7 @@ constant ConfigFlag PRE_OPT_MODULES = CONFIG_FLAG(12, "preOptModules",
     ("inlineArrayEqn", Util.gettext("This module expands all array equations to scalar equations.")),
     ("inputDerivativesForDynOpt", Util.gettext("Allowed derivatives of inputs in dyn. optimization.")),
     ("introduceDerAlias", Util.notrans("Adds for every der-call an alias equation e.g. dx = der(x).")),
+    ("normalInlineFunctions", Util.notrans("Inline functions calls with annotation(Inline= true)")),
     ("removeEqualFunctionCalls", Util.notrans("Detects equal function calls of the form a=f(b) and c=f(b) and substitutes them to get speed up.")),
     ("removeProtectedParameters", Util.gettext("Replace all parameters with protected=true in the system.")),
     ("removeSimpleEquations", removeSimpleEquationDesc),
@@ -1231,6 +1242,15 @@ constant ConfigFlag HETS = CONFIG_FLAG(88, "hets",
 constant ConfigFlag DEFAULT_CLOCK_PERIOD = CONFIG_FLAG(89, "defaultClockPeriod",
   NONE(), INTERNAL(), REAL_FLAG(1.0), NONE(),
   Util.gettext("Sets the default clock period (in seconds) for state machines (default: 1.0)."));
+constant ConfigFlag INLINE_METHOD = CONFIG_FLAG(90, "inlineMethod",
+  NONE(), EXTERNAL(), ENUM_FLAG(2, {("replace",1), ("append",2)}),
+  SOME(STRING_OPTION({"replace", "append"})),
+  Util.gettext("Sets the inline method to use.\n"+
+               "replace : This method inlines by replacing in place all expressions. Might lead to very long expression.\n"+
+               "append  : This method inlines by adding additional variables to the whole system. Might lead to much bigger system.")
+        );
+
+
 
 protected
 // This is a list of all configuration flags. A flag can not be used unless it's
@@ -1325,7 +1345,8 @@ constant list<ConfigFlag> allConfigFlags = {
   INIT_OPT_MODULES_SUB,
   PERMISSIVE,
   HETS,
-  DEFAULT_CLOCK_PERIOD
+  DEFAULT_CLOCK_PERIOD,
+  INLINE_METHOD
 };
 
 public function new

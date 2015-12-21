@@ -67,41 +67,37 @@ end lateInlineFunction;
 //
 // =============================================================================
 
-public function inlineCalls
+protected function inlineCalls
 "searches for calls where the inline flag is true, and inlines them"
   input list<DAE.InlineType> inITLst;
   input BackendDAE.BackendDAE inBackendDAE;
   output BackendDAE.BackendDAE outBackendDAE;
+protected
+  list<DAE.InlineType> itlst;
+  Inline.Functiontuple tpl;
+  BackendDAE.EqSystems eqs;
+  BackendDAE.Shared shared;
 algorithm
-  outBackendDAE := matchcontinue(inBackendDAE)
-    local
-      list<DAE.InlineType> itlst;
-      Inline.Functiontuple tpl;
-      BackendDAE.EqSystems eqs;
-      BackendDAE.Shared shared;
-
-    case BackendDAE.DAE(eqs, shared)
-      algorithm
-        tpl := (SOME(shared.functionTree), inITLst);
-        eqs := List.map1(eqs, inlineEquationSystem, tpl);
-        shared.knownVars := inlineVariables(shared.knownVars, tpl);
-        shared.externalObjects := inlineVariables(shared.externalObjects, tpl);
-        shared.initialEqs := inlineEquationArray(shared.initialEqs, tpl);
-        shared.removedEqs := inlineEquationArray(shared.removedEqs, tpl);
-        shared.eventInfo := inlineEventInfo(shared.eventInfo, tpl);
-      then
-        BackendDAE.DAE(eqs, shared);
-
-    else
-      algorithm
-        true := Flags.isSet(Flags.FAILTRACE);
+  try
+    shared := inBackendDAE.shared;
+    eqs := inBackendDAE.eqs;
+    tpl := (SOME(shared.functionTree), inITLst);
+    eqs := List.map1(eqs, inlineEquationSystem, tpl);
+    shared.knownVars := inlineVariables(shared.knownVars, tpl);
+    shared.externalObjects := inlineVariables(shared.externalObjects, tpl);
+    shared.initialEqs := inlineEquationArray(shared.initialEqs, tpl);
+    shared.removedEqs := inlineEquationArray(shared.removedEqs, tpl);
+    shared.eventInfo := inlineEventInfo(shared.eventInfo, tpl);
+    outBackendDAE := BackendDAE.DAE(eqs, shared);
+  else
+    if Flags.isSet(Flags.FAILTRACE) then
         Debug.traceln("Inline.inlineCalls failed");
-      then
-        fail();
-  end matchcontinue;
+    end if;
+    fail();
+  end try;
 end inlineCalls;
 
-protected function inlineEquationSystem
+public function inlineEquationSystem
   input BackendDAE.EqSystem eqs;
   input Inline.Functiontuple tpl;
   output BackendDAE.EqSystem oeqs = eqs;
@@ -111,7 +107,7 @@ algorithm
   inlineEquationArray(oeqs.removedEqs, tpl);
 end inlineEquationSystem;
 
-protected function inlineEquationArray "
+public function inlineEquationArray "
 function: inlineEquationArray
   inlines function calls in an equation array"
   input BackendDAE.EquationArray inEquationArray;
@@ -267,7 +263,7 @@ algorithm
   end matchcontinue;
 end inlineEq;
 
-protected function inlineEqsLst
+public function inlineEqsLst
   input list<list<BackendDAE.Equation>> inEqnsList;
   input Inline.Functiontuple inFunctions;
   input list<list<BackendDAE.Equation>> iAcc;
@@ -313,7 +309,7 @@ algorithm
   end match;
 end inlineEqs;
 
-protected function inlineWhenEq
+public function inlineWhenEq
 "inlines function calls in when equations"
   input BackendDAE.WhenEquation inWhenEquation;
   input Inline.Functiontuple fns;
@@ -408,7 +404,7 @@ algorithm
   end for;
 end inlineWhenOps;
 
-protected function inlineVariables
+public function inlineVariables
 "inlines function calls in variables"
   input BackendDAE.Variables inVariables;
   input Inline.Functiontuple inElementList;

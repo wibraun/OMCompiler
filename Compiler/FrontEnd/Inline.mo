@@ -767,7 +767,7 @@ algorithm
   end match;
 end checkExpsTypeEquiv;
 
-protected function inlineCall
+public function inlineCall
 "replaces an inline call with the expression from the function"
   input DAE.Exp inExp;
   input tuple<Functiontuple,Boolean,list<DAE.Statement>> inTuple;
@@ -892,7 +892,7 @@ algorithm
 end inlineAssert;
 
 
-protected function hasGenerateEventsAnnotation
+public function hasGenerateEventsAnnotation
   input Option<SCode.Comment> comment;
   output Boolean b;
 algorithm
@@ -1127,7 +1127,7 @@ algorithm
   end match;
 end addReplacement;
 
-protected function checkInlineType "
+public function checkInlineType "
 Author: Frenkel TUD, 2010-05"
   input DAE.InlineType inIT;
   input Functiontuple fns;
@@ -1146,7 +1146,7 @@ algorithm
   end matchcontinue;
 end checkInlineType;
 
-protected function extendCrefRecords
+public function extendCrefRecords
 "extends crefs from records"
   input list<tuple<DAE.ComponentRef, DAE.Exp>> inArgmap;
   input HashTableCG.HashTable inCheckCr;
@@ -1304,7 +1304,7 @@ algorithm
   end matchcontinue;
 end extendCrefRecords2;
 
-protected function getFunctionBody
+public function getFunctionBody
 "returns the body of a function"
   input Absyn.Path p;
   input Functiontuple fns;
@@ -1356,13 +1356,14 @@ algorithm
   end match;
 end getRhsExp;
 
-protected function replaceArgs
+public function replaceArgs
 "finds DAE.CREF and replaces them with new exps if the cref is in the argmap"
   input DAE.Exp inExp;
   input tuple<list<tuple<DAE.ComponentRef,DAE.Exp>>,HashTableCG.HashTable,Boolean> inTuple;
   output DAE.Exp outExp;
   output tuple<list<tuple<DAE.ComponentRef,DAE.Exp>>,HashTableCG.HashTable,Boolean> outTuple;
 algorithm
+   //print("\nreplaceArgs in:" + ExpressionDump.printExpStr(inExp));
   (outExp,outTuple) := matchcontinue (inExp,inTuple)
     local
       DAE.ComponentRef cref;
@@ -1428,6 +1429,7 @@ algorithm
 
     case (e,(argmap,checkcr,replacedfailed)) then (e,(argmap,checkcr,replacedfailed));
   end matchcontinue;
+   //print("\nreplaceArgs out:" + ExpressionDump.printExpStr(outExp));
 end replaceArgs;
 
 protected function boxIfUnboxedFunRef

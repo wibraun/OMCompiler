@@ -226,6 +226,7 @@ if true then /* Suppress output */
     "../BackEnd/BackendDump.mo",
     "../BackEnd/BackendEquation.mo",
     "../BackEnd/BackendInline.mo",
+    "../BackEnd/newBackendInline.mo",
     "../BackEnd/BackendVariable.mo",
     "../BackEnd/BackendVarTransform.mo",
     "../BackEnd/BinaryTree.mo",

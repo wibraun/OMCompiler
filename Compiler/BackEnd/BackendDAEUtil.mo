@@ -61,6 +61,7 @@ import BackendDump;
 import BackendEquation;
 import BackendDAEEXT;
 import BackendInline;
+import newBackendInline;
 import BackendVarTransform;
 import BackendVariable;
 import BinaryTree;
@@ -489,6 +490,15 @@ algorithm
   matching := copyMatching(inSystem.matching);
   outSystem := BackendDAE.EQSYSTEM(vars, eqns, m, mt, matching, inSystem.stateSets, inSystem.partitionKind, removedEqs);
 end copyEqSystem;
+
+public function mergeEqSystems
+  input BackendDAE.EqSystem inSystem1;
+  input BackendDAE.EqSystem inSystem2;
+  output BackendDAE.EqSystem outSystem = inSystem2;
+algorithm
+  outSystem.orderedEqs := BackendEquation.mergeEquationArray(inSystem1.orderedEqs,inSystem2.orderedEqs);
+  outSystem.orderedVars := BackendVariable.mergeVariables(inSystem1.orderedVars,inSystem2.orderedVars);
+end mergeEqSystems;
 
 public function copyBackendDAEShared
 "  author: Frenkel TUD, wbraun
@@ -7182,6 +7192,7 @@ protected function allPreOptimizationModules
     (BackendDAEOptimize.simplifyIfEquations, "simplifyIfEquations"),
     (BackendDAEOptimize.expandDerOperator, "expandDerOperator"),
     (BackendDAEOptimize.removeEqualFunctionCalls, "removeEqualFunctionCalls"),
+    (newBackendInline.normalInlineFunctions, "normalInlineFunctions"),
     (SynchronousFeatures.clockPartitioning, "clockPartitioning"),
     (CommonSubExpression.wrapFunctionCalls, "wrapFunctionCalls"),
     (IndexReduction.findStateOrder, "findStateOrder"),
