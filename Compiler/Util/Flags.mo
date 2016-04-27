@@ -499,6 +499,10 @@ constant DebugFlag SERIALIZED_SIZE = DEBUG_FLAG(162, "reportSerializedSize", fal
   Util.gettext("Reports serialized sizes of various data structures used in the compiler."));
 constant DebugFlag BACKEND_KEEP_ENV_GRAPH = DEBUG_FLAG(163, "backendKeepEnv", true,
   Util.gettext("When enabled, the environment is kept when entering the backend, which enables CevalFunction (function interpretation) to work. This module not essential for the backend to function in most cases, but can improve simulation performance by evaluating functions. The drawback to keeping the environment graph in memory is that it is huge (~80% of the total memory in use when returning the frontend DAE)."));
+constant DebugFlag DUMPBACKENDINLINE = DEBUG_FLAG(164, "dumpBackendInline", false,
+  Util.gettext("Dumps debug output while inline function."));
+constant DebugFlag DUMPBACKENDINLINE_VERBOSE = DEBUG_FLAG(165, "dumpBackendInlineVerbose", false,
+  Util.gettext("Dumps debug output while inline function."));
 
 // This is a list of all debug flags, to keep track of which flags are used. A
 // flag can not be used unless it's in this list, and the list is checked at
@@ -1266,6 +1270,13 @@ constant ConfigFlag NO_TEARING_FOR_COMPONENT = CONFIG_FLAG(93, "noTearingForComp
 constant ConfigFlag CT_STATE_MACHINES = CONFIG_FLAG(94, "ctStateMachines",
   NONE(), INTERNAL(), BOOL_FLAG(false), NONE(),
   Util.gettext("Experimental: Enable continuous-time state machine prototype"));
+constant ConfigFlag INLINE_METHOD = CONFIG_FLAG(95, "inlineMethod",
+  NONE(), EXTERNAL(), ENUM_FLAG(1, {("replace",1), ("append",2)}),
+  SOME(STRING_OPTION({"replace", "append"})),
+  Util.gettext("Sets the inline method to use.\n"+
+               "replace : This method inlines by replacing in place all expressions. Might lead to very long expression.\n"+
+               "append  : This method inlines by adding additional variables to the whole system. Might lead to much bigger system.")
+        );
 
 protected
 // This is a list of all configuration flags. A flag can not be used unless it's
@@ -1365,7 +1376,8 @@ constant list<ConfigFlag> allConfigFlags = {
   MAX_SIZE_LINEAR_TEARING,
   MAX_SIZE_NONLINEAR_TEARING,
   NO_TEARING_FOR_COMPONENT,
-  CT_STATE_MACHINES
+  CT_STATE_MACHINES,
+  INLINE_METHOD
 };
 
 public function new
