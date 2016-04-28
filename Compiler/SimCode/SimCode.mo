@@ -596,6 +596,9 @@ uniontype Context
 
   record FMI_CONTEXT
   end FMI_CONTEXT;
+  
+  record ADOLC_CONTEXT
+  end ADOLC_CONTEXT;
 end Context;
 
 public constant Context contextSimulationNonDiscrete  = SIMULATION_CONTEXT(false);
@@ -610,6 +613,7 @@ public constant Context contextParallelFunction       = PARALLEL_FUNCTION_CONTEX
 public constant Context contextZeroCross              = ZEROCROSSINGS_CONTEXT();
 public constant Context contextOptimization           = OPTIMIZATION_CONTEXT();
 public constant Context contextFMI                    = FMI_CONTEXT();
+public constant Context contextADOLC                  = ADOLC_CONTEXT();
 
 /****** HashTable ComponentRef -> SimCodeVar.SimVar ******/
 

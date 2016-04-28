@@ -163,6 +163,11 @@ end translateModel;
     extern int <%symbolName(modelNamePrefixStr,"inputNames")%>(DATA* data, char ** names);
     extern int <%symbolName(modelNamePrefixStr,"initializeDAEmodeData")%>(DATA *data, DAEMODE_DATA*);
     extern int <%symbolName(modelNamePrefixStr,"functionLocalKnownVars")%>(DATA*, threadData_t*);
+    extern int <%symbolName(modelNamePrefixStr,"evaluateDAEResiduals")%>(DATA *data, threadData_t *threadData);
+    extern int <%symbolName(modelNamePrefixStr,"setAlgebraicDAEVars")%>(DATA *data, threadData_t *threadData, double* algebraics);
+    extern int <%symbolName(modelNamePrefixStr,"getAlgebraicDAEVars")%>(DATA *data, threadData_t *threadData, double* algebraics);
+    extern int <%symbolName(modelNamePrefixStr,"functionODE_ADOLC")%>(DATA *data, threadData_t *threadData);
+    extern int <%symbolName(modelNamePrefixStr,"copy_ADOLC_indep")%>(DATA *data, threadData_t *threadData, double* independentVars);
     <%\n%>
     >>
   end match
@@ -1057,6 +1062,8 @@ template simulationFile(SimCode simCode, String guid, Boolean isModelExchangeFMU
        ,<%symbolName(modelNamePrefixStr,"functionODE_Partial")%>
        ,<%symbolName(modelNamePrefixStr,"functionFMIJacobian")%>
        #endif
+       ,<%symbolName(modelNamePrefixStr,"functionODE_ADOLC")%>
+       ,<%symbolName(modelNamePrefixStr,"copy_ADOLC_indep")%>
        ,<%symbolName(modelNamePrefixStr,"inputNames")%>
 
     <%\n%>
@@ -4658,6 +4665,40 @@ template equation_impl(Integer clockIndex, SimEqSystem eq, Context context, Stri
   This template should not be used for a SES_RESIDUAL.
   Residual equations are handled differently."
 ::=
+match context
+  case ADOLC_CONTEXT() then
+  let ix = equationIndex(eq) /*System.tmpTickIndex(10)*/
+  let &tmp = buffer ""
+  let &varD = buffer ""
+  let &tempeqns = buffer ""
+  let() = System.tmpTickResetIndex(0,1) /* Boxed array indices */
+  let x = match eq
+  case e as SES_SIMPLE_ASSIGN(__)
+    then equationSimpleAssign(e, context, &varD, &tempeqns)
+  else
+    "NOT IMPLEMENTED EQUATION equation_"
+  end match
+  let &eqs +=
+  <<
+
+  <%tempeqns%>
+  /*
+   <%dumpEqs(fill(eq,1))%>
+   */
+  static void <%symbolName(modelNamePrefix,"eqFunction")%>_<%ix%>_ADOLC(DATA *data, threadData_t *threadData, ADDATA* addata)
+  {
+    TRACE_PUSH
+    const int equationIndexes[2] = {1,<%ix%>};
+    <%&varD%>
+    <%x%>
+    TRACE_POP
+  }
+  >>
+
+  <<
+  <%symbolName(modelNamePrefix,"eqFunction")%>_<%ix%>_ADOLC(data, threadData, addata);
+  >>
+else
   match eq
   case e as SES_ALGORITHM(statements={})
   then ""
@@ -4675,9 +4716,6 @@ template equation_impl(Integer clockIndex, SimEqSystem eq, Context context, Stri
   let &tempeqns = buffer ""
   let &tempeqns2 = buffer ""
   let() = System.tmpTickResetIndex(0,1) /* Boxed array indices */
-  let disc = match context
-  case SIMULATION_CONTEXT(genDiscrete=true) then 1
-  else 0
   let x = match eq
   case e as SES_SIMPLE_ASSIGN(__)
     then equationSimpleAssign(e, context, &varD, &tempeqns)
@@ -4707,6 +4745,7 @@ template equation_impl(Integer clockIndex, SimEqSystem eq, Context context, Stri
     then equationForLoop(e, context, &varD, &tempeqns)
   else
     "NOT IMPLEMENTED EQUATION equation_"
+
   let x2 = match eq
   case e as SES_LINEAR(lSystem=ls as LINEARSYSTEM(__), alternativeTearing = SOME(at as LINEARSYSTEM(__))) then
     equationLinearAlternativeTearing(e, context, &varD)
@@ -4798,7 +4837,12 @@ template equation_call(SimEqSystem eq, String modelNamePrefix)
   <% if profileAll() then 'SIM_PROF_ACC_EQ(<%ix%>);' %>
   >>
   )
+<<<<<<< 3405204531d989e89f41811f3404ff14c63e7b98
 end equation_call;
+=======
+end match
+end equation_;
+>>>>>>> - dug old svn adolc brach
 
 template equationForward_(SimEqSystem eq, Context context, String modelNamePrefixStr)
  "Generates an equation.
@@ -4826,6 +4870,12 @@ template equationNames_(SimEqSystem eq, Context context, String modelNamePrefixS
   This template should not be used for a SES_RESIDUAL.
   Residual equations are handled differently."
 ::=
+match context
+  case ADOLC_CONTEXT() then
+  <<
+  <%symbolName(modelNamePrefixStr,"eqFunction")%>_<%equationIndex(eq)%>_ADOLC(data, threadData, addata);
+  >>
+else
  match eq
   case e as SES_ALGORITHM(statements={})
   then ""
@@ -4842,6 +4892,7 @@ template equationNames_(SimEqSystem eq, Context context, String modelNamePrefixS
   <%symbolName(modelNamePrefixStr,"eqFunction")%>_<%ix%>(data, threadData);
   <% if profileAll() then 'SIM_PROF_ACC_EQ(<%ix%>);' %>
   >>
+end match
 end equationNames_;
 
 template equationSimpleAssign(SimEqSystem eq, Context context,
@@ -4851,13 +4902,14 @@ template equationSimpleAssign(SimEqSystem eq, Context context,
 match eq
 case SES_SIMPLE_ASSIGN(exp=CALL(path=IDENT(name="fail"))) then
   '<%generateThrow()%><%\n%>'
-case SES_SIMPLE_ASSIGN(__) then
+case eq as SES_SIMPLE_ASSIGN(__) then
   let &preExp = buffer ""
   let expPart = daeExp(exp, context, &preExp, &varDecls, &auxFunction)
+  let lhsPre =  match context case ADOLC_CONTEXT() then '$P$AD' else ''
   <<
   <%modelicaLine(eqInfo(eq))%>
   <%preExp%>
-  <%cref(cref)%> = <%expPart%>;
+  <%lhsPre%><%cref(cref)%> = <%expPart%>;
   <%endModelicaLine()%>
   >>
 end equationSimpleAssign;
@@ -5430,7 +5482,7 @@ case SIMCODE(modelInfo=MODELINFO(__), makefileParams=MAKEFILE_PARAMS(__), simula
   CFILES=<%fileNamePrefix%>_functions.c <%fileNamePrefix%>_records.c \
   <%fileNamePrefix%>_01exo.c <%fileNamePrefix%>_02nls.c <%fileNamePrefix%>_03lsy.c <%fileNamePrefix%>_04set.c <%fileNamePrefix%>_05evt.c <%fileNamePrefix%>_06inz.c <%fileNamePrefix%>_07dly.c \
   <%fileNamePrefix%>_08bnd.c <%fileNamePrefix%>_09alg.c <%fileNamePrefix%>_10asr.c <%fileNamePrefix%>_11mix.c <%fileNamePrefix%>_12jac.c <%fileNamePrefix%>_13opt.c <%fileNamePrefix%>_14lnz.c \
-  <%fileNamePrefix%>_15syn.c <%fileNamePrefix%>_16dae.c
+  <%fileNamePrefix%>_15syn.c <%fileNamePrefix%>_16dae.c <%fileNamePrefix%>_17adolc.cpp
   OFILES=$(CFILES:.c=.obj)
   GENERATEDFILES=$(MAINFILE) $(FILEPREFIX)_functions.h $(FILEPREFIX).makefile $(CFILES)
 
@@ -5481,7 +5533,7 @@ case SIMCODE(modelInfo=MODELINFO(__), makefileParams=MAKEFILE_PARAMS(__), simula
   CFILES=<%fileNamePrefix%>_functions.c <%fileNamePrefix%>_records.c \
   <%fileNamePrefix%>_01exo.c <%fileNamePrefix%>_02nls.c <%fileNamePrefix%>_03lsy.c <%fileNamePrefix%>_04set.c <%fileNamePrefix%>_05evt.c <%fileNamePrefix%>_06inz.c <%fileNamePrefix%>_07dly.c \
   <%fileNamePrefix%>_08bnd.c <%fileNamePrefix%>_09alg.c <%fileNamePrefix%>_10asr.c <%fileNamePrefix%>_11mix.c <%fileNamePrefix%>_12jac.c <%fileNamePrefix%>_13opt.c <%fileNamePrefix%>_14lnz.c \
-  <%fileNamePrefix%>_15syn.c <%fileNamePrefix%>_16dae.c
+  <%fileNamePrefix%>_15syn.c <%fileNamePrefix%>_16dae.c <%fileNamePrefix%>_17adolc.cpp
   OFILES=$(CFILES:.c=.o)
   GENERATEDFILES=$(MAINFILE) <%fileNamePrefix%>.makefile <%fileNamePrefix%>_literals.h <%fileNamePrefix%>_functions.h $(CFILES)
 
@@ -5754,6 +5806,316 @@ template equationNames_Partial(list<SimEqSystem> eqs, String modelNamePrefixStr,
     break;
   >>
 end equationNames_Partial;
+
+
+//##############################################################################
+// ADOL_C template functions
+//##############################################################################
+
+template simulationFile_adolc(SimCode simCode)
+  "Generates code for adolc target."
+::=
+  let modelNamePrefixStr = modelNamePrefix(simCode)
+  match simCode
+    case simCode as SIMCODE(modelInfo=MODELINFO(__)) then
+    <<
+    /* ADOL-C code for <%dotPath(simCode.modelInfo.name)%> generated by the OpenModelica Compiler <%getVersionNr()%>. */
+    #include "simulation_data.h"
+    #include "<%fileNamePrefix%>_model.h"
+    #include <adolc/adolc.h>
+
+    <%createADDefines(modelInfo)%>
+
+    // this part requires the use of C++, adouble is a class and uses operator
+    // overloading
+
+    typedef struct ADDATA {
+        adouble* realVars;
+        adouble* realParameter;
+        adouble timeVar;
+    } ADDATA;
+    
+    static void alloc_ADOLC_ADVARS(DATA* data, ADDATA** addata_p)
+    {
+      *addata_p = new ADDATA;
+      (*addata_p)->realVars = new adouble[data->modelData->nVariablesReal];
+      (*addata_p)->realParameter = new adouble[data->modelData->nParametersReal];
+    }
+
+    static void destroy_ADOLC_ADVARS(ADDATA** addata_p)
+    {
+      delete[] (*addata_p)->realVars;
+      delete[] (*addata_p)->realParameter;
+      delete *addata_p;
+      *addata_p = NULL;
+    }
+    
+    // declare independent variables
+    <%decl_adolc_vars(modelInfo)%>
+    
+    // copy variables
+    <%copy_adolc(modelInfo)%>
+    
+    <%functionODEADOLC(odeEquations, modelNamePrefixStr)%>
+    
+    <%\n%>
+    >>
+    /* adrpo: leave a newline at the end of file to get rid of the warning */
+  end match
+end simulationFile_adolc;
+
+template createADDefines(ModelInfo modelInfo)
+  "Generates global data in simulation file."
+::=
+  match modelInfo
+    case MODELINFO(varInfo=VARINFO(numStateVars=numStateVars), vars=SIMVARS(__)) then
+      <<
+      #define $P$AD_omc_time addata->timeVar
+      
+      /* States */
+      <%vars.stateVars |> var =>
+        defineADvars(var, "realVars", 0)
+      ;separator="\n"%>
+
+      /* StatesDerivatives */
+      <%vars.derivativeVars |> var =>
+        defineADvars(var, "realVars", numStateVars)
+      ;separator="\n"%>
+
+      /* Algebraic Vars */
+      <%vars.algVars |> var =>
+        defineADvars(var, "realVars", intMul(2, numStateVars))
+      ;separator="\n"%>
+
+      /* Real Parameter */
+      <%vars.paramVars |> var =>
+        defineADparam(var, "realParameter")
+      ;separator="\n"%>
+
+      >>
+  end match
+end createADDefines;
+
+template defineADparam(SimVar simVar, String arrayName)
+  "Generates a define statement for a parameter."
+::=
+ match simVar
+  case SIMVAR(aliasvar=NOALIAS()) then
+    <<
+    #define $P$AD<%cref(name)%> addata-><%arrayName%>[<%index%>]
+    >>
+  end match
+end defineADparam;
+
+template defineADvars(SimVar simVar, String arrayName, Integer offset) 
+"template defineADvars
+  Generates a define statement for a varable in the global data section."
+::=
+  match simVar
+  case SIMVAR(aliasvar=NOALIAS()) then
+    <<
+    #define $P$AD<%cref(name)%> addata-><%arrayName%>[<%intAdd(offset,index)%>]
+    >>
+  end match
+end defineADvars;
+
+
+template decl_adolc_vars(ModelInfo modelInfo)
+  "Generates adolc declarations for independent vars."
+::=
+  match modelInfo
+    case MODELINFO(varInfo=VARINFO(numStateVars=numStateVars), vars=SIMVARS(__)) then
+      <<
+      static void decl_ADOLC_indep(DATA* data, ADDATA* addata)
+      {
+        /* states vars */
+        <%vars.stateVars |> var =>
+          decl_adolc_indep(var)
+        ;separator=";\n"%>
+        
+        /* input vars */
+        <%vars.inputVars |> var =>
+          decl_adolc_indep(var)
+        ;separator="\n"%>
+      }
+      
+      static void decl_ADOLC_dep(DATA* data, ADDATA* addata)
+      {
+        /* derivative vars */
+        <%vars.derivativeVars |> var =>
+          decl_adolc_dep(var)
+        ;separator="\n"%>
+      }
+      >>
+end decl_adolc_vars;
+
+template decl_adolc_indep(SimVar simVar)
+"template decl_adolc_indep 
+ Generates declarations for independent vars."
+::=
+  match simVar
+  case SIMVAR(aliasvar=NOALIAS()) then '$P$AD<%cref(name)%>  <<=  <%cref(name)%>;'
+  end match
+end decl_adolc_indep;
+
+template decl_adolc_dep(SimVar simVar)
+"template decl_adolc_dep 
+ Generates declarations for dependent vars."
+::=
+  match simVar
+  case SIMVAR(aliasvar=NOALIAS()) then  '$P$AD<%cref(name)%> >>= <%cref(name)%>;'
+  end match
+end decl_adolc_dep;
+
+template copy_adolc(ModelInfo modelInfo)
+  "Generates adolc declarations for independent vars."
+::=
+  match modelInfo
+    case MODELINFO(varInfo=VARINFO(numStateVars=numStateVars), vars=SIMVARS(__)) then
+      <<
+      
+      extern "C" {
+      
+      void copy_ADOLC_indep(DATA* data, threadData_t *threadData, double* vars)
+      {
+        /* states vars */
+        <%vars.stateVars |> var =>
+          copy_adolc_indep(var, 0)
+        ;separator="\n"%>
+        
+        /* input vars */
+        <%vars.inputVars |> var =>
+          copy_adolc_indep(var, numStateVars)
+        ;separator="\n"%>
+      }
+      
+      void copy_ADOLC_dep(DATA* data, double* vars)
+      {
+        /* derivative vars */
+        <%vars.derivativeVars |> var =>
+          copy_adolc_dep(var, 0)
+        ;separator="\n"%>     
+      }
+      
+      }
+      >>
+        
+        /* Real Parameter */
+        // do we need to copy parameters?
+        //<%vars.paramVars |> var =>
+        //  copy_adolc_parameters(var, "realParameter")
+        //;separator="\n"%>
+        
+        
+        // later include to copy_ADOLC_dep        
+        /* Algebraic Vars */
+        // do we need to copy intermediate vars?
+        //<%vars.algVars |> var =>
+        // copy_adolc_dep(var, "realVars", intMul(2, numStateVars))
+        //;separator="\n"%> 
+end copy_adolc;
+
+template copy_adolc_indep(SimVar simVar, Integer offset)
+"template decl_adolc_indep 
+ Generates declarations for independent vars."
+::=
+  match simVar
+  case SIMVAR(aliasvar=NOALIAS()) then
+    <<
+    vars[<%intAdd(offset,index)%>] = <%cref(name)%>;
+    >>
+  end match
+end copy_adolc_indep;
+
+template copy_adolc_dep(SimVar simVar, Integer offset)
+"template decl_adolc_dep 
+ Generates declarations for dependent vars."
+::=
+  match simVar
+  case SIMVAR(aliasvar=NOALIAS()) then
+    <<
+    <%cref(name)%> = vars[<%intAdd(offset,index)%>];
+    >>
+  end match
+end copy_adolc_dep;
+
+template functionXXX_systemADOLC(list<SimEqSystem> derivativEquations, String name, Integer n, String modelNamePrefixStr)
+::=
+  let funcNames = derivativEquations |> eq => equationNames_(eq,contextADOLC,modelNamePrefixStr); separator="\n"
+  <<
+  static void function<%name%>_system<%n%>_ADOLC(DATA *data, threadData_t *threadData, ADDATA* addata)
+  {
+    <%funcNames%>
+  }
+  >>
+end functionXXX_systemADOLC;
+
+template functionXXX_systemsADOLC(list<list<SimEqSystem>> eqs, String name, Text &loop, Text &eqFunc, String modelNamePrefixStr)
+::=
+  let equations = (List.flatten(eqs) |> eq =>
+    equation_(-1, eq, contextADOLC, &eqFunc /*BUFD*/, modelNamePrefixStr); separator="\n")
+  let funcs = eqs |> eq hasindex i1 fromindex 0 => functionXXX_systemADOLC(eq,name,i1,modelNamePrefixStr) ; separator="\n"
+  let nFuncs = listLength(eqs)
+  let funcNames = eqs |> e hasindex i1 fromindex 0 => 'function<%name%>_system<%i1%>_ADOLC' ; separator=",\n"
+  let &loop +=
+  /* Text for the loop body that calls the equations */
+  match listLength(eqs)
+  case 0 then ""
+  case 1 then 'function<%name%>_systems[0](data, threadData, addata);'
+  else
+  <<
+  for(id=0; id<<%nFuncs%>; id++) {
+    function<%name%>_systems[id](data, addata, th_id);
+  }
+  >>
+  /* Text before the function head */
+  <<
+
+  <%funcs%>
+  
+  static void (*function<%name%>_systems[<%nFuncs%>])(DATA *, threadData_t*, ADDATA*) = {
+    <%funcNames%>
+  };
+  >>
+end functionXXX_systemsADOLC;
+
+template functionODEADOLC(list<list<SimEqSystem>> derivativEquations, String modelNamePrefixStr)
+ "Generates function in simulation file."
+::=
+  let () = System.tmpTickReset(0)
+  let &eqFunc = buffer ""
+  let &loop = buffer ""
+  let systems = functionXXX_systemsADOLC(derivativEquations, "ODEADOLC", &loop, &eqFunc, modelNamePrefixStr)
+  let &tmp = buffer ""
+
+  <<
+  <%eqFunc%>
+  
+  <%systems%>
+
+  extern "C" {
+  
+  int <%symbolName(modelNamePrefixStr,"functionODE_ADOLC")%>(DATA *data, threadData_t *threadData)
+  {
+    ADDATA* addata;
+    
+    trace_on(0);
+    alloc_ADOLC_ADVARS(data, &addata);
+    decl_ADOLC_indep(data, addata);    
+    
+    <%loop%>
+    
+    decl_ADOLC_dep(data, addata);
+    destroy_ADOLC_ADVARS(&addata);
+    trace_off();
+
+    return 0;
+  }
+  
+  }
+  >>
+end functionODEADOLC;
+
 
 annotation(__OpenModelica_Interface="backend");
 end CodegenC;

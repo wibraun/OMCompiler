@@ -422,6 +422,8 @@ package SimCode
     end OPTIMIZATION_CONTEXT;
     record FMI_CONTEXT
     end FMI_CONTEXT;
+    record ADOLC_CONTEXT
+    end ADOLC_CONTEXT;
   end Context;
 
   uniontype Variable
@@ -771,6 +773,7 @@ package SimCode
   constant Context contextZeroCross;
   constant Context contextOptimization;
   constant Context contextFMI;
+  constant Context contextADOLC;
   constant list<DAE.Exp> listExpLength1;
   constant list<Variable> boxedRecordOutVars;
 

@@ -331,6 +331,17 @@ int (*function_equationsSynchronous)(DATA *data, threadData_t *threadData, long 
  */
 void (*read_input_fmu)(MODEL_DATA* modelData, SIMULATION_INFO* simulationData);
 
+
+/*
+ * Trace function of adolc
+ */
+int (*functionODE_ADOLC)(DATA* data, threadData_t *threadData);
+
+/*
+ * further adolc functions
+ */
+int (*copy_ADOLC_indep)(DATA* data, threadData_t *threadData, double* vars);
+
 /*
  * return input names
  */

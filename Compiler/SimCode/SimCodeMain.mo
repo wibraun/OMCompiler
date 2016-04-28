@@ -640,6 +640,7 @@ algorithm
           (CodegenC.simulationFile_syn, "_15syn.c"),
           (CodegenC.simulationFile_dae, "_16dae.c"),
           (CodegenC.simulationFile_dae_header, "_16dae.h"),
+          (CodegenC.simulationFile_adolc, "_17adolc.cpp"),
           (CodegenC.simulationHeaderFile, "_model.h")
         } loop
           (func,str) := f;

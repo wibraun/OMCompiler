@@ -634,6 +634,7 @@ const char *JACOBIAN_METHOD[JAC_MAX+1] = {
   "numerical",
   "symbolical",
   "kluSparse",
+  "adolc",
 
   "JAC_MAX"
 };
@@ -647,6 +648,7 @@ const char *JACOBIAN_METHOD_DESC[JAC_MAX+1] = {
   "numerical jacobian.",
   "symbolic jacobian - needs omc compiler flags +generateSymbolicJacobian or +generateSymbolicLinearization.",
   "sparse jacobian for KLU",
+  "jacobian by adolc - needs compilation with adolc.",
 
   "JAC_MAX"
  };

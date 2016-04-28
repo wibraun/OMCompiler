@@ -4041,6 +4041,7 @@ template contextCref(ComponentRef cr, Context context, Text &auxFunction)
       >>
     else "_" + System.unquoteIdentifier(crefStr(cr))
     )
+  case ADOLC_CONTEXT(__) then "$P$AD" + cref(cr)
   else cref(cr)
 end contextCref;
 
