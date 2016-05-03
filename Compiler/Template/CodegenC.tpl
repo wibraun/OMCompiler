@@ -166,8 +166,18 @@ end translateModel;
     extern int <%symbolName(modelNamePrefixStr,"evaluateDAEResiduals")%>(DATA *data, threadData_t *threadData);
     extern int <%symbolName(modelNamePrefixStr,"setAlgebraicDAEVars")%>(DATA *data, threadData_t *threadData, double* algebraics);
     extern int <%symbolName(modelNamePrefixStr,"getAlgebraicDAEVars")%>(DATA *data, threadData_t *threadData, double* algebraics);
-    extern int <%symbolName(modelNamePrefixStr,"functionODE_ADOLC")%>(DATA *data, threadData_t *threadData);
-    extern int <%symbolName(modelNamePrefixStr,"copy_ADOLC_indep")%>(DATA *data, threadData_t *threadData, double* independentVars);
+    #ifdef __cplusplus
+    extern "C"
+    #else
+    extern
+    #endif
+           int <%symbolName(modelNamePrefixStr,"functionODE_ADOLC")%>(DATA *data, threadData_t *threadData);
+    #ifdef __cplusplus
+    extern "C"
+    #else
+    extern
+    #endif
+           int <%symbolName(modelNamePrefixStr,"copy_ADOLC_indep")%>(DATA *data, threadData_t *threadData, double* independentVars);
     <%\n%>
     >>
   end match
@@ -5543,7 +5553,7 @@ case SIMCODE(modelInfo=MODELINFO(__), makefileParams=MAKEFILE_PARAMS(__), simula
   .PHONY: $(CFILES)
 
   omc_main_target: $(MAINOBJ) <%fileNamePrefix%>_functions.h <%fileNamePrefix%>_literals.h $(OFILES)
-  <%\t%>$(CC) -I. -o <%fileNamePrefix%>$(EXEEXT) $(MAINOBJ) $(OFILES) $(CPPFLAGS) <%dirExtra%> <%libsPos1%> <%libsPos2%> $(CFLAGS) $(CPPFLAGS) $(LDFLAGS)
+  <%\t%>$(CXX) -std=c++11 -I. -o <%fileNamePrefix%>$(EXEEXT) $(MAINOBJ) $(OFILES) $(CPPFLAGS) <%dirExtra%> <%libsPos1%> <%libsPos2%> $(CFLAGS) $(CPPFLAGS) $(LDFLAGS)
   <% if stringEq(Config.simCodeTarget(),"JavaScript") then '<%\t%>rm -f <%fileNamePrefix%>'%>
   <% if stringEq(Config.simCodeTarget(),"JavaScript") then '<%\t%>ln -s <%fileNamePrefix%>_node.js <%fileNamePrefix%>'%>
   <% if stringEq(Config.simCodeTarget(),"JavaScript") then '<%\t%>chmod +x <%fileNamePrefix%>_node.js'%>
@@ -5971,12 +5981,13 @@ template copy_adolc(ModelInfo modelInfo)
   "Generates adolc declarations for independent vars."
 ::=
   match modelInfo
-    case MODELINFO(varInfo=VARINFO(numStateVars=numStateVars), vars=SIMVARS(__)) then
+    case MODELINFO(varInfo=VARINFO(numStateVars=numStateVars), vars=SIMVARS(__),name=name) then
+     let modelNamePrefixStr = underscorePath(name)
       <<
       
       extern "C" {
       
-      void copy_ADOLC_indep(DATA* data, threadData_t *threadData, double* vars)
+      int <%symbolName(modelNamePrefixStr,"copy_ADOLC_indep")%>(DATA* data, threadData_t *threadData, double* vars)
       {
         /* states vars */
         <%vars.stateVars |> var =>
@@ -5987,6 +5998,7 @@ template copy_adolc(ModelInfo modelInfo)
         <%vars.inputVars |> var =>
           copy_adolc_indep(var, numStateVars)
         ;separator="\n"%>
+        return 0;
       }
       
       void copy_ADOLC_dep(DATA* data, double* vars)

@@ -57,7 +57,7 @@ AC_SUBST(WITH_UMFPACK)
 AC_SUBST(UMFPACK_TARGET)
 AC_SUBST(UMFPACK_LDFLAGS)
 AC_SUBST(ADOLC_CFLAGS)
-AC_SUBST(ADOLC_LDFLAGS)
+AC_SUBST(ADOLC_LIBS)
 AC_SUBST(OMNOTEBOOK)
 AC_SUBST(FPMATHFORTRAN)
 AC_SUBST(OMOPTIM_CC)
@@ -127,7 +127,7 @@ AS_IF([test "x$with_UMFPACK" = xyes],
   UMFPACK_LDFLAGS=""
 ])
 
-PKG_CHECK_MODULES(ADOLC, [adolc >= 2.5.3], [RT_LDFLAGS="$RT_LDFLAGS $ADOLC_LDFLAGS";], [AC_MSG_ERROR("$ADOLC_PKG_ERRORS")])
+PKG_CHECK_MODULES(ADOLC, [adolc >= 2.5.3], [RT_LDFLAGS="$RT_LDFLAGS $ADOLC_LIBS";], [AC_MSG_ERROR("$ADOLC_PKG_ERRORS")])
 
 if echo $host | grep -i darwin; then
   DARWIN=1
@@ -657,9 +657,9 @@ if test "$DARWIN" = "1"; then
   RT_LDFLAGS="$LDFLAGS $RT_LDFLAGS -lomcgc -lm -lpthread $LIBDL -lstdc++"
   RT_LDFLAGS_OPTIONAL="$RT_LDFLAGS_OPTIONAL -liconv"
   # All libraries are dynamically linked; we don't need anything else
-  RT_LDFLAGS_GENERATED_CODE="$LDFLAGS -lOpenModelicaRuntimeC $LD_LAPACK -lm"
-  RT_LDFLAGS_GENERATED_CODE_SIM="$LDFLAGS -lSimulationRuntimeC $LD_LAPACK -lm -lomcgc"
-  RT_LDFLAGS_GENERATED_CODE_SOURCE_FMU="$LDFLAGS $LD_LAPACK -lm$LD_NOUNDEFINED"
+  RT_LDFLAGS_GENERATED_CODE="$LDFLAGS -lOpenModelicaRuntimeC $ADOLC_LIBS $LD_LAPACK -lm"
+  RT_LDFLAGS_GENERATED_CODE_SIM="$LDFLAGS -lSimulationRuntimeC $ADOLC_LIBS $LD_LAPACK -lm -lomcgc"
+  RT_LDFLAGS_GENERATED_CODE_SOURCE_FMU="$LDFLAGS $ADOLC_LIBS $LD_LAPACK -lm$LD_NOUNDEFINED"
   RT_LDFLAGS_SHARED=
   OMCRUNTIME_SHARED_LDFLAGS="$RT_LDFLAGS -Wl,-undefined -Wl,dynamic_lookup $LIBLPSOLVE55"
   LINK="cp -fr"
@@ -727,9 +727,9 @@ else
   RT_LDFLAGS="$LDFLAGS $RT_LDFLAGS -lomcgc $LIBRT -lpthread -lm $LIBDL -lstdc++ -rdynamic"
   RT_LDFLAGS_OPTIONAL="$RT_LDFLAGS_OPTIONAL"
   # All libraries are dynamically linked; we don't need anything else
-  RT_LDFLAGS_GENERATED_CODE="$LDFLAGS -lOpenModelicaRuntimeC $LD_LAPACK -lm -lomcgc -lpthread -rdynamic" # Some of our tests refer to the testsuite itself
-  RT_LDFLAGS_GENERATED_CODE_SIM="$LDFLAGS -lSimulationRuntimeC $LD_LAPACK -lm -lomcgc -lpthread -rdynamic$LD_NOUNDEFINED"
-  RT_LDFLAGS_GENERATED_CODE_SOURCE_FMU="$LDFLAGS $LD_LAPACK -lm -lpthread -rdynamic$LD_NOUNDEFINED"
+  RT_LDFLAGS_GENERATED_CODE="$LDFLAGS -lOpenModelicaRuntimeC $ADOLC_LIBS $LD_LAPACK -lm -lomcgc -lpthread -rdynamic" # Some of our tests refer to the testsuite itself
+  RT_LDFLAGS_GENERATED_CODE_SIM="$LDFLAGS -lSimulationRuntimeC $ADOLC_LIBS $LD_LAPACK -lm -lomcgc -lpthread -rdynamic$LD_NOUNDEFINED"
+  RT_LDFLAGS_GENERATED_CODE_SOURCE_FMU="$LDFLAGS $ADOLC_LIBS $LD_LAPACK -lm -lpthread -rdynamic$LD_NOUNDEFINED"
   LINK="cp -frl"
   LDFLAGS="$LDFLAGS -Wl,-rpath-link,$OMBUILDDIR/lib/$host_short/omc"
   RT_LDFLAGS_SHARED="-Wl,-rpath-link,$OMBUILDDIR/lib/$host_short/omc"
