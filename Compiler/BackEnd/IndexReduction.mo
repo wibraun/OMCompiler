@@ -503,6 +503,7 @@ algorithm
         varlst = m[eindx];
         varlst = List.map(varlst,intAbs);
         vlst = List.map1r(varlst,BackendVariable.getVarAt,vars);
+        BackendDump.printVarList(vlst);
         blst = List.map(vlst,BackendVariable.isVarDiscrete);
         // if there is a continues variable than b is false
         b = Util.boolAndList(blst);
@@ -1847,6 +1848,8 @@ algorithm
         // remove stateSelect=StateSelect.always vars
         varlst = list(var for var guard notVarStateSelectAlways(var, level) in hov);
         neqns = BackendEquation.equationLstSize(eqnslst);
+        // do not count discreteeqns
+        
         nfreeStates = listLength(varlst);
         // do state selection of that level
         (dummyVars,stateSets) = selectStatesWork1(nfreeStates,varlst,neqns,eqnslst,level,inSystem,inShared,so,iMapEqnIncRow,iMapIncRowEqn,hov,{},{});
