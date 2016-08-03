@@ -4041,7 +4041,7 @@ template contextCref(ComponentRef cr, Context context, Text &auxFunction)
       >>
     else "_" + System.unquoteIdentifier(crefStr(cr))
     )
-  case ADOLC_CONTEXT(__) then "$P$AD" + cref(cr)
+  case ADOLC_CONTEXT(__) then "ad" + cref(cr)
   else cref(cr)
 end contextCref;
 
@@ -5523,7 +5523,7 @@ template daeExpCall(Exp call, Context context, Text &preExp, Text &varDecls, Tex
     error(sourceInfo(),'Code generation does not support <%ExpressionDumpTpl.dumpExp(exp,"\"")%>')
 
   case CALL(path=IDENT(name="der"), expLst={arg as CREF(__)}) then
-    cref(crefPrefixDer(arg.componentRef))
+    contextCref(crefPrefixDer(arg.componentRef), context, &auxFunction)
   case CALL(path=IDENT(name="der"), expLst={exp}) then
     error(sourceInfo(), 'Code generation does not support der(<%ExpressionDumpTpl.dumpExp(exp,"\"")%>)')
   case CALL(path=IDENT(name="pre"), expLst={arg}) then

@@ -32,6 +32,7 @@
 #include <setjmp.h>
 
 #include <adolc/adolc.h>
+#include <adolc/tapedoc/asciitapes.h>
 
 #include "openmodelica.h"
 #include "openmodelica_func.h"
@@ -1332,13 +1333,6 @@ static int JacobianOwnNumColored(double *t, double *y, double *yprime, double *d
     return 1;
   }
 
-  /* debug */
-  if (ACTIVE_STREAM(LOG_JAC)){
-    _omc_matrix* dumpJac = _omc_createMatrix(dasslData->N, dasslData->N, pd);
-    _omc_printMatrix(dumpJac, "DASSL-Solver: Matrix A", LOG_JAC);
-    _omc_destroyMatrix(dumpJac);
-  }
-
   /* add cj to diagonal elements and store in pd */
   if (!dasslData->daeMode)
   {
@@ -1349,11 +1343,34 @@ static int JacobianOwnNumColored(double *t, double *y, double *yprime, double *d
       j += dasslData->N + 1;
     }
   }
+
+
+  /* debug */
+  if (ACTIVE_STREAM(LOG_JAC)){
+    _omc_matrix* dumpJac = _omc_createMatrix(dasslData->N, dasslData->N, pd);
+    _omc_printMatrix(dumpJac, "DASSL-Solver: Matrix A", LOG_JAC);
+    _omc_destroyMatrix(dumpJac);
+  }
   unsetContext(data);
 
   TRACE_POP
   return 0;
 }
+
+static
+void printmat(const char* name, int m, int n, double** M) {
+    int i,j;
+
+    printf("%s \n",name);
+    for(i=0; i<m ;i++) {
+        printf("\n %d: ",i);
+        for(j=0;j<n ;j++)
+            printf(" %10.4f ", M[i][j]);
+    }
+    printf("\n");
+}
+
+
 
 /*
  * provides a numerical Jacobian to be used with DASSL by ADOLC
@@ -1368,38 +1385,43 @@ static int JacobianADOLC(double *t, double *y, double *yprime, double *deltaD, d
   int i, j, k, l;
   double** jac_states;
   double * indvars;
+  static unsigned short first = 1;
 
   indvars = myalloc1(data->modelData->nStates + data->modelData->nInputVars);
   jac_states = myalloc2(data->modelData->nStates, data->modelData->nStates + data->modelData->nInputVars);
-
 
   /* the first argument is the same number as in function name after system */
   /* jacobian contains the derivatives of $P$DER$Px w.r.t $Px and $Pu */
   data->callback->input_function(data, threadData);
   data->callback->copy_ADOLC_indep(data, threadData, indvars);
-  jacobian(0, data->modelData->nStates, data->modelData->nStates + data->modelData->nInputVars, indvars, jac_states);
+  jacobian(0, dasslData->N, dasslData->N + data->modelData->nInputVars, indvars, jac_states);
 
+  if (omc_flag[FLAG_ADOLC_TRACE_WRITE] && first)
+  {
+    write_ascii_trace(omc_flagValue[FLAG_ADOLC_TRACE_WRITE]), 0);
+    first = 0;
+  }
 
   /* add cj to diagonal elements and store in pd */
   k = 0;
   l = 0;
-  for(i = 0; i < data->modelData->nStates; i++)
+  for(i = 0; i < dasslData->N; i++)
   {
-    for(j = 0; j < data->modelData->nStates; j++, k++)
+    for(j = 0; j < dasslData->N; j++, k++)
     {
       pd[k] = jac_states[j][i];
     }
     pd[l] -= (double) *cj;
-    l += data->modelData->nStates + 1;
+    l += dasslData->N + 1;
   }
 
   /* debug */
   if (ACTIVE_STREAM(LOG_JAC)){
+    printmat("Jac: ", dasslData->N, dasslData->N, jac_states);
     _omc_matrix* dumpJac = _omc_createMatrix(dasslData->N, dasslData->N, pd);
     _omc_printMatrix(dumpJac, "DASSL-Solver: Matrix A", LOG_JAC);
     _omc_destroyMatrix(dumpJac);
   }
-
 
   TRACE_POP
   return 0;

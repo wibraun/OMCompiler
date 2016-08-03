@@ -34,6 +34,7 @@ const char *FLAG_NAME[FLAG_MAX+1] = {
   "FLAG_UNKNOWN",
 
   /* FLAG_ABORT_SLOW */            "abortSlowSimulation",
+  /* FLAG_ADOLC_TRACE_WRITE */     "adolcTraceWrite",
   /* FLAG_ALARM */                 "alarm",
   /* FLAG_CLOCK */                 "clock",
   /* FLAG_CPU */                   "cpu",
@@ -112,6 +113,7 @@ const char *FLAG_DESC[FLAG_MAX+1] = {
   "unknown",
 
   /* FLAG_ABORT_SLOW */            "aborts if the simulation chatters",
+  /* FLAG_ADOLC_TRACE_WRITE */     "value specifies file name to write adolc ascii trace.",
   /* FLAG_ALARM */                 "aborts after the given number of seconds (0 disables)",
   /* FLAG_CLOCK */                 "selects the type of clock to use -clock=RT, -clock=CYC or -clock=CPU",
   /* FLAG_CPU */                   "dumps the cpu-time into the result file",
@@ -190,6 +192,8 @@ const char *FLAG_DETAILED_DESC[FLAG_MAX+1] = {
   "unknown",
   /* FLAG_ABORT_SLOW */
   "  Aborts if the simulation chatters.",
+  /* FLAG_ADOLC_TRACE_WRITE */
+  "  value specifies file name to write adolc ascii trace.",
   /* FLAG_ALARM */
   "  Aborts after the given number of seconds (default=0 disables the alarm).",
   /* FLAG_CLOCK */
@@ -394,6 +398,7 @@ const int FLAG_TYPE[FLAG_MAX] = {
   FLAG_TYPE_UNKNOWN,
 
   /* FLAG_ABORT_SLOW */            FLAG_TYPE_FLAG,
+  /* FLAG_ADOLC_TRACE_WRITE */     FLAG_TYPE_OPTION,
   /* FLAG_ALARM */                 FLAG_TYPE_OPTION,
   /* FLAG_CLOCK */                 FLAG_TYPE_OPTION,
   /* FLAG_CPU */                   FLAG_TYPE_FLAG,
