@@ -1452,6 +1452,10 @@ constant ConfigFlag IGNORE_REPLACEABLE = CONFIG_FLAG(117, "ignoreReplaceable",
     }),NONE(),
     Util.gettext("Sets the optimization modules for the DAEmode in the back end. See --help=optmodules for more info."));
 
+constant ConfigFlag GEN_ADOLC_TRACE = CONFIG_FLAG(125, "adolcTrace",
+  NONE(), INTERNAL(), BOOL_FLAG(false), NONE(),
+  Util.gettext("Generate ADOL-C ascii trace file. Dummy flag for development branch newPrototypeAdolc"));
+
 protected
 // This is a list of all configuration flags. A flag can not be used unless it's
 // in this list, and the list is checked at initialization so that all flags are
@@ -1580,7 +1584,8 @@ constant list<ConfigFlag> allConfigFlags = {
   Load_PACKAGE_FILE,
   BUILDING_FMU,
   BUILDING_MODEL,
-  POST_OPT_MODULES_DAE
+  POST_OPT_MODULES_DAE,
+  GEN_ADOLC_TRACE
 };
 
 public function new
