@@ -1323,6 +1323,9 @@ constant ConfigFlag EVALUATE_PROTECTED_PARAMS = CONFIG_FLAG(108, "evaluateProtec
 constant ConfigFlag REPLACE_EVALUATED_PARAMS = CONFIG_FLAG(109, "replaceEvaluatedParameters",
   NONE(), EXTERNAL(), BOOL_FLAG(true), NONE(),
   Util.gettext("Replaces all the evaluated parameters in the DAE."));
+constant ConfigFlag GEN_ADOLC_TRACE = CONFIG_FLAG(110, "adolcTrace",
+  NONE(), INTERNAL(), BOOL_FLAG(false), NONE(),
+  Util.gettext("Generate ADOL-C ascii trace file. Dummy flag for development branch newPrototypeAdolc"));
 
 protected
 // This is a list of all configuration flags. A flag can not be used unless it's
@@ -1437,7 +1440,8 @@ constant list<ConfigFlag> allConfigFlags = {
   EQUATIONS_PER_FILE,
   EVALUATE_FINAL_PARAMS,
   EVALUATE_PROTECTED_PARAMS,
-  REPLACE_EVALUATED_PARAMS
+  REPLACE_EVALUATED_PARAMS,
+  GEN_ADOLC_TRACE
 };
 
 public function new
