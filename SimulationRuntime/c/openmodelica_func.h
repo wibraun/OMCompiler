@@ -331,6 +331,16 @@ int (*function_equationsSynchronous)(DATA *data, threadData_t *threadData, long 
  */
 void (*read_input_fmu)(MODEL_DATA* modelData, SIMULATION_INFO* simulationData);
 
+/*
+ * return input names
+ */
+int (*inputNames)(DATA* modelData, char ** names);
+#ifdef FMU_EXPERIMENTAL
+/* functionODEPartial contains those equations that are needed
+ * to calculate the state derivative i-th */
+void (*functionODEPartial)(DATA *data, threadData_t*, int i);
+void (*functionFMIJacobian)(DATA *data, threadData_t*, const unsigned *unknown, int nUnk, const unsigned *ders, int nKnown, double *dvKnown, double *out);
+#endif
 
 /*
  * Trace function of adolc
@@ -343,16 +353,7 @@ int (*functionODE_ADOLC)(DATA* data, threadData_t *threadData);
 int (*copy_ADOLC_indep)(DATA* data, threadData_t *threadData, double* vars);
 int (*copy_ADOLC_dep)(DATA* data, threadData_t *threadData, double* vars);
 
-/*
- * return input names
- */
-int (*inputNames)(DATA* modelData, char ** names);
-#ifdef FMU_EXPERIMENTAL
-/* functionODEPartial contains those equations that are needed
- * to calculate the state derivative i-th */
-void (*functionODEPartial)(DATA *data, threadData_t*, int i);
-void (*functionFMIJacobian)(DATA *data, threadData_t*, const unsigned *unknown, int nUnk, const unsigned *ders, int nKnown, double *dvKnown, double *out);
-#endif
+
 };
 
 #ifdef __cplusplus

@@ -1069,6 +1069,7 @@ template simulationFile(SimCode simCode, String guid, Boolean isModelExchangeFMU
        <%symbolName(modelNamePrefixStr,"function_updateSynchronous")%>,
        <%symbolName(modelNamePrefixStr,"function_equationsSynchronous")%>,
        <% if isModelExchangeFMU then symbolName(modelNamePrefixStr,"read_input_fmu") else "NULL" %>
+       ,<%symbolName(modelNamePrefixStr,"inputNames")%>
        #ifdef FMU_EXPERIMENTAL
        ,<%symbolName(modelNamePrefixStr,"functionODE_Partial")%>
        ,<%symbolName(modelNamePrefixStr,"functionFMIJacobian")%>
@@ -1076,7 +1077,7 @@ template simulationFile(SimCode simCode, String guid, Boolean isModelExchangeFMU
        ,<%symbolName(modelNamePrefixStr,"functionODE_ADOLC")%>
        ,<%symbolName(modelNamePrefixStr,"copy_ADOLC_indep")%>
        ,<%symbolName(modelNamePrefixStr,"copy_ADOLC_dep")%>
-       ,<%symbolName(modelNamePrefixStr,"inputNames")%>
+       
 
     <%\n%>
     };
@@ -5832,24 +5833,35 @@ template simulationFile_adolc(SimCode simCode)
     typedef struct ADDATA {
         struct localDATA {
         adouble* realVars;
-        adouble* realParameter;
-        adouble timeVar;
+        locint timeValueLoc;
         } *localData[1];
+        struct simInfo {
+        locint* realParameter;
+        } *simulationInfo;
     } ADDATA;
     
     static void alloc_ADOLC_ADVARS(DATA* data, ADDATA** addata_p)
     {
       *addata_p = new ADDATA;
       (*addata_p)->localData[0] = new struct ADDATA::localDATA;
+      (*addata_p)->simulationInfo = new struct ADDATA::simInfo;
       (*addata_p)->localData[0]->realVars = new adouble[data->modelData->nVariablesReal];
-      (*addata_p)->localData[0]->realParameter = new adouble[data->modelData->nParametersReal];
+      (*addata_p)->simulationInfo->realParameter = new locint[data->modelData->nParametersReal];
+      (*addata_p)->localData[0]->timeValueLoc = mkparam_idx(data->localData[0]->timeValue);
+      
+      for(int i = 0; i < data->modelData->nParametersReal; ++i)
+      {
+        (*addata_p)->simulationInfo->realParameter[i] = mkparam_idx(data->simulationInfo->realParameter[i]);
+      }     
+      
     }
 
     static void destroy_ADOLC_ADVARS(ADDATA** addata_p)
     {
       delete[] (*addata_p)->localData[0]->realVars;
-      delete[] (*addata_p)->localData[0]->realParameter;
+      delete[] (*addata_p)->simulationInfo->realParameter;
       delete (*addata_p)->localData[0];
+      delete (*addata_p)->simulationInfo;
       delete *addata_p;
       *addata_p = NULL;
     }
@@ -5936,6 +5948,10 @@ template copy_adolc(ModelInfo modelInfo)
         <%vars.inputVars |> var =>
           copy_adolc_indep(var, numStateVars)
         ;separator="\n"%>
+        
+        /* time value */
+        set_param_vec(0, 1, &(data->localData[0]->timeValue));
+        
         return 0;
       }
       

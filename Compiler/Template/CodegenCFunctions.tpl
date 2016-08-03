@@ -4041,7 +4041,14 @@ template contextCref(ComponentRef cr, Context context, Text &auxFunction)
       >>
     else "_" + System.unquoteIdentifier(crefStr(cr))
     )
-  case ADOLC_CONTEXT(__) then "ad" + cref(cr)
+  case ADOLC_CONTEXT(__) then 
+    match cr
+    case CREF_IDENT(ident = "time") then "(adouble)getparam(addata->localData[0]->timeValueLoc)"
+    else match cref2simvar(cr, getSimCode())
+      case SIMVAR(varKind=PARAM()) then
+        "(adouble)getparam(ad" + cref(cr) + ")"
+      else
+        "ad" + cref(cr)
   else cref(cr)
 end contextCref;
 

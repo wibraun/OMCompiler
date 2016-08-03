@@ -1398,7 +1398,7 @@ static int JacobianADOLC(double *t, double *y, double *yprime, double *deltaD, d
 
   if (omc_flag[FLAG_ADOLC_TRACE_WRITE] && first)
   {
-    write_ascii_trace(omc_flagValue[FLAG_ADOLC_TRACE_WRITE]), 0);
+    write_ascii_trace(omc_flagValue[FLAG_ADOLC_TRACE_WRITE], 0);
     first = 0;
   }
 

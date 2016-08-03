@@ -74,6 +74,14 @@ constant Integer fgraph_nextId = 22;
 constant Integer backendDAE_cseIndex = 23;
 // strong component index
 constant Integer strongComponent_index = 24;
+// adolc tmp ticks 
+constant Integer adolc_tmp_indx = 25;
+// adolc ind ticks
+constant Integer adolc_ind_indx = 26;
+// adolc dep ticks
+constant Integer adolc_dep_indx = 27;
+// adolc param ticks
+constant Integer adolc_param_indx = 28;
 
 // ----------------------
 
