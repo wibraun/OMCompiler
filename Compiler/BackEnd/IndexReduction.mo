@@ -1584,7 +1584,7 @@ algorithm
     case (_::_, syst)
       equation
         (setIndex, vars, eqs, stateSets) =
-          generateStateSets(iTplLst, iSetIndex, syst.orderedVars, syst.orderedEqs, syst.stateSets);
+          generateStateSets(iTplLst, iSetIndex, syst.orderedVars, syst.orderedEqs, syst.mT, syst.stateSets);
         syst.orderedVars = vars;
         syst.orderedEqs = eqs;
         syst.stateSets = stateSets;
@@ -1600,6 +1600,7 @@ protected function generateStateSets
   input Integer iSetIndex;
   input BackendDAE.Variables iVars;
   input BackendDAE.EquationArray iEqns;
+  input Option<BackendDAE.IncidenceMatrix> mT;
   input BackendDAE.StateSets iStateSets;
   output Integer oSetIndex = iSetIndex;
   output BackendDAE.Variables oVars = iVars;
@@ -1608,6 +1609,7 @@ protected function generateStateSets
 protected
  tuple<Integer,Integer,Integer,Integer,list<BackendDAE.Var>,list<BackendDAE.Equation>,list<BackendDAE.Var>,list<BackendDAE.Equation>> tpl;
  list<BackendDAE.Var> setVars,aVars,varJ,otherVars,stateCandidates;
+ BackendDAE.Variables stateCandidatesVars;
  list<DAE.ComponentRef> crset;
  DAE.ComponentRef crA,set,crJ;
  DAE.Type tp, tyExpCrStates;
@@ -1628,8 +1630,14 @@ algorithm
     (level,_,nStateCandidates,nUnassignedEquations,stateCandidates,cEqnsLst,otherVars,oEqnLst) := tpl;
     rang := nStateCandidates - nUnassignedEquations;
     b := intGt(rang,1);
+    // sort state candidates as for static state selection
+    stateCandidatesVars := sortStateCandidatesVars(BackendVariable.listVar(stateCandidates),iVars,mT);
+    stateCandidates := listReverse(BackendVariable.varList(stateCandidatesVars));
+    //stateCandidates := BackendVariable.varList(stateCandidatesVars);
+
     // generate Set Vars
     (_,crset,setVars,crA,aVars,tp,crJ,varJ) := getSetVars(oSetIndex,rang,nStateCandidates,nUnassignedEquations,level);
+
     // add Equations
     // set.x = set.A*set.statecandidates
     // der(set.x) = set.A*der(set.candidates)
