@@ -1588,6 +1588,7 @@ constant list<ConfigFlag> allConfigFlags = {
   GEN_ADOLC_TRACE
 };
 
+
 public function new
   "Create a new flags structure and read the given arguments."
   input list<String> inArgs;
