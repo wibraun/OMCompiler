@@ -445,6 +445,14 @@ algorithm
     if Flags.isSet(Flags.EXEC_HASH) then
       print("*** SimCode -> generate cref2simVar hashtable done!: " + realString(clock()) + "\n");
     end if;
+  
+    // create model operation data for adolc
+    if  Flags.getConfigBool(Flags.GEN_ADOLC_TRACE) then
+      modelOperationData := createOperationData(odeEquations, crefToSimVarHT);
+    else
+      modelOperationData := NONE();
+    end if;
+    if debug then execStat("simCode: ADOLC createOperationData"); end if;
 
     // add residuals vars from DAE creation
     if Flags.getConfigEnum(Flags.DAE_MODE)>1 then
