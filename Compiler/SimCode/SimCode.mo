@@ -60,7 +60,7 @@ import HashTableCrIListArray;
 import HashTableCrefSimVar;
 import HpcOmSimCode;
 import SimCodeVar;
-import MathOperations;
+import MathOperation;
 import SCode;
 
 type ExtConstructor = tuple<DAE.ComponentRef, String, list<DAE.Exp>>;
@@ -134,7 +134,7 @@ uniontype SimCode
     Option<FmiModelStructure> modelStructure;
     PartitionData partitionData;
     Option<DaeModeData> daeModeData;
-    Option<OperationData> modelOperationData; /* model operation data for adolc */
+    Option<MathOperation.OperationData> modelOperationData; /* model operation data for adolc */
   end SIMCODE;
 end SimCode;
 

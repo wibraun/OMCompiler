@@ -268,6 +268,7 @@ uniontype VarKind "variable kind"
     VarKind oldKind;
   end ALG_STATE;
   record DAE_RESIDUAL_VAR end DAE_RESIDUAL_VAR; // variable kind used for DAEmode
+  record TMP_SIMVAR end TMP_SIMVAR; // variable kind used for tmp SimCodeVars
 end VarKind;
 
 public uniontype TearingSelect
