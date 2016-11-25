@@ -274,6 +274,7 @@ uniontype VarKind "variable kind"
   record ALG_STATE_OLD  end ALG_STATE_OLD; // algebraic state old value used by inline solver
   record DAE_RESIDUAL_VAR end DAE_RESIDUAL_VAR; // variable kind used for DAEmode
   record DAE_AUX_VAR end DAE_AUX_VAR; // auxiliary variable used for DAEmode
+  record TMP_SIMVAR end TMP_SIMVAR; // variable kind used for tmp SimCodeVars
 end VarKind;
 
 public uniontype TearingSelect
