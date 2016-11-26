@@ -358,7 +358,7 @@ package SimCode
       PartitionData partitionData;
       Option<DaeModeData> daeModeData;
       list<SimEqSystem> inlineEquations;
-      Option<OperationData> modelOperationData; /* model operation data for adolc */
+      Option<MathOperation.OperationData> modelOperationData; /* model operation data for adolc */
     end SIMCODE;
   end SimCode;
 
@@ -929,18 +929,17 @@ package MathOperation
       Boolean isActive;
     end DIV;
     record POW
-      Boolean isActive;
     end POW;
     record UNARY_NEG
     end UNARY_NEG;
     record UNARY_CALL
-      Absyn.Path path;
+      Absyn.Ident ident;
     end UNARY_CALL;
   end MathOperator;
 
   uniontype Operand
     record OPERAND_VAR
-      SimVar variable;
+      SimCodeVar.SimVar variable;
     end OPERAND_VAR;
     record OPERAND_CONST
       DAE.Exp const;
@@ -958,8 +957,14 @@ package MathOperation
   uniontype OperationData
     record OPERATIONDATA
       list<Operation> operations;
+      Integer maxTmpIndex;
     end OPERATIONDATA;
   end OperationData;
+
+  function printOperatorStr
+    input MathOperator inOp;
+    output String outString;
+  end printOperatorStr;
 end MathOperation;
 
 package SimCodeUtil
