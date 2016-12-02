@@ -4733,17 +4733,6 @@ algorithm
   simVar.varKind := varKind;
 end setSimVarKind;
 
-protected function makeTmpRealSimCodeVar
-  input DAE.ComponentRef inName;
-  input BackendDAE.VarKind inVarKind;
-  output SimCodeVar.SimVar outSimVar;
-algorithm
-  outSimVar := SimCodeVar.SIMVAR(inName, inVarKind, "", "", "", -1 /* use -1 to get an error in simulation if something failed */,
-        NONE(), NONE(), NONE(), NONE(), false, DAE.T_REAL_DEFAULT,
-        false, NONE(), SimCodeVar.NOALIAS(), DAE.emptyElementSource,
-        SimCodeVar.NONECAUS(), NONE(), {}, false, false, false, NONE());
-end makeTmpRealSimCodeVar;
-
 protected function sortSparsePattern
   input list<SimCodeVar.SimVar> inSimVars;
   input list<tuple<DAE.ComponentRef, list<DAE.ComponentRef>>> inSparsePattern;
@@ -8002,6 +7991,19 @@ algorithm
     then true;
   end match;
 end isAliasVar;
+
+public function isSimVarParam
+  input SimCodeVar.SimVar var;
+  output Boolean res;
+algorithm
+  res :=
+  match (var)
+    case (SimCodeVar.SIMVAR(varKind=BackendDAE.PARAM()))
+    then true;
+  else
+    then false;
+  end match;
+end isSimVarParam;
 
 protected function sortSimvars
   input array<list<SimCodeVar.SimVar>> simvars;
