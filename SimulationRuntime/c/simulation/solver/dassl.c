@@ -338,10 +338,15 @@ int dassl_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo,
       dasslData->jacobianFunction =  jacA_num;
       break;
     case ADOLC:
+      /* alloc adolc */
+      dasslData->adolcJac = myalloc2(data->modelData->nStates, data->modelData->nStates);
+      dasslData->adolcParam = (double*) malloc((1+data->modelData->nParametersReal)*sizeof(double));
+      memcpy(&(dasslData->adolcParam[1]), data->simulationInfo->realParameter, sizeof(double)*data->modelData->nParametersReal);
+
       sprintf(filename, "%s_adolcAsciiTrace.txt", data->modelData->modelFilePrefix);
-      sprintf(filename2, "%s_adolcAsciiTrace2.txt", data->modelData->modelFilePrefix);
+      //sprintf(filename2, "%s_adolcAsciiTrace2.txt", data->modelData->modelFilePrefix);
       read_ascii_trace(filename, 0);
-      write_ascii_trace(filename2, 0);
+      //write_ascii_trace(filename2, 0);
       dasslData->jacobianFunction =  JacobianADOLC;
       break;
     case INTERNALNUMJAC:
@@ -382,9 +387,6 @@ int dassl_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo,
   }
   infoStreamPrint(LOG_SOLVER, 0, "dassl performs an restart after an event occurs %s", dasslData->dasslAvoidEventRestart?"NO":"YES");
 
-
-  /* alloc adolc */
-  dasslData->jac_states = myalloc2(data->modelData->nStates, data->modelData->nStates);
 
   /* ### end configuration of dassl ### */
 
@@ -1120,6 +1122,10 @@ static int callJacobian(double *t, double *y, double *yprime, double *deltaD, do
   return 0;
 }
 
+void updateTimeParamLoc(double* param, double t)
+{
+  param[0] = t;
+}
 /*
  * provides a numerical Jacobian to be used with DASSL by ADOLC
  */
@@ -1133,10 +1139,12 @@ static int JacobianADOLC(double *t, double *y, double *yprime, double *deltaD, d
   int i, j, k, l;
 
   /* the first argument is the same number as in function name after system */
-  /* jacobian contains the derivatives of $P$DER$Px w.r.t $Px and $Pu */
-  //set_param_vec(0, 1, t);
+  /* jacobian contains the derivatives of $P$DER$Px w.r.t $Px and */
+
+  updateTimeParamLoc(dasslData->adolcParam, *t);
+  set_param_vec(0, data->modelData->nParametersReal+1, dasslData->adolcParam);
   printCurrentStatesVector(LOG_JAC, y, data, *t);
-  jacobian(0, dasslData->N, dasslData->N, y, dasslData->jac_states);
+  jacobian(0, dasslData->N, dasslData->N, y, dasslData->adolcJac);
 
   /* add cj to diagonal elements and store in pd */
   k = 0;
@@ -1145,7 +1153,7 @@ static int JacobianADOLC(double *t, double *y, double *yprime, double *deltaD, d
   {
     for(j = 0; j < dasslData->N; j++, k++)
     {
-      pd[k] = dasslData->jac_states[j][i];
+      pd[k] = dasslData->adolcJac[j][i];
     }
     pd[l] -= (double) *cj;
     l += dasslData->N + 1;
