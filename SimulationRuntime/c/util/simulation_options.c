@@ -790,6 +790,7 @@ const char *JACOBIAN_METHOD[JAC_MAX] = {
   "numerical",
   "symbolical"
   "adolc",
+  "adolcSparse",
 
   "JAC_MAX"
 };
@@ -803,6 +804,7 @@ const char *JACOBIAN_METHOD_DESC[JAC_MAX] = {
   "Dense numerical Jacobian.",
   "Dense symbolical Jacobian. Needs omc compiler flag --generateSymbolicJacobian.",
   "adolc",
+  "sparse adolc version",
 
   "JAC_MAX"
  };
