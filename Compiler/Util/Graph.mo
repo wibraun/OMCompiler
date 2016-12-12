@@ -41,6 +41,7 @@ encapsulated package Graph
 
 protected import Error;
 protected import List;
+import ExecStat.execStat;
 
 public replaceable type NodeType subtypeof Any;
 public replaceable type ArgType subtypeof Any;
@@ -948,24 +949,31 @@ for each colored vertex x such that (w, x) in E do
 forbiddenColors[color[x]] <- ui
 color[ui ] <- min{c > 0 : forbiddenColors[c] = ui }
 "
-  input list<tuple<Integer, list<Integer>>> inGraphT;
+  input array<tuple<Integer, list<Integer>>> inGraphT;
+  input Integer inGraphTSize;
   input array<Option<list<Integer>>> inforbiddenColor;
   input list<Integer> inColors;
   input array<tuple<Integer, list<Integer>>> inGraph;
-  input array<Integer> inColored;
+  input output array<Integer> colored;
 protected
   Integer node, color;
   list<Integer>  nodes;
   array<Option<list<Integer>>> forbiddenColor;
   Integer color;
   list<tuple<Integer, list<Integer>>> restGraph;
+  constant Boolean debug = true;
 algorithm
   try
-    for tpl in inGraphT loop
-      (node,nodes) := tpl;
-      addForbiddenColorsInt(node, nodes, inColored, inforbiddenColor, inGraph);
+    for i in 1:inGraphTSize loop
+      if debug then execStat("generateSparsePattern -> coloring for start "); end if;
+      ((node,nodes)) := arrayGet(inGraphT, i);
+      if debug then execStat("generateSparsePattern -> coloring node: " + intString(node) +" -> length: " + intString(listLength(nodes))); end if;
+      addForbiddenColorsInt(node, nodes, colored, inforbiddenColor, inGraph);
+      if debug then execStat("generateSparsePattern -> coloring addForbiddenColorsInt "); end if;
       color := arrayFindMinColorIndexInt(inforbiddenColor, node, 1);
-      arrayUpdate(inColored, node, color);
+      if debug then execStat("generateSparsePattern -> coloring arrayFindMinColorIndexInt "); end if;
+      arrayUpdate(colored, node, color);
+      if debug then execStat("generateSparsePattern -> coloring for end "); end if;
     end for;
   else
     Error.addSourceMessage(Error.INTERNAL_ERROR, {"Graph.partialDistance2colorInt failed."}, sourceInfo());

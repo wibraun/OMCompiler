@@ -1076,7 +1076,7 @@ protected function generateSparsePattern "author: wbraun
   output BackendDAE.SparsePattern outSparsePattern;
   output BackendDAE.SparseColoring outColoredCols;
 protected
-  constant Boolean debug = false;
+  constant Boolean debug = true;
 algorithm
   (outSparsePattern,outColoredCols) := matchcontinue(inBackendDAE,inIndependentVars,inDependentVars)
     local
@@ -1246,7 +1246,7 @@ protected
   array<Integer> colored;
   array<Option<list<Integer>>> forbiddenColor;
   list<tuple<Integer, list<Integer>>> sparseGraph, sparseGraphT;
-  array<tuple<Integer, list<Integer>>> arraysparseGraph;
+  array<tuple<Integer, list<Integer>>> arraysparseGraph, arraysparseGraphT;
   Integer maxColor;
 algorithm
   try
@@ -1271,9 +1271,10 @@ algorithm
     forbiddenColor := arrayCreate(sizeVars,NONE());
     colored := arrayCreate(sizeVars,0);
     arraysparseGraph := listArray(sparseGraph);
+    arraysparseGraphT := listArray(sparseGraphT);
     if debug then execStat("generateSparsePattern -> coloring start "); end if;
     if (sizeVars>0) then
-      Graph.partialDistance2colorInt(sparseGraphT, forbiddenColor, nodesList, arraysparseGraph, colored);
+      colored := Graph.partialDistance2colorInt(arraysparseGraphT, sizeVars, forbiddenColor, nodesList, arraysparseGraph, colored);
     end if;
     if debug then execStat("generateSparsePattern -> coloring end "); end if;
     // get max color used
@@ -2422,7 +2423,7 @@ protected function calculateTearingSetJacobian
   output BackendDAE.Shared outShared;
 protected
   String name, prename;
-  Boolean debug = false, onlySparsePattern=false;
+  Boolean debug = true, onlySparsePattern=false;
 
   BackendDAE.Variables diffVars, oVars, resVars;
   BackendDAE.EquationArray resEqns, oEqns;
@@ -2493,7 +2494,7 @@ algorithm
       String name;
       Boolean mixedSystem, linear;
 
-      Boolean debug = false, onlySparsePattern = true;
+      Boolean debug = true, onlySparsePattern = true;
       BackendDAE.TearingSet strictTearingset, causalTearingSet;
       Option<BackendDAE.TearingSet> optCausalTearingSet;
 
@@ -2521,16 +2522,19 @@ algorithm
         equation
           //generate jacobian name
           name = "NLSJac" + intString(System.tmpTickIndex(Global.backendDAE_jacobianSeq));
+          if debug then execStat("calculateJacobianComponent -> for component:" + name); end if;
 
           // get iteration vars
           iterationvars = List.map1r(iterationvarsInts, BackendVariable.getVarAt, inVars);
           iterationvars = List.map(iterationvars, BackendVariable.transformXToXd);
           iterationvars = listReverse(iterationvars);
           diffVars = BackendVariable.listVar1(iterationvars);
+          if debug then execStat("calculateJacobianComponent -> got iteration variables"); end if;
 
           // get residual eqns
           reqns = BackendEquation.getEqns(residualequations, inEqns);
           reqns = BackendEquation.replaceDerOpInEquationList(reqns);
+          if debug then execStat("calculateJacobianComponent -> got equations"); end if;
 
           //check if we are able to calc symbolic jacobian
           if checkForSymbolicJacobian(reqns, {}, name) and Flags.isSet(Flags.NLS_ANALYTIC_JACOBIAN) then
@@ -2549,6 +2553,7 @@ algorithm
             resVars = diffVars;
             resEqns = BackendEquation.listEquation(reqns);
           end if;
+          if debug then execStat("calculateJacobianComponent -> converted equations into residual form"); end if;
 
           // other eqns and vars are empty
           oeqns = BackendEquation.listEquation({});
@@ -2675,9 +2680,11 @@ algorithm
       BackendDAE.ExtraInfo einfo;
 
       DAE.FunctionTree funcs;
+      Boolean debug = true;
 
     case(_, _, _, _, _, _, _, _)
       equation
+        if debug then execStat("getSymbolicJacobian -> start "); end if;
         globalKnownVars = BackendDAEUtil.getGlobalKnownVarsFromShared(inShared);
         funcs = BackendDAEUtil.getFunctions(inShared);
         einfo = BackendDAEUtil.getExtraInfo(inShared);
@@ -2703,8 +2710,11 @@ algorithm
 
         // dependentVarsLst = listReverse(dependentVarsLst);
         dependentVars = BackendVariable.mergeVariables(inResVars, inotherVars);
+        if debug then execStat("getSymbolicJacobian -> got variables "); end if;
+
         eqns = BackendEquation.mergeEquationArray(inResEquations, inotherEquations);
 
+        if debug then execStat("getSymbolicJacobian -> merged equations"); end if;
         if Flags.isSet(Flags.JAC_DUMP2) then
           print("\n---+++ created backend system +++---\n");
           print("\n---+++ vars +++---\n");
@@ -2715,12 +2725,16 @@ algorithm
 
         // create known variables
         knvarLst1 = BackendEquation.equationsVars(eqns, globalKnownVars);
+        if debug then execStat("getSymbolicJacobian -> get var from eqns"); end if;
         knvarLst2 = BackendEquation.equationsVars(eqns, inAllVars);
+        if debug then execStat("getSymbolicJacobian -> get var from eqns"); end if;
         // Create a list of known variables true *only* for this shared system
         globalKnownVars = BackendVariable.listVar2(knvarLst1,knvarLst2);
         // Remove inputs for the jacobian
         globalKnownVars = BackendVariable.removeCrefs(independentComRefs, globalKnownVars);
+        if debug then execStat("getSymbolicJacobian -> rm vars from global"); end if;
         globalKnownVars = BackendVariable.removeCrefs(otherVarsLstComRefs, globalKnownVars);
+        if debug then execStat("getSymbolicJacobian -> rm vars2 from global"); end if;
 
         if Flags.isSet(Flags.JAC_DUMP2) then
           print("\n---+++ known variables +++---\n");
@@ -2735,6 +2749,7 @@ algorithm
         shared = BackendDAEUtil.setSharedGlobalKnownVars(shared, globalKnownVars);
         shared = BackendDAEUtil.setSharedFunctionTree(shared, funcs);
         backendDAE = BackendDAE.DAE({BackendDAEUtil.createEqSystem(dependentVars, eqns)}, shared);
+        if debug then execStat("getSymbolicJacobian -> created backendDAE"); end if;
 
         if Flags.isSet(Flags.JAC_DUMP2) then
           BackendDump.bltdump("System",backendDAE);
@@ -2742,6 +2757,7 @@ algorithm
 
         backendDAE = BackendDAEUtil.transformBackendDAE(backendDAE, SOME((BackendDAE.NO_INDEX_REDUCTION(), BackendDAE.EXACT())), NONE(), NONE());
         BackendDAE.DAE({BackendDAE.EQSYSTEM(orderedVars = dependentVars)}, BackendDAE.SHARED(globalKnownVars = globalKnownVars)) = backendDAE;
+        if debug then execStat("getSymbolicJacobian -> optimize backendDAE"); end if;
 
         // prepare creation of symbolic jacobian
         // create dependent variables
@@ -2756,6 +2772,7 @@ algorithm
           dependentVarsLst,
           inName,
           inOnlySparsePattern);
+        if debug then execStat("getSymbolicJacobian -> generate generic jacobian"); end if;
 
         shared = BackendDAEUtil.setSharedFunctionTree(inShared, funcs);
 
