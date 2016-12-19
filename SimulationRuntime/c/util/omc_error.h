@@ -107,6 +107,7 @@ enum LOG_STREAM
   LOG_RT,
   LOG_SIMULATION,
   LOG_SOLVER,
+  LOG_SOLVER_V,
   LOG_SOLVER_CONTEXT,
   LOG_SOTI,
   LOG_STATS,
@@ -195,7 +196,7 @@ extern void va_throwStreamPrint(threadData_t *threadData, const char *format, va
 extern void throwStreamPrint(threadData_t *threadData, const char *format, ...) __attribute__ ((format (printf, 2, 3), noreturn));
 extern void throwStreamPrintWithEquationIndexes(threadData_t *threadData, const int *indexes, const char *format, ...) __attribute__ ((format (printf, 3, 4), noreturn));
 #ifdef HAVE_VA_MACROS
-#define assertStreamPrint(threadData, cond, ...) (cond) ? (void) 0 : throwStreamPrint((threadData), __VA_ARGS__)
+#define assertStreamPrint(threadData, cond, ...) if (!(cond)) {throwStreamPrint((threadData), __VA_ARGS__); assert(0);}
 #else
 static void OMC_INLINE assertStreamPrint(threadData_t *threadData, int cond, const char *format, ...) __attribute__ ((format (printf, 3, 4)));
 static void OMC_INLINE assertStreamPrint(threadData_t *threadData, int cond, const char *format, ...)

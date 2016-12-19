@@ -629,12 +629,9 @@ argument returns [void* ast]
 
 element_modification_or_replaceable returns [void* ast]
 @init { ast = NULL; em.ast = NULL; e = 0; f = 0; } :
-    (e=EACH)? (f=FINAL)? ( em=element_modification[e ? Absyn__EACH : Absyn__NON_5fEACH, mmc_mk_bcon(f)]
-                         | er=element_replaceable[e != NULL,f != NULL,false]
+    (e=EACH)? (f=FINAL)? ( em=element_modification[e ? Absyn__EACH : Absyn__NON_5fEACH, mmc_mk_bcon(f)] { ast = $em.ast; }
+                         | er=element_replaceable[e != NULL,f != NULL,false] { ast = $er.ast; }
                          )
-      {
-        ast = $em.ast ? $em.ast : $er.ast;
-      }
     ;
 
 element_modification [void *each, void *final] returns [void* ast]
@@ -1382,7 +1379,7 @@ name_path returns [void* ast]
 name_path2 returns [void* ast]
 @init{ id = 0; p = 0; } :
     { LA(2) != DOT }? (id=IDENT|id=CODE) { ast = Absyn__IDENT(token_to_scon(id)); }
-  | (id=IDENT | id=CODE) DOT p=name_path { ast = Absyn__QUALIFIED(token_to_scon(id),p); }
+  | (id=IDENT | id=CODE) DOT p=name_path2 { ast = Absyn__QUALIFIED(token_to_scon(id),p); }
   ;
 
 name_path_star returns [void* ast, int unqual, void* lst]

@@ -2351,6 +2351,7 @@ algorithm
 
     case (_,_,e,_,pre,_)
       equation
+        true = Flags.isSet(Flags.FAILTRACE);
         Print.printErrorBuf("- Inst.elabGraphicsExp failed: ");
         ps = PrefixUtil.printPrefixStr2(pre);
         s = Dump.printExpStr(e);
@@ -6952,7 +6953,7 @@ algorithm
   end match;
 end elabBuiltinHandlerInternal;
 
-protected function isBuiltinFunc "Returns true if the function name given as argument
+public function isBuiltinFunc "Returns true if the function name given as argument
   is a builtin function, which either has a elabBuiltinHandler function
   or can be found in the builtin environment."
   input Absyn.Path inPath "the path of the found function";
@@ -7877,7 +7878,8 @@ algorithm
                                                                          functionParallelism=funcParal)),
    vect_dims,
    slots) := elabTypes(cache, inEnv, args, nargs, typelist, onlyOneFunction, true/* Check types*/, impl,isExternalObject,st,pre,info)
-   "The constness of a function depends on the inputs. If all inputs are constant the call itself is constant." ;
+   "The constness of a function depends on the inputs. If all inputs are constant the call itself is constant.";
+
   (fn_1,functype) := deoverloadFuncname(fn, functype, inEnv);
   tuple_ := Types.isTuple(restype);
   (isBuiltin,builtin,fn_1) := isBuiltinFunc(fn_1,functype);
@@ -7925,7 +7927,7 @@ algorithm
   outCache := cache;
 end elabCallArgs3;
 
-protected function inlineBuiltin
+public function inlineBuiltin
   input DAE.FunctionBuiltin isBuiltin;
   input DAE.InlineType inlineType;
   output DAE.InlineType outInlineType;

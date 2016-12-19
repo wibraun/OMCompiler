@@ -1114,25 +1114,25 @@ algorithm
     // is an empty pattern for the dependent variables
     case (_,_,{}) then (({},{},({},{}),-1),{});
     case(BackendDAE.DAE(eqs = (syst as BackendDAE.EQSYSTEM(matching=bdaeMatching as BackendDAE.MATCHING(comps=comps, ass1=ass1)))::{}),independentVars,dependentVars)
-      equation
+      algorithm
         if Flags.isSet(Flags.DUMP_SPARSE_VERBOSE) then
           print(" start getting sparsity pattern for variables : " + intString(listLength(dependentVars))  + " and the independent vars: " + intString(listLength(independentVars)) +"\n");
         end if;
         if debug then execStat("generateSparsePattern -> do start "); end if;
         // prepare crefs
-        depCompRefsLst = List.map(dependentVars, BackendVariable.varCref);
-        inDepCompRefsLst = List.map(independentVars, BackendVariable.varCref);
-        depCompRefs = listArray(depCompRefsLst);
-        inDepCompRefs = listArray(inDepCompRefsLst);
+        depCompRefsLst := List.map(dependentVars, BackendVariable.varCref);
+        inDepCompRefsLst := List.map(independentVars, BackendVariable.varCref);
+        depCompRefs := listArray(depCompRefsLst);
+        inDepCompRefs := listArray(inDepCompRefsLst);
         // create jacobian vars
-        jacDiffVars =  list(BackendVariable.createpDerVar(v) for v in independentVars);
-        sizeN = arrayLength(inDepCompRefs);
+        jacDiffVars := list(BackendVariable.createpDerVar(v) for v in independentVars);
+        sizeN := arrayLength(inDepCompRefs);
 
         // generate adjacency matrix including diff vars
-        (syst1 as BackendDAE.EQSYSTEM(orderedVars=varswithDiffs,orderedEqs=orderedEqns)) = BackendDAEUtil.addVarsToEqSystem(syst,jacDiffVars);
-        (adjMatrix, adjMatrixT) = BackendDAEUtil.incidenceMatrix(syst1,BackendDAE.SPARSE(),NONE());
-        adjSize = arrayLength(adjMatrix) "number of equations";
-        adjSizeT = arrayLength(adjMatrixT) "number of variables";
+        (syst1 as BackendDAE.EQSYSTEM(orderedVars=varswithDiffs,orderedEqs=orderedEqns)) := BackendDAEUtil.addVarsToEqSystem(syst,jacDiffVars);
+        (adjMatrix, adjMatrixT) := BackendDAEUtil.incidenceMatrix(syst1,BackendDAE.SPARSE(),NONE());
+        adjSize := arrayLength(adjMatrix) "number of equations";
+        adjSizeT := arrayLength(adjMatrixT) "number of variables";
 
         // Debug dumping
         if Flags.isSet(Flags.DUMP_SPARSE_VERBOSE) then
@@ -1144,8 +1144,8 @@ algorithm
         end if;
 
         // get indexes of diffed vars (rows)
-        nodesEqnsIndex = BackendVariable.getVarIndexFromVars(dependentVars,varswithDiffs);
-        nodesEqnsIndex = List.map1(nodesEqnsIndex, Array.getIndexFirst, ass1);
+        nodesEqnsIndex := BackendVariable.getVarIndexFromVars(dependentVars,varswithDiffs);
+        nodesEqnsIndex := List.map1(nodesEqnsIndex, Array.getIndexFirst, ass1);
 
         // debug dump
         if Flags.isSet(Flags.DUMP_SPARSE_VERBOSE) then
@@ -1156,19 +1156,19 @@ algorithm
         end if;
 
         // prepare data for getSparsePattern
-        eqnSparse = arrayCreate(adjSize, {});
-        varSparse = arrayCreate(adjSizeT, {});
-        mark = arrayCreate(adjSizeT, 0);
-        usedvar = arrayCreate(adjSizeT, 0);
+        eqnSparse := arrayCreate(adjSize, {});
+        varSparse := arrayCreate(adjSizeT, {});
+        mark := arrayCreate(adjSizeT, 0);
+        usedvar := arrayCreate(adjSizeT, 0);
 
         // make dependent variables as used if there are some
         // otherwise Array.setRange fails start is greater than end
         if (sizeN>0) then
-          usedvar = Array.setRange(adjSizeT-(sizeN-1), adjSizeT, usedvar, 1);
+          usedvar := Array.setRange(adjSizeT-(sizeN-1), adjSizeT, usedvar, 1);
         end if;
 
         if debug then execStat("generateSparsePattern -> start "); end if;
-        eqnSparse = getSparsePattern(comps, eqnSparse, varSparse, mark, usedvar, 1, adjMatrix, adjMatrixT);
+        eqnSparse := getSparsePattern(comps, eqnSparse, varSparse, mark, usedvar, 1, adjMatrix, adjMatrixT);
         if debug then execStat("generateSparsePattern -> end "); end if;
         // debug dump
         if Flags.isSet(Flags.DUMP_SPARSE_VERBOSE) then
@@ -1177,20 +1177,21 @@ algorithm
         end if;
 
         // select nodesEqnsIndex and map index to incoming vars
-        sparseArray = Array.select(eqnSparse, nodesEqnsIndex);
-        sparsepattern = arrayList(sparseArray);
-        sparsepattern = List.map1List(sparsepattern, intSub, adjSizeT-sizeN);
-        sparseArray = listArray(sparsepattern);
+        sparseArray := Array.select(eqnSparse, nodesEqnsIndex);
+        sparsepattern := arrayList(sparseArray);
+
+        sparsepattern := List.map1List(sparsepattern, intSub, adjSizeT-sizeN);
+        sparseArray := listArray(sparsepattern);
 
         if debug then execStat("generateSparsePattern -> postProcess "); end if;
 
         // transpose the column-based pattern to row-based pattern
-        sparseArrayT = arrayCreate(sizeN,{});
-        sparseArrayT = transposeSparsePattern(sparsepattern, sparseArrayT, 1);
-        sparsepatternT = arrayList(sparseArrayT);
-        if debug then execStat("generateSparsePattern -> postProcess2 "); end if;
+        sparseArrayT := arrayCreate(sizeN,{});
+        sparseArrayT := transposeSparsePattern(sparsepattern, sparseArrayT, 1);
+        sparsepatternT := arrayList(sparseArrayT);
+        nonZeroElements := List.lengthListElements(sparsepattern);
+        if debug then execStat("generateSparsePattern -> transpose done "); end if;
 
-        nonZeroElements = List.lengthListElements(sparsepattern);
         if Flags.isSet(Flags.DUMP_SPARSE_VERBOSE) then
           // dump statistics
           dumpSparsePatternStatistics(nonZeroElements,sparsepatternT);
@@ -1199,25 +1200,28 @@ algorithm
           //execStat("generateSparsePattern -> nonZeroElements: " + intString(nonZeroElements) + " " ,ClockIndexes.RT_CLOCK_EXECSTAT_BACKEND_MODULES);
         end if;
 
-
         // translated to DAE.ComRefs
-        translated = list(list(arrayGet(inDepCompRefs, i) for i in lst) for lst in sparsepattern);
-        sparsetuple = list((cr,t) threaded for cr in depCompRefs, t in translated);
-        translated = list(list(arrayGet(depCompRefs, i) for i in lst) for lst in sparsepatternT);
-        sparsetupleT = list((cr,t) threaded for cr in inDepCompRefs, t in translated);
+        translated := list(list(arrayGet(inDepCompRefs, i) for i in lst) for lst in sparsepattern);
+        sparsetuple := list((cr,t) threaded for cr in depCompRefs, t in translated);
+        translated := list(list(arrayGet(depCompRefs, i) for i in lst) for lst in sparsepatternT);
+        sparsetupleT := list((cr,t) threaded for cr in inDepCompRefs, t in translated);
 
-        // get coloring based on sparse pattern
-        coloredArray = createColoring(sparseArray, sparseArrayT, sizeN, adjSize);
+        if debug then execStat("generateSparsePattern -> coloring start "); end if;
+        if not Flags.isSet(Flags.DISABLE_COLORING) then
+          // get coloring based on sparse pattern
+          coloredArray := createColoring(sparseArray, sparseArrayT, sizeN, adjSize);
+          coloring := list(list(arrayGet(inDepCompRefs, i) for i in lst) for lst in coloredArray);
+        else
+          //without coloring
+          coloring := list({arrayGet(inDepCompRefs, i)} for i in 1:sizeN);
+        end if;
+        if debug then execStat("generateSparsePattern -> coloring done "); end if;
 
-        coloring = list(list(arrayGet(inDepCompRefs, i) for i in lst) for lst in coloredArray);
-
-        //without coloring
-        //coloring = List.transposeList({inDepCompRefs});
         if Flags.isSet(Flags.DUMP_SPARSE_VERBOSE) then
           print("analytical Jacobians[SPARSE] -> ready! " + realString(clock()) + "\n");
         end if;
 
-        outSparsePattern = (sparsetupleT, sparsetuple, (inDepCompRefsLst, depCompRefsLst), nonZeroElements);
+        outSparsePattern := (sparsetupleT, sparsetuple, (inDepCompRefsLst, depCompRefsLst), nonZeroElements);
         if Flags.isSet(Flags.DUMP_SPARSE) then
           BackendDump.dumpSparsityPattern(outSparsePattern, " --- SparsityPattern ---");
           BackendDump.dumpSparseColoring(coloring, " --- Sparsity Coloring ---");
@@ -2393,15 +2397,15 @@ algorithm
     try // this might fail because of algorithms TODO: fix it!
       (b1, _) := BackendEquation.traverseExpsOfEquationList_WithStop(inResidualEqns, traverserhasEqnNonDiffParts, ({}, true, false));
       (b2, _) := BackendEquation.traverseExpsOfEquationList_WithStop(inOtherEqns, traverserhasEqnNonDiffParts, ({}, true, false));
-	    if not (b1 and b2) then
-	      if Flags.isSet(Flags.FAILTRACE) then
-	        Debug.traceln("Skip symbolic jacobian for non-linear system " + name + "\n");
-	      end if;
-	      out := false;
-	    else
-	      out := true;
-	    end if;
-	  else
+      if not (b1 and b2) then
+        if Flags.isSet(Flags.FAILTRACE) then
+          Debug.traceln("Skip symbolic jacobian for non-linear system " + name + "\n");
+        end if;
+        out := false;
+      else
+        out := true;
+      end if;
+    else
       out := false;
     end try;
   else
@@ -2424,39 +2428,39 @@ protected
   BackendDAE.Variables diffVars, oVars, resVars;
   BackendDAE.EquationArray resEqns, oEqns;
 algorithm
-	try
-	  // check non-linear flag
-	  if not isLinear and not Flags.isSet(Flags.NLS_ANALYTIC_JACOBIAN) then
-	   onlySparsePattern := true;
-	  end if;
-	  // generate jacobian name
-	  if isLinear then
-	    prename := "LS";
-	  else
-	    prename := "NLS";
-	  end if;
-	  name := prename + "Jac" + intString(System.tmpTickIndex(Global.backendDAE_jacobianSeq));
+  try
+    // check non-linear flag
+    if not isLinear and not Flags.isSet(Flags.NLS_ANALYTIC_JACOBIAN) then
+     onlySparsePattern := true;
+    end if;
+    // generate jacobian name
+    if isLinear then
+      prename := "LS";
+    else
+      prename := "NLS";
+    end if;
+    name := prename + "Jac" + intString(System.tmpTickIndex(Global.backendDAE_jacobianSeq));
 
-	  if debug then
-	    print("*** "+ prename + "-JAC *** start creating Jacobian for a torn system " + name + " of size " + intString(listLength(inTearingSet.tearingvars)) + " time: " + realString(clock()) + "\n");
-	  end if;
+    if debug then
+      print("*** "+ prename + "-JAC *** start creating Jacobian for a torn system " + name + " of size " + intString(listLength(inTearingSet.tearingvars)) + " time: " + realString(clock()) + "\n");
+    end if;
 
-	  (diffVars, resVars, oVars, resEqns, oEqns) := prepareTornStrongComponentData(inVars, inEqns, inTearingSet.tearingvars, inTearingSet.residualequations, inTearingSet.innerEquations);
+    (diffVars, resVars, oVars, resEqns, oEqns) := prepareTornStrongComponentData(inVars, inEqns, inTearingSet.tearingvars, inTearingSet.residualequations, inTearingSet.innerEquations);
 
-	  if debug then
-	    print("*** "+ prename + "-JAC *** prepared all data for differentiation at time: " + realString(clock()) + "\n");
-	  end if;
+    if debug then
+      print("*** "+ prename + "-JAC *** prepared all data for differentiation at time: " + realString(clock()) + "\n");
+    end if;
 
     //check if we are able to calc symbolic jacobian
     if not (isLinear or checkForSymbolicJacobian(BackendEquation.equationList(resEqns), BackendEquation.equationList(oEqns), name)) then
       onlySparsePattern := true;
     end if;
 
-	  // generate generic jacobian backend dae
+    // generate generic jacobian backend dae
     (outJacobian, outShared) := getSymbolicJacobian(diffVars, resEqns, resVars, oEqns, oVars, inShared, inVars, name, onlySparsePattern);
-	else
-	  fail();
-	end try;
+  else
+    fail();
+  end try;
 end calculateTearingSetJacobian;
 
 protected function calculateJacobianComponent
@@ -3424,7 +3428,7 @@ end traverserjacobianNonlinearExp;
 protected function jacobianConstant "author: PA
   Checks if Jacobian is constant, i.e. all expressions in each equation are constant."
   input list<tuple<Integer, Integer, BackendDAE.Equation>> inTplIntegerIntegerEquationLst;
-  output Boolean outBoolean;
+  output Boolean outBoolean=true;
 protected
   DAE.Exp e1,e2, e;
   tuple<Integer, Integer, BackendDAE.Equation> tpl;

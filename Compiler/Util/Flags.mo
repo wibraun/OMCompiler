@@ -186,7 +186,7 @@ constant DebugFlag DUMP_INLINE_SOLVER = DEBUG_FLAG(7, "dumpInlineSolver", false,
   Util.gettext("Dumps the inline solver equation system."));
 constant DebugFlag EVAL_FUNC = DEBUG_FLAG(8, "evalfunc", true,
   Util.gettext("Turns on/off symbolic function evaluation."));
-constant DebugFlag GEN = DEBUG_FLAG(9, "gen", true,
+constant DebugFlag GEN = DEBUG_FLAG(9, "gen", false,
   Util.gettext("Turns on/off dynamic loading of functions that are compiled during translation. Only enable this if external functions are needed to calculate structural parameters or constants."));
 constant DebugFlag DYN_LOAD = DEBUG_FLAG(10, "dynload", false,
   Util.gettext("Display debug information about dynamic loading of compiled functions."));
@@ -509,6 +509,11 @@ constant DebugFlag PARTITION_INITIALIZATION = DEBUG_FLAG(167, "partitionInitiali
   Util.gettext("This flag controls if partitioning is applied to the initialization system."));
 constant DebugFlag EVAL_PARAM_DUMP = DEBUG_FLAG(168, "evalParameterDump", false,
   Util.gettext("Dumps information for evaluating parameters."));
+constant DebugFlag NF_UNITCHECK = DEBUG_FLAG(169, "frontEndUnitCheck", false,
+  Util.gettext("Checks the consistency of units in equation."));
+constant DebugFlag DISABLE_COLORING = DEBUG_FLAG(170, "disableColoring", false,
+  Util.gettext("Disables coloring algorithm while spasity detection."));
+
 
 // This is a list of all debug flags, to keep track of which flags are used. A
 // flag can not be used unless it's in this list, and the list is checked at
@@ -683,7 +688,9 @@ constant list<DebugFlag> allDebugFlags = {
   BLT_MATRIX_DUMP,
   LIST_REVERSE_WRONG_ORDER,
   PARTITION_INITIALIZATION,
-  EVAL_PARAM_DUMP
+  EVAL_PARAM_DUMP,
+  NF_UNITCHECK,
+  DISABLE_COLORING
 };
 
 public
@@ -1323,7 +1330,10 @@ constant ConfigFlag EVALUATE_PROTECTED_PARAMS = CONFIG_FLAG(108, "evaluateProtec
 constant ConfigFlag REPLACE_EVALUATED_PARAMS = CONFIG_FLAG(109, "replaceEvaluatedParameters",
   NONE(), EXTERNAL(), BOOL_FLAG(true), NONE(),
   Util.gettext("Replaces all the evaluated parameters in the DAE."));
-constant ConfigFlag GEN_ADOLC_TRACE = CONFIG_FLAG(110, "adolcTrace",
+constant ConfigFlag CONDENSE_ARRAYS = CONFIG_FLAG(110, "condenseArrays",
+  NONE(), EXTERNAL(), BOOL_FLAG(true), NONE(),
+  Util.gettext("Sets whether array expressions containing function calls are condensed or not."));
+constant ConfigFlag GEN_ADOLC_TRACE = CONFIG_FLAG(111, "adolcTrace",
   NONE(), INTERNAL(), BOOL_FLAG(false), NONE(),
   Util.gettext("Generate ADOL-C ascii trace file."));
 
@@ -1441,6 +1451,7 @@ constant list<ConfigFlag> allConfigFlags = {
   EVALUATE_FINAL_PARAMS,
   EVALUATE_PROTECTED_PARAMS,
   REPLACE_EVALUATED_PARAMS,
+  CONDENSE_ARRAYS,
   GEN_ADOLC_TRACE
 };
 

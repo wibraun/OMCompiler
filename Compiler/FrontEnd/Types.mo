@@ -317,6 +317,7 @@ algorithm
     case (DAE.T_CLOCK()) then true;
     case (DAE.T_ENUMERATION()) then true;
     case (DAE.T_SUBTYPE_BASIC(complexType = t)) then isSimpleType(t);
+    case (DAE.T_FUNCTION(funcResultType = t)) then isSimpleType(t);
     else false;
   end match;
 end isSimpleType;
@@ -331,6 +332,7 @@ algorithm
     case (DAE.T_REAL()) then true;
     case (DAE.T_INTEGER()) then true;
     case (DAE.T_SUBTYPE_BASIC(complexType = t)) then isSimpleNumericType(t);
+    case (DAE.T_FUNCTION(funcResultType = t)) then isSimpleNumericType(t);
     else false;
   end match;
 end isSimpleNumericType;
@@ -344,6 +346,7 @@ algorithm
 
     case (DAE.T_ARRAY(ty = ty)) then isNumericType(ty);
     case (DAE.T_SUBTYPE_BASIC(complexType = ty)) then isNumericType(ty);
+    case (DAE.T_FUNCTION(funcResultType = ty)) then isNumericType(ty);
     else isSimpleNumericType(inType);
 
   end match;
@@ -396,6 +399,7 @@ algorithm
   b := match(ity)
     local Type ty;
     case (DAE.T_SUBTYPE_BASIC(complexType = ty)) then isComplexType(ty);
+    case (DAE.T_FUNCTION(funcResultType = ty)) then isComplexType(ty);
     case (DAE.T_COMPLEX(varLst = _::_)) then true; // not derived from baseclass
     else false;
   end match;
@@ -1579,6 +1583,12 @@ algorithm
         true = subtype(t1,t2,requireRecordNamesEqual);
       then true;
 
+    case (DAE.T_FUNCTION(funcResultType = t1),t2)
+      then subtype(t1,t2,requireRecordNamesEqual);
+
+    case (t1,DAE.T_FUNCTION(funcResultType = t2))
+      then subtype(t1,t2,requireRecordNamesEqual);
+
     case (DAE.T_FUNCTION_REFERENCE_VAR(functionType = t1),DAE.T_FUNCTION_REFERENCE_VAR(functionType = t2))
       then subtype(t1,t2);
 
@@ -2044,6 +2054,8 @@ algorithm
       equation
         (ty,dim) = unliftArrayOrList(ty);
       then (ty,dim);
+    case (DAE.T_FUNCTION(funcResultType = ty))
+      then unliftArrayOrList(ty);
   end match;
 end unliftArrayOrList;
 
@@ -2057,6 +2069,8 @@ algorithm
     case DAE.T_SUBTYPE_BASIC()
       then if listEmpty(getDimensions(inType.complexType)) then
           inType else arrayElementType(inType.complexType);
+
+    case DAE.T_FUNCTION() then arrayElementType(inType.funcResultType);
 
     else inType;
   end match;
@@ -5905,7 +5919,7 @@ public function matchType
   input DAE.Exp inExp;
   input DAE.Type inActualType;
   input DAE.Type inExpectedType;
-  input Boolean inPrintFailtrace;
+  input Boolean inPrintFailtrace=false;
   output DAE.Exp outExp;
   output DAE.Type outType;
 algorithm

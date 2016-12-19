@@ -139,10 +139,10 @@ protected function generateModelCodeFMU "
   output Real timeTemplates;
 protected
   list<String> includes,includeDirs;
-  list<SimCode.Function> functions;
+  list<SimCodeFunction.Function> functions;
   String filename, funcfilename;
   SimCode.SimCode simCode;
-  list<SimCode.RecordDeclaration> recordDecls;
+  list<SimCodeFunction.RecordDeclaration> recordDecls;
   BackendDAE.BackendDAE indexed_dlow,indexed_dlow_1;
   Absyn.ComponentRef a_cref;
   list<String> libPaths;
@@ -184,10 +184,10 @@ protected function generateModelCodeXML "
   output Real timeTemplates;
 protected
   list<String> includes,includeDirs;
-  list<SimCode.Function> functions;
+  list<SimCodeFunction.Function> functions;
   String filename, funcfilename;
   SimCode.SimCode simCode;
-  list<SimCode.RecordDeclaration> recordDecls;
+  list<SimCodeFunction.RecordDeclaration> recordDecls;
   BackendDAE.BackendDAE indexed_dlow,indexed_dlow_1;
   list<String> libPaths;
   Absyn.ComponentRef a_cref;
@@ -248,7 +248,7 @@ algorithm
       String description;
       Boolean symbolicJacActivated;
       Boolean fmi20;
-      Boolean flagValue;
+      Boolean notExperimental, flagValue;
       BackendDAE.BackendDAE initDAE;
       Option<BackendDAE.BackendDAE> initDAE_lambda0;
       Boolean useHomotopy "true if homotopy(...) is used during initialization";
@@ -270,8 +270,9 @@ algorithm
         fmi20 = FMI.isFMIVersion20(FMUVersion);
         symbolicJacActivated = Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_LINEARIZATION);
         Flags.setConfigBool(Flags.GENERATE_SYMBOLIC_LINEARIZATION, fmi20);
-        if not Flags.isSet(Flags.FMU_EXPERIMENTAL) then
-            flagValue = Flags.enableDebug(Flags.DIS_SYMJAC_FMI20);
+        notExperimental = not Flags.isSet(Flags.FMU_EXPERIMENTAL);
+        if notExperimental then
+          flagValue = Flags.enableDebug(Flags.DIS_SYMJAC_FMI20);
         end if;
 
         _ = FCore.getFunctionTree(cache);
@@ -286,8 +287,8 @@ algorithm
 
         //reset config flag
         Flags.setConfigBool(Flags.GENERATE_SYMBOLIC_LINEARIZATION, symbolicJacActivated);
-        if not Flags.isSet(Flags.FMU_EXPERIMENTAL) then
-            Flags.set(Flags.DIS_SYMJAC_FMI20, flagValue);
+        if notExperimental then
+          Flags.set(Flags.DIS_SYMJAC_FMI20, flagValue);
         end if;
 
         resultValues =
@@ -411,9 +412,9 @@ public function generateModelCode "
   output Real timeTemplates;
 protected
   list<String> includes, includeDirs,libPaths;
-  list<SimCode.Function> functions;
+  list<SimCodeFunction.Function> functions;
   SimCode.SimCode simCode;
-  list<SimCode.RecordDeclaration> recordDecls;
+  list<SimCodeFunction.RecordDeclaration> recordDecls;
   Absyn.ComponentRef a_cref;
   tuple<Integer, HashTableExpToIndex.HashTable, list<DAE.Exp>> literals;
   list<tuple<String, String>> program;
@@ -453,14 +454,14 @@ protected function createSimCode "
   input Absyn.Path inClassName;
   input String filenamePrefix;
   input String inString11;
-  input list<SimCode.Function> functions;
+  input list<SimCodeFunction.Function> functions;
   input list<String> externalFunctionIncludes;
   input list<String> includeDirs;
   input list<String> libs;
   input list<String> libPaths;
   input Absyn.Program program;
   input Option<SimCode.SimulationSettings> simSettingsOpt;
-  input list<SimCode.RecordDeclaration> recordDecls;
+  input list<SimCodeFunction.RecordDeclaration> recordDecls;
   input tuple<Integer, HashTableExpToIndex.HashTable, list<DAE.Exp>> literals;
   input Absyn.FunctionArgs args;
   input Boolean isFMU=false;

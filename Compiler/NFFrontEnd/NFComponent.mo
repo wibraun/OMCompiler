@@ -37,31 +37,53 @@ import NFDimension.Dimension;
 import NFInstNode.InstNode;
 import NFMod.Modifier;
 import SCode.Element;
+import SCode;
 
+protected
+import NFInstUtil;
+
+public
 constant Component.Attributes DEFAULT_ATTR =
-  Component.Attributes.ATTRIBUTES(DAE.VARIABLE(), DAE.BIDIR(), DAE.PUBLIC(), DAE.NON_CONNECTOR());
+  Component.Attributes.ATTRIBUTES(
+     DAE.NON_CONNECTOR(),
+     DAE.NON_PARALLEL(),
+     DAE.VARIABLE(),
+     DAE.BIDIR(),
+     DAE.NOT_INNER_OUTER(),
+     DAE.PUBLIC());
+
 constant Component.Attributes INPUT_ATTR =
-  Component.Attributes.ATTRIBUTES(DAE.VARIABLE(), DAE.INPUT(), DAE.PUBLIC(), DAE.NON_CONNECTOR());
-constant Component.Scope DEFAULT_SCOPE = Component.Scope.RELATIVE_COMP(0);
+  Component.Attributes.ATTRIBUTES(
+     DAE.NON_CONNECTOR(),
+     DAE.NON_PARALLEL(),
+     DAE.VARIABLE(),
+     DAE.INPUT(),
+     DAE.NOT_INNER_OUTER(),
+     DAE.PUBLIC());
+
+constant Component.Attributes OUTPUT_ATTR =
+  Component.Attributes.ATTRIBUTES(
+     DAE.NON_CONNECTOR(),
+     DAE.NON_PARALLEL(),
+     DAE.VARIABLE(),
+     DAE.OUTPUT(),
+     DAE.NOT_INNER_OUTER(),
+     DAE.PUBLIC());
 
 uniontype Component
   uniontype Attributes
     record ATTRIBUTES
+      // adrpo: keep the order in DAE.ATTR
+      DAE.ConnectorType connectorType;
+      DAE.VarParallelism parallelism;
       DAE.VarKind variability;
       DAE.VarDirection direction;
+      DAE.VarInnerOuter innerOuter;
       DAE.VarVisibility visibility;
-      DAE.ConnectorType connectorType;
     end ATTRIBUTES;
   end Attributes;
 
-  uniontype Scope
-    record RELATIVE_COMP
-      Integer level;
-    end RELATIVE_COMP;
-  end Scope;
-
   record COMPONENT_DEF
-    Element definition;
     Modifier modifier;
   end COMPONENT_DEF;
 
@@ -70,7 +92,6 @@ uniontype Component
     array<Dimension> dimensions;
     Binding binding;
     Component.Attributes attributes;
-    SourceInfo info;
   end UNTYPED_COMPONENT;
 
   record TYPED_COMPONENT
@@ -80,20 +101,6 @@ uniontype Component
     Component.Attributes attributes;
   end TYPED_COMPONENT;
 
-  record EXTENDS_NODE
-    InstNode node;
-  end EXTENDS_NODE;
-
-  function isNamedComponent
-    input Component component;
-    output Boolean isNamed;
-  algorithm
-    isNamed := match component
-      case EXTENDS_NODE() then false;
-      else true;
-    end match;
-  end isNamedComponent;
-
   function classInstance
     input Component component;
     output InstNode classInst;
@@ -101,7 +108,6 @@ uniontype Component
     classInst := match component
       case UNTYPED_COMPONENT() then component.classInst;
       case TYPED_COMPONENT() then component.classInst;
-      case EXTENDS_NODE() then component.node;
     end match;
   end classInstance;
 
@@ -119,12 +125,6 @@ uniontype Component
       case TYPED_COMPONENT()
         algorithm
           component.classInst := classInst;
-        then
-          ();
-
-      case EXTENDS_NODE()
-        algorithm
-          component.node := classInst;
         then
           ();
 
@@ -198,6 +198,43 @@ uniontype Component
       else ();
     end match;
   end unliftType;
+
+  function getAttributes
+    input Component component;
+    output Component.Attributes attr;
+  algorithm
+    attr := match component
+      case UNTYPED_COMPONENT() then component.attributes;
+      case TYPED_COMPONENT() then component.attributes;
+    end match;
+  end getAttributes;
+
+  function getBinding
+    input Component component;
+    output NFBinding.Binding b;
+  algorithm
+    b := match component
+      case UNTYPED_COMPONENT() then component.binding;
+      case TYPED_COMPONENT() then component.binding;
+    end match;
+  end getBinding;
+
+  function attr2DaeAttr
+    input Attributes attr;
+    output DAE.Attributes daeAttr;
+  algorithm
+    daeAttr := match(attr)
+      case ATTRIBUTES()
+        then DAE.ATTR(
+               NFInstUtil.daeToSCodeConnectorType(attr.connectorType),
+               NFInstUtil.daeToSCodeParallelism(attr.parallelism),
+               NFInstUtil.daeToSCodeVariability(attr.variability),
+               NFInstUtil.daeToAbsynDirection(attr.direction),
+               NFInstUtil.daeToAbsynInnerOuter(attr.innerOuter),
+               NFInstUtil.daeToSCodeVisibility(attr.visibility));
+    end match;
+  end attr2DaeAttr;
+
 end Component;
 
 annotation(__OpenModelica_Interface="frontend");

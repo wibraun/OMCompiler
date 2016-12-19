@@ -43,10 +43,9 @@ import SCode;
 import Builtin = NFBuiltin;
 import NFBinding.Binding;
 import NFComponent.Component;
-import NFComponentNode.ComponentNode;
 import NFDimension.Dimension;
-import NFInstance.ClassTree;
-import NFInstance.Instance;
+import NFClass.ClassTree;
+import NFClass.Class;
 import NFInstNode.InstNode;
 import NFInstNode.InstNodeType;
 import NFMod.Modifier;
@@ -64,6 +63,8 @@ import Lookup = NFLookup;
 import MetaModelica.Dangerous;
 import System;
 import Typing = NFTyping;
+import SCodeUtil;
+import ExecStat.{execStat,execStatReset};
 
 public
 function instClassInProgram
@@ -73,44 +74,45 @@ function instClassInProgram
   input SCode.Program program;
   output DAE.DAElist dae;
 protected
-  InstNode top, cls;
+  InstNode top, cls, inst_cls;
   Component top_comp;
-  ComponentNode top_comp_node;
+  InstNode top_comp_node;
+  String name;
 algorithm
-  System.startTimer();
+  execStatReset();
 
   // Create a root node from the given top-level classes.
   top := makeTopNode(program);
+  name := Absyn.pathString(classPath);
 
   // Look up the class to instantiate and mark it as the root class.
   cls := Lookup.lookupClassName(classPath, top, Absyn.dummyInfo);
   cls := InstNode.setNodeType(InstNodeType.ROOT_CLASS(), cls);
 
-  // Create an anonymous component from the class to instantiate and use it as
-  // the root of the instance tree.
-  top_comp := Component.UNTYPED_COMPONENT(cls, listArray({}),
-    Binding.UNBOUND(), NFComponent.DEFAULT_ATTR, Absyn.dummyInfo);
-  top_comp_node := ComponentNode.COMPONENT_NODE("<top>",
-    InstNode.definition(cls), listArray({top_comp}), ComponentNode.EMPTY_NODE());
+  // Instantiate the class.
+  inst_cls := instantiate(cls, Modifier.NOMOD(), cls);
 
-  // Instantiate, type and flatten the class.
-  cls := instantiate(cls, Modifier.NOMOD(), top_comp_node);
+  // The components in inst_cls will have cls as their parent, but since
+  // instantiate doesn't update nodes with the instantiated class (only
+  // expanded) it means that the component's parent won't be an instantiated
+  // class. But the node is mutable, so we can just update cls here.
 
-  // Update the instantiated class inside the top component.
-  top_comp := Component.setClassInstance(cls, top_comp);
-  top_comp_node := ComponentNode.replaceComponent(top_comp, top_comp_node);
+  cls := InstNode.updateClass(InstNode.getClass(inst_cls), cls);
+  execStat("NFInst.instantiate("+ name +")");
 
-  cls := Typing.typeClass(cls, top_comp_node);
-  dae := NFFlatten.flattenClass(cls);
+  // Type and flatten the class.
+  inst_cls := Typing.typeClass(inst_cls);
+  execStat("NFTyping.typeClass("+ name +")");
 
-  System.stopTimer();
-  //print("NFInst done in " + String(System.getTimerIntervalTime()) + "\n");
+  dae := Flatten.flatten(inst_cls);
+  execStat("NFFlatten.flatten("+ name +")");
+
 end instClassInProgram;
 
 function instantiate
   input output InstNode node;
   input Modifier modifier;
-  input ComponentNode parent;
+  input InstNode parent;
 algorithm
   node := partialInstClass(node);
   node := expandClass(node);
@@ -131,7 +133,7 @@ function makeTopNode
 protected
   SCode.Element cls;
   ClassTree.Tree scope;
-  Instance i;
+  Class c;
 algorithm
   // Create a fake SCode.Element for the top scope, so we don't have to make the
   // definition in InstNode an option.
@@ -141,12 +143,12 @@ algorithm
     SCode.COMMENT(NONE(), NONE()), Absyn.dummyInfo);
 
   // Make an InstNode for the top scope.
-  topNode := InstNode.new("<top>", cls, InstNode.EMPTY_NODE(), InstNodeType.TOP_SCOPE());
+  topNode := InstNode.newClass(cls, InstNode.EMPTY_NODE(), InstNodeType.TOP_SCOPE());
 
-  // Create a scope from the top classes, and insert them into the top scope instance.
+  // Create a scope from the top classes, and insert them into the top scope class.
   scope := makeScope(topClasses, topNode);
-  i := Instance.initExpandedClass(scope);
-  topNode := InstNode.setInstance(i, topNode);
+  c := Class.initExpandedClass(scope);
+  topNode := InstNode.updateClass(c, topNode);
 end makeTopNode;
 
 function makeScope
@@ -168,7 +170,7 @@ algorithm
       // A class, create a new instance node for it and add it to the tree.
       case SCode.CLASS()
         algorithm
-          node := InstNode.new(e.name, e, parentScope);
+          node := InstNode.newClass(e, parentScope);
           scope := addClassToScope(e.name, ClassTree.Entry.CLASS(node), e.info, scope);
         then
           ();
@@ -261,13 +263,13 @@ end addImportsToScope;
 function partialInstClass
   input output InstNode node;
 protected
-  Instance i;
+  Class c;
 algorithm
-  () := match InstNode.instance(node)
-    case Instance.NOT_INSTANTIATED()
+  () := match InstNode.getClass(node)
+    case Class.NOT_INSTANTIATED()
       algorithm
-        i := partialInstClass2(InstNode.definition(node), node);
-        node := InstNode.setInstance(i, node);
+        c := partialInstClass2(InstNode.definition(node), node);
+        node := InstNode.updateClass(c, node);
       then
         ();
 
@@ -278,9 +280,9 @@ end partialInstClass;
 function partialInstClass2
   input SCode.Element definition;
   input InstNode scope;
-  output Instance instance;
+  output Class cls;
 algorithm
-  instance := match definition
+  cls := match definition
     local
       SCode.ClassDef cdef;
       ClassTree.Tree classes;
@@ -290,17 +292,17 @@ algorithm
       algorithm
         (classes, elements) := makeScope(cdef.elementLst, scope);
       then
-        Instance.PARTIAL_CLASS(classes, elements, Modifier.NOMOD());
+        Class.PARTIAL_CLASS(classes, elements, Modifier.NOMOD());
 
-    else Instance.PARTIAL_CLASS(ClassTree.new(), {}, Modifier.NOMOD());
+    else Class.PARTIAL_CLASS(ClassTree.new(), {}, Modifier.NOMOD());
   end match;
 end partialInstClass2;
 
 function expandClass
   input output InstNode node;
 algorithm
-  node := match InstNode.instance(node)
-    case Instance.PARTIAL_CLASS()
+  node := match InstNode.getClass(node)
+    case Class.PARTIAL_CLASS()
       then expandClass2(node);
     else node;
   end match;
@@ -315,41 +317,46 @@ algorithm
     local
       Absyn.TypeSpec ty;
       SCode.Mod der_mod;
-      SCode.Element ext;
-      Instance i;
+      SCode.Element ext, cls;
+      Class c;
       SCode.ClassDef cdef;
       ClassTree.Tree scope;
       list<SCode.Element> elements;
-      list<ComponentNode> components;
+      list<InstNode> components;
       Integer idx;
       list<Equation> eq, ieq;
       list<list<Statement>> alg, ialg;
       InstNode n;
       Modifier mod;
-      list<ComponentNode> ext_nodes;
-      Option<ComponentNode> builtin_ext;
-      ComponentNode builtin_comp;
+      list<InstNode> ext_nodes;
+      Option<InstNode> builtin_ext;
+      InstNode builtin_comp;
+      SCode.Ident name;
+      SCode.Prefixes prefixes;
+      SCode.Comment cmt;
+      SourceInfo info;
+      list<SCode.Enum> enumLst;
 
     case SCode.CLASS(classDef = SCode.DERIVED(typeSpec = ty, modifications = der_mod))
       algorithm
         ext := SCode.EXTENDS(Absyn.typeSpecPath(ty), SCode.PUBLIC(),
           der_mod, NONE(), Absyn.dummyInfo);
         def.classDef := SCode.PARTS({ext}, {}, {}, {}, {}, {}, {}, NONE());
-        i := Instance.PARTIAL_CLASS(ClassTree.new(), {ext},
-          Instance.getModifier(InstNode.instance(node)));
-        node := InstNode.setInstance(i, node);
+        c := Class.PARTIAL_CLASS(ClassTree.new(), {ext},
+          Class.getModifier(InstNode.getClass(node)));
+        node := InstNode.updateClass(c, node);
         node := InstNode.setDefinition(def, node);
       then
         expandClass2(node);
 
     case SCode.CLASS(classDef = cdef as SCode.PARTS())
       algorithm
-        Instance.PARTIAL_CLASS(classes = scope, elements = elements, modifier = mod) :=
-          InstNode.instance(node);
+        Class.PARTIAL_CLASS(classes = scope, elements = elements, modifier = mod) :=
+          InstNode.getClass(node);
 
-        // Change the instance to an empty expanded instance, to avoid instantiation loops.
-        i := Instance.initExpandedClass(scope);
-        node := InstNode.setInstance(i, node);
+        // Change the class to an empty expanded class, to avoid instantiation loops.
+        c := Class.initExpandedClass(scope);
+        node := InstNode.updateClass(c, node);
 
         // Expand all the extends clauses.
         (components, scope, ext_nodes, builtin_ext) :=
@@ -362,10 +369,10 @@ algorithm
           // Add component ID:s to the scope.
           idx := 1;
           for c in components loop
-            //  // TODO: Handle components with the same name.
-            //  // TODO: If duplicate components should be handled here, also
-            //  //       remove them from the list of components.
-            scope := ClassTree.add(scope, ComponentNode.name(c),
+            // TODO: Handle components with the same name.
+            // TODO: If duplicate components should be handled here, also
+            //       remove them from the list of components.
+            scope := ClassTree.add(scope, InstNode.name(c),
               ClassTree.Entry.COMPONENT(idx), ClassTree.addConflictReplace);
 
             idx := idx + 1;
@@ -376,15 +383,23 @@ algorithm
           alg := instAlgorithmSections(cdef.normalAlgorithmLst, node);
           ialg := instAlgorithmSections(cdef.initialAlgorithmLst, node);
 
-          i := Instance.EXPANDED_CLASS(scope, ext_nodes, listArray(components), mod, eq, ieq, alg, ialg);
-          node := InstNode.setInstance(i, node);
+          c := Class.EXPANDED_CLASS(scope, ext_nodes, listArray(components), mod, eq, ieq, alg, ialg);
+          node := InstNode.updateClass(c, node);
         end if;
       then
         node;
 
+     // transform SCode.ENUMERATION into a normal class
+     case SCode.CLASS(name=name, prefixes = prefixes, classDef = SCode.ENUMERATION(enumLst), cmt = cmt, info = info)
+       algorithm
+         cls := SCodeUtil.expandEnumeration(name, enumLst, prefixes, cmt, info);
+         node := InstNode.setDefinition(cls, node);
+       then
+         expandClass2(node);
+
     else
       algorithm
-        Error.addInternalError("NFInst.expandClass2 got unknown class.", Absyn.dummyInfo);
+        assert(false, getInstanceName() + " got unknown class");
       then
         fail();
 
@@ -401,17 +416,16 @@ function expandExtends
   input list<SCode.Element> elements;
   input String className;
   input InstNode currentScope;
-        output list<ComponentNode> components = {};
+        output list<InstNode> components = {};
   input output ClassTree.Tree scope;
-  output list<ComponentNode> extendsNodes = {};
-  output Option<ComponentNode> builtinExtends = NONE();
+  output list<InstNode> extendsNodes = {};
+  output Option<InstNode> builtinExtends = NONE();
 protected
   InstNode ext_node;
-  Instance ext_inst;
+  Class ext_inst;
   Modifier mod;
   ModifierScope mod_scope;
   Boolean is_builtin, builtin_ext;
-  ComponentNode ext_comp;
 algorithm
   for e in elements loop
     () := match e
@@ -419,52 +433,54 @@ algorithm
         algorithm
           // Look up the name and expand the class.
           ext_node := Lookup.lookupBaseClassName(e.baseClassPath, currentScope, e.info);
-          is_builtin := Instance.isBuiltin(InstNode.instance(ext_node));
+          is_builtin := Class.isBuiltin(InstNode.getClass(ext_node));
 
           if not is_builtin then
             // TODO: Reinstantiating the class might not be needed any more.
             // TODO: Inherited components need unique scopes, so the class needs
             //       to at least be cloned.
-            ext_node := InstNode.setInstance(Instance.NOT_INSTANTIATED(), ext_node);
+            ext_node := InstNode.updateClass(Class.NOT_INSTANTIATED(), ext_node);
             ext_node := InstNode.setNodeType(InstNodeType.BASE_CLASS(currentScope), ext_node);
             ext_node := InstNode.rename(ext_node, className);
             ext_node := expand(ext_node);
           end if;
 
+          ext_node := InstNode.setDefinition(e, ext_node);
+
           // Initialize the modifiers from the extends clause.
           mod_scope := ModifierScope.EXTENDS_SCOPE(e.baseClassPath);
+          // adrpo: TODO! FIXME! the modifier scope of the extends clause should be the currentScope not ext_node??!!
           mod := Modifier.create(e.modifications, "", mod_scope, currentScope);
 
-          // Apply the modifier from the extends clause to the expanded instance.
-          ext_inst := InstNode.instance(ext_node);
+          // Apply the modifier from the extends clause to the expanded class.
+          ext_inst := InstNode.getClass(ext_node);
           ext_inst := applyModifier(mod, ext_inst, mod_scope);
-          ext_node := InstNode.setInstance(ext_inst, ext_node);
+          ext_node := InstNode.updateClass(ext_inst, ext_node);
 
-          ext_comp := ComponentNode.newExtends(ext_node, e);
-          ext_inst := InstNode.instance(ext_node);
+          ext_inst := InstNode.getClass(ext_node);
           builtin_ext := isBuiltinExtends(ext_inst);
 
           if not builtin_ext then
-            components := addInheritedComponentRefs(ext_inst, components, ext_comp);
+            components := addInheritedComponentRefs(ext_inst, components, ext_node);
             scope := addInheritedClasses(ext_inst, scope);
           else
-            builtinExtends := SOME(ext_comp);
+            builtinExtends := SOME(ext_node);
           end if;
 
-          extendsNodes := ext_comp :: extendsNodes;
+          extendsNodes := ext_node :: extendsNodes;
         then
           ();
 
       case SCode.COMPONENT()
         algorithm
           // A component, add it to the list of components.
-          components := ComponentNode.new(e.name, e) :: components;
+          components := InstNode.newComponent(e) :: components;
         then
           ();
 
       else
         algorithm
-          Error.addInternalError("NFInst.expandExtends got unknown element!", Absyn.dummyInfo);
+          assert(false, getInstanceName() + " got unknown element");
         then
           fail();
 
@@ -474,65 +490,62 @@ end expandExtends;
 
 function isBuiltinExtends
   "Checks if an extends is extending a builtin type."
-  input Instance instance;
+  input Class cls;
   output Boolean isBuiltinExtends;
 algorithm
-  isBuiltinExtends := match instance
-    case Instance.PARTIAL_BUILTIN() then true;
+  isBuiltinExtends := match cls
+    case Class.PARTIAL_BUILTIN() then true;
     else false;
   end match;
 end isBuiltinExtends;
 
 function expandBuiltinExtends
   "This function handles the case where a class extends from a builtin type."
-  input ComponentNode builtinExtends;
-  input list<ComponentNode> extendsNodes;
-  input list<ComponentNode> components;
+  input InstNode builtinExtends;
+  input list<InstNode> extendsNodes;
+  input list<InstNode> components;
   input ClassTree.Tree scope;
   input Modifier modifier;
   input output InstNode node;
 protected
   InstNode n;
-  Instance i;
+  Class c;
   Modifier mod;
 algorithm
-  Component.EXTENDS_NODE(node = n) := ComponentNode.component(builtinExtends);
-
   // A class extending from a builtin type may not have any other elements.
   if listLength(extendsNodes) <> 1 or listLength(components) > 0 or
       not ClassTree.isEmpty(scope) then
     Error.addSourceMessage(Error.BUILTIN_EXTENDS_INVALID_ELEMENTS,
-      {InstNode.name(n)},
-      SCode.elementInfo(ComponentNode.definition(builtinExtends)));
+      {InstNode.name(builtinExtends)}, InstNode.info(builtinExtends));
     fail();
   end if;
 
-  // Fetch the instance of the builtin type.
-  i := InstNode.instance(n);
+  // Fetch the class of the builtin type.
+  c := InstNode.getClass(builtinExtends);
 
-  // Apply the given modifier to the instance.
-  mod := Modifier.merge(Instance.getModifier(i), modifier);
-  i := Instance.setModifier(mod, i);
+  // Apply the given modifier to the class.
+  mod := Modifier.merge(Class.getModifier(c), modifier);
+  c := Class.setModifier(mod, c);
 
-  // Replace the instance of the class we're expanding with the builtin type's instance.
-  node := InstNode.setInstance(i, node);
+  // Replace the class we're expanding with the builtin type.
+  node := InstNode.updateClass(c, node);
 end expandBuiltinExtends;
 
 function applyModifier
-  "Takes a modifier and applies the submodifiers in it to an instance."
+  "Takes a modifier and applies the submodifiers in it to an class."
   input Modifier modifier;
-  input output Instance instance;
+  input output Class cls;
   input ModifierScope modifierScope;
 algorithm
-  () := match instance
+  () := match cls
     local
       list<Modifier> mods;
       ClassTree.Tree elements;
-      array<ComponentNode> components;
+      array<InstNode> components;
       ClassTree.Entry entry;
       InstNode node;
 
-    case Instance.EXPANDED_CLASS(elements = elements, components = components)
+    case Class.EXPANDED_CLASS(elements = elements, components = components)
       algorithm
         mods := Modifier.toList(modifier);
 
@@ -554,7 +567,7 @@ algorithm
             // Modifier is for a component, add it to the component in the array.
             case ClassTree.Entry.COMPONENT()
               algorithm
-                ComponentNode.apply(components[entry.index], Component.mergeModifier, m);
+                InstNode.componentApply(components[entry.index], Component.mergeModifier, m);
               then
                 ();
 
@@ -567,15 +580,14 @@ algorithm
                       // might as well partially instantiate it now to simplify the
                       // modifier handling a bit.
                       entry.node := partialInstClass(entry.node);
-                      InstNode.apply(entry.node, Instance.setModifier, m);
+                      InstNode.classApply(entry.node, Class.setModifier, m);
                     then
                       ();
 
                   case Modifier.REDECLARE()
                     algorithm
-                      node := InstNode.new(SCode.elementName(m.element), m.element, m.scope);
-                      elements := ClassTree.add(elements, InstNode.name(node),
-                        ClassTree.Entry.CLASS(node), ClassTree.addConflictReplace);
+                      elements := ClassTree.add(elements, InstNode.name(m.element),
+                      ClassTree.Entry.CLASS(m.element), ClassTree.addConflictReplace);
                     then
                       ();
 
@@ -585,12 +597,14 @@ algorithm
 
           end match;
         end for;
+
+        cls.elements := elements;
       then
         ();
 
-    case Instance.PARTIAL_BUILTIN()
+    case Class.PARTIAL_BUILTIN()
       algorithm
-        instance.modifier := Modifier.merge(modifier, instance.modifier);
+        cls.modifier := Modifier.merge(modifier, cls.modifier);
       then
         ();
 
@@ -599,27 +613,26 @@ algorithm
 end applyModifier;
 
 function addInheritedComponentRefs
-  input Instance extendsInstance;
-  input output list<ComponentNode> components;
-  input ComponentNode parent;
+  input Class extendsClass;
+  input output list<InstNode> components;
+  input InstNode parent;
 protected
-  ComponentNode cn;
+  InstNode cn;
 algorithm
-  () := match extendsInstance
-    case Instance.EXPANDED_CLASS()
+  () := match extendsClass
+    case Class.EXPANDED_CLASS()
       algorithm
-        for i in arrayLength(extendsInstance.components):-1:1 loop
-          cn := arrayGet(extendsInstance.components, i);
+        for i in arrayLength(extendsClass.components):-1:1 loop
+          cn := arrayGet(extendsClass.components, i);
 
-          components := match ComponentNode.component(cn)
+          components := match InstNode.component(cn)
             // Collect all the component definitions.
             case Component.COMPONENT_DEF() then cn :: components;
 
             // Any other component shouldn't show up here.
             else
               algorithm
-                Error.addInternalError("NFInst.addInheritedComponentRefs got unknown component.",
-                  ComponentNode.info(cn));
+                assert(false, getInstanceName() + " got unknown component.");
               then
                 fail();
           end match;
@@ -630,13 +643,13 @@ algorithm
 end addInheritedComponentRefs;
 
 function addInheritedClasses
-  input Instance extendsInstance;
+  input Class extendsClass;
   input output ClassTree.Tree scope;
 algorithm
-  () := match extendsInstance
-    case Instance.EXPANDED_CLASS()
+  () := match extendsClass
+    case Class.EXPANDED_CLASS()
       algorithm
-        scope := ClassTree.fold(extendsInstance.elements, addInheritedClasses2, scope);
+        scope := ClassTree.fold(extendsClass.elements, addInheritedClasses2, scope);
       then
         ();
   end match;
@@ -657,65 +670,65 @@ end addInheritedClasses2;
 function instClass
   input output InstNode node;
   input Modifier modifier;
-  input ComponentNode parent;
+  input InstNode parent;
 protected
-  Instance i, i_mod;
-  array<ComponentNode> components;
-  ClassTree.Tree scope;
+  Class c;
+  array<InstNode> components;
   Modifier type_mod, mod;
   list<Modifier> type_mods, inst_type_mods;
   Binding binding;
   InstNode n, cur_scope;
-  list<ComponentNode> ext_nodes;
-  Component c;
+  list<InstNode> ext_nodes;
+  String name;
 algorithm
-  i := InstNode.instance(node);
-
-  () := match i
+  () := match InstNode.getClass(node)
     // A normal class.
-    case Instance.EXPANDED_CLASS(elements = scope)
+    case Class.EXPANDED_CLASS()
       algorithm
-        // Clone the instance node, since each component needs a unique instance.
+        // Clone the instance node, since each component needs a unique type.
         node := InstNode.clone(node);
+        c := InstNode.getClass(node);
+        Class.EXPANDED_CLASS(modifier = mod, extendsNodes = ext_nodes) := c;
 
-        // Apply the modifier to the instance.
-        mod := Modifier.merge(modifier, i.modifier);
-        i_mod := applyModifier(modifier, i,
+        // Apply the modifier to the class.
+        mod := Modifier.merge(modifier, mod);
+        c := applyModifier(modifier, c,
           ModifierScope.CLASS_SCOPE(InstNode.name(node)));
 
         // Instantiate all the extends nodes first.
-        Instance.EXPANDED_CLASS(extendsNodes = ext_nodes) := i_mod;
         for ext in ext_nodes loop
-          Component.EXTENDS_NODE(node = n) := ComponentNode.component(ext);
           // No modifier, the modifier on the extends clause has already been
           // applied in expandExtends.
-          instClass(n, Modifier.NOMOD(), ext);
+          instClass(ext, Modifier.NOMOD(), ext);
         end for;
 
         // Instantiate all local components. This will skip inherited
         // components, since those have already been instantiated.
-        components := Array.map(Instance.components(i_mod),
+        components := Array.map(Class.components(c),
           function instComponent(parent = parent, scope = node));
 
-        // Update the instance node with the new instance.
-        i_mod := Instance.INSTANCED_CLASS(scope, components,
-          i.equations, i.initialEquations, i.algorithms, i.initialAlgorithms);
-        node := InstNode.setInstance(i_mod, node);
+        // Update the node with the new instance.
+        c := Class.instExpandedClass(components, c);
+        node := InstNode.updateClass(c, node);
       then
         ();
 
     // A builtin type.
-    case Instance.PARTIAL_BUILTIN()
+    case Class.PARTIAL_BUILTIN()
       algorithm
+        // Clone the node, since each component needs a unique type.
         node := InstNode.clone(node);
-        inst_type_mods := {};
+        c := InstNode.getClass(node);
+        Class.PARTIAL_BUILTIN(name = name, modifier = mod) := c;
+
         // Merge any outer modifiers on the class with the class' own modifier.
-        type_mod := Modifier.merge(modifier, i.modifier);
+        type_mod := Modifier.merge(modifier, mod);
 
         // If the modifier isn't empty, instantiate it.
+        inst_type_mods := {};
         if not Modifier.isEmpty(type_mod) then
           type_mods := Modifier.toList(type_mod);
-          cur_scope := InstNode.parentScope(node);
+          cur_scope := InstNode.parent(node);
 
           // Instantiate the binding of each submodifier.
           for m in type_mods loop
@@ -734,8 +747,8 @@ algorithm
           end for;
         end if;
 
-        i_mod := Instance.INSTANCED_BUILTIN(i.name, inst_type_mods);
-        node := InstNode.setInstance(i_mod, node);
+        c := Class.INSTANCED_BUILTIN(name, inst_type_mods);
+        node := InstNode.updateClass(c, node);
       then
         ();
 
@@ -744,9 +757,9 @@ algorithm
 end instClass;
 
 function instComponent
-  input output ComponentNode node;
-  input ComponentNode parent;
-  input InstNode scope;
+  input output InstNode node "The component node to instantiate.";
+  input InstNode parent "The parent of the component, usually another component.";
+  input InstNode scope "The scope containing the component.";
 protected
   Component component, inst_comp;
   String name;
@@ -758,31 +771,28 @@ protected
   Component.Attributes attr;
   list<Dimension> dims;
 algorithm
-  component := ComponentNode.component(node);
+  component := InstNode.component(node);
+  comp := InstNode.definition(node);
 
-  () := match component
-    case Component.COMPONENT_DEF(modifier = comp_mod as Modifier.REDECLARE())
+  () := match (component, comp)
+    case (Component.COMPONENT_DEF(modifier = comp_mod as Modifier.REDECLARE()), _)
       algorithm
-        component := Component.COMPONENT_DEF(comp_mod.element, Modifier.NOMOD());
-        node := ComponentNode.updateComponent(component, node);
-        node := instComponent(node, parent, comp_mod.scope);
+        node := instComponent(comp_mod.element, parent, InstNode.parent(comp_mod.element));
       then
         ();
 
-    case Component.COMPONENT_DEF(definition = comp as SCode.COMPONENT())
+    case (Component.COMPONENT_DEF(), SCode.COMPONENT())
       algorithm
-        name := ComponentNode.name(node);
-        node := ComponentNode.clone(node);
-        node := ComponentNode.setOrphanParent(parent, node);
+        name := InstNode.name(node);
+        node := InstNode.setOrphanParent(parent, node);
 
         // Merge the modifier from the component.
         comp_mod := Modifier.create(comp.modifications, name,
-          ModifierScope.COMPONENT_SCOPE(name), scope);
+          ModifierScope.COMPONENT_SCOPE(name), parent);
         comp_mod := Modifier.merge(component.modifier, comp_mod);
         comp_mod := Modifier.propagate(comp_mod, listLength(comp.attributes.arrayDims));
 
         binding := instBinding(Modifier.binding(comp_mod), scope);
-        comp_mod := Modifier.propagateScope(comp_mod);
 
         // Instantiate the type of the component.
         cls := instTypeSpec(comp.typeSpec, comp_mod, scope, node, comp.info);
@@ -793,8 +803,8 @@ algorithm
 
         // Instantiate attributes and create the untyped component.
         attr := instComponentAttributes(comp.attributes, comp.prefixes);
-        inst_comp := Component.UNTYPED_COMPONENT(cls, listArray(dims), binding, attr, comp.info);
-        node := ComponentNode.updateComponent(inst_comp, node);
+        inst_comp := Component.UNTYPED_COMPONENT(cls, listArray(dims), binding, attr);
+        node := InstNode.updateComponent(inst_comp, node);
       then
         ();
 
@@ -807,23 +817,27 @@ function instComponentAttributes
   input SCode.Prefixes compPrefs;
   output Component.Attributes attributes;
 protected
+  DAE.ConnectorType connectorType;
+  DAE.VarParallelism parallelism;
   DAE.VarKind variability;
   DAE.VarDirection direction;
+  DAE.VarInnerOuter innerOuter;
   DAE.VarVisibility visiblity;
-  DAE.ConnectorType connectorType;
 algorithm
+  connectorType := InstUtil.translateConnectorType(compAttr.connectorType);
+  parallelism := InstUtil.translateParallelism(compAttr.parallelism);
   variability := InstUtil.translateVariability(compAttr.variability);
   direction := InstUtil.translateDirection(compAttr.direction);
+  innerOuter := InstUtil.translateInnerOuter(compPrefs.innerOuter);
   visiblity := InstUtil.translateVisibility(compPrefs.visibility);
-  connectorType := InstUtil.translateConnectorType(compAttr.connectorType);
-  attributes := Component.Attributes.ATTRIBUTES(variability, direction, visiblity, connectorType);
+  attributes := Component.Attributes.ATTRIBUTES(connectorType, parallelism, variability, direction, innerOuter, visiblity);
 end instComponentAttributes;
 
 function instTypeSpec
   input Absyn.TypeSpec typeSpec;
   input Modifier modifier;
   input InstNode scope;
-  input ComponentNode parent;
+  input InstNode parent;
   input SourceInfo info;
   output InstNode node;
 algorithm
@@ -1140,8 +1154,7 @@ algorithm
 
     else
       algorithm
-        Error.addInternalError("NFInst.instEEquation: Unknown equation",
-          SCode.getEEquationInfo(scodeEq));
+        assert(false, getInstanceName() + " got unknown equation");
       then
         fail();
 
@@ -1269,8 +1282,7 @@ algorithm
 
     else
       algorithm
-        Error.addInternalError("NFInst.instStatement: Unknown statement",
-          SCode.getStatementInfo(scodeStmt));
+        assert(false, getInstanceName() + " got unknown statement");
       then
         fail();
 

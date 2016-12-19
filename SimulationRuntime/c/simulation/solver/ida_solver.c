@@ -216,7 +216,7 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
   for(i=0; i < data->modelData->nStates; ++i)
   {
     tmp[i] = data->simulationInfo->tolerance * fmax(fabs(data->modelData->realVarsData[i].attribute.nominal), 1e-32);
-     infoStreamPrint(LOG_SOLVER, 0, "%ld. %s -> %g", i+1, data->modelData->realVarsData[i].info.name, tmp[i]);
+     infoStreamPrint(LOG_SOLVER_V, 0, "%ld. %s -> %g", i+1, data->modelData->realVarsData[i].info.name, tmp[i]);
   }
   /* daeMode: set nominal values for algebraic variables */
   if (idaData->daeMode)
@@ -537,7 +537,7 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
 
     flag = IDASetInitStep(idaData->ida_mem, initialStepSize);
     if (checkIDAflag(flag)){
-      throwStreamPrint(threadData, "##IDA## Set intial step size failed!");
+      throwStreamPrint(threadData, "##IDA## Set initial step size failed!");
     }
     infoStreamPrint(LOG_SOLVER, 0, "initial step size: %g", initialStepSize);
   }
@@ -1161,29 +1161,13 @@ int jacOwnNumColoredIDA(double tt, N_Vector yy, N_Vector yp, N_Vector rr, DlsMat
     {
       if(sparsePattern->colorCols[ii]-1 == i)
       {
-        if (idaData->daeMode)
+        j = sparsePattern->leadindex[ii];
+        while(j < sparsePattern->leadindex[ii+1])
         {
-          j = sparsePattern->leadindex[ii];
-          while(j < sparsePattern->leadindex[ii+1])
-          {
-            l  =  sparsePattern->index[j];
-            DENSE_ELEM(Jac, l, ii) = (newdelta[l] - delta[l]) * delta_hh[ii];
-            j++;
-          };
-        }
-        else
-        {
-          if(ii==0)
-            j = 0;
-          else
-            j = sparsePattern->leadindex[ii-1];
-          while(j < sparsePattern->leadindex[ii])
-          {
-            l  =  sparsePattern->index[j];
-            DENSE_ELEM(Jac, l, ii) = (newdelta[l] - delta[l]) * delta_hh[ii];
-            j++;
-          };
-        }
+          l  =  sparsePattern->index[j];
+          DENSE_ELEM(Jac, l, ii) = (newdelta[l] - delta[l]) * delta_hh[ii];
+          j++;
+        };
         states[ii] = ysave[ii];
         if (idaData->daeMode)
         {
@@ -1448,26 +1432,13 @@ int jacobianSparseNumIDA(double tt, N_Vector yy, N_Vector yp, N_Vector rr, SlsMa
     {
       if(sparsePattern->colorCols[ii]-1 == i)
       {
-        if (idaData->daeMode)
+        nth = sparsePattern->leadindex[ii];
+        while(nth < sparsePattern->leadindex[ii+1])
         {
-          nth = sparsePattern->leadindex[ii];
-          while(nth < sparsePattern->leadindex[ii+1])
-          {
-            j  =  sparsePattern->index[nth];
-            setJacElementKluSparse(j, ii, (newdelta[j] - delta[j]) * delta_hh[ii], nth, Jac);
-            nth++;
-          };
-        }
-        else
-        {
-          nth = (ii == 0) ?  0 : sparsePattern->leadindex[ii-1];
-          while(nth < sparsePattern->leadindex[ii])
-          {
-            j  =  sparsePattern->index[nth];
-            setJacElementKluSparse(j, ii, (newdelta[j] - delta[j]) * delta_hh[ii], nth, Jac);
-            nth++;
-          };
-        }
+          j  =  sparsePattern->index[nth];
+          setJacElementKluSparse(j, ii, (newdelta[j] - delta[j]) * delta_hh[ii], nth, Jac);
+          nth++;
+        };
         states[ii] = ysave[ii];
         if (idaData->daeMode)
         {

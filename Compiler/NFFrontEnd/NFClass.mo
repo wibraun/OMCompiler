@@ -29,10 +29,9 @@
  *
  */
 
-encapsulated package NFInstance
+encapsulated package NFClass
 
 import BaseAvlTree;
-import NFComponentNode.ComponentNode;
 import NFEquation.Equation;
 import NFInstNode.InstNode;
 import NFMod.Modifier;
@@ -54,7 +53,6 @@ encapsulated package ClassTree
 
   import BaseAvlTree;
   import NFInstNode.InstNode;
-  import NFComponentNode.ComponentNode;
 
   extends BaseAvlTree(redeclare type Key = String,
                       redeclare type Value = Entry);
@@ -80,7 +78,7 @@ encapsulated package ClassTree
   annotation(__OpenModelica_Interface="util");
 end ClassTree;
 
-uniontype Instance
+uniontype Class
   record NOT_INSTANTIATED end NOT_INSTANTIATED;
 
   record PARTIAL_CLASS
@@ -91,8 +89,8 @@ uniontype Instance
 
   record EXPANDED_CLASS
     ClassTree.Tree elements;
-    list<ComponentNode> extendsNodes;
-    array<ComponentNode> components;
+    list<InstNode> extendsNodes;
+    array<InstNode> components;
     Modifier modifier;
     list<Equation> equations;
     list<Equation> initialEquations;
@@ -102,7 +100,7 @@ uniontype Instance
 
   record INSTANCED_CLASS
     ClassTree.Tree elements;
-    array<ComponentNode> components;
+    array<InstNode> components;
     list<Equation> equations;
     list<Equation> initialEquations;
     list<list<Statement>> algorithms;
@@ -122,61 +120,132 @@ uniontype Instance
   type Element = ClassTree.Entry;
 
   function emptyInstancedClass
-    output Instance instance;
+    output Class cls;
   algorithm
-    instance := INSTANCED_CLASS(ClassTree.new(), listArray({}), {}, {}, {}, {});
+    cls := INSTANCED_CLASS(ClassTree.new(), listArray({}), {}, {}, {}, {});
   end emptyInstancedClass;
 
   function initExpandedClass
     input ClassTree.Tree classes;
-    output Instance instance;
+    output Class cls;
   algorithm
-    instance := EXPANDED_CLASS(classes, {}, listArray({}), Modifier.NOMOD(), {}, {}, {}, {});
+    cls := EXPANDED_CLASS(classes, {}, listArray({}), Modifier.NOMOD(), {}, {}, {}, {});
   end initExpandedClass;
 
-  function components
-    input Instance instance;
-    output array<ComponentNode> components;
+  function instExpandedClass
+    input array<InstNode> components;
+    input Class expandedClass;
+    output Class instancedClass;
+  protected
+    list<Equation> eqs = {}, eqs1 = {}, eqs2 = {};
+    list<Equation> ieqs = {}, ieqs1 = {}, ieqs2 = {};
+    list<list<Statement>> algs = {}, algs1 = {}, algs2 = {};
+    list<list<Statement>> ialgs = {}, ialgs1 = {}, ialgs2 = {};
   algorithm
-    components := match instance
-      case EXPANDED_CLASS() then instance.components;
-      case INSTANCED_CLASS() then instance.components;
+    instancedClass := match expandedClass
+      case EXPANDED_CLASS()
+        algorithm
+          eqs1 := expandedClass.equations;
+          ieqs1 := expandedClass.initialEquations;
+          algs1 := expandedClass.algorithms;
+          ialgs1 := expandedClass.initialAlgorithms;
+
+          // append the sections from the inherited classes
+          for ext in expandedClass.extendsNodes loop
+            (eqs2, ieqs2, algs2, ialgs2) := collectInherited(ext, eqs2, ieqs2, algs2, ialgs2);
+          end for;
+          eqs := listAppend(eqs2, eqs1);
+          ieqs := listAppend(ieqs2, ieqs1);
+          algs := listAppend(algs2, algs1);
+          ialgs := listAppend(ialgs2, ialgs1);
+        then
+          INSTANCED_CLASS(expandedClass.elements, components, eqs, ieqs, algs, ialgs);
+    end match;
+  end instExpandedClass;
+
+  function collectInherited
+    input InstNode cls;
+    input list<Equation> i_eqs;
+    input list<Equation> i_ieqs;
+    input list<list<Statement>> i_algs;
+    input list<list<Statement>> i_ialgs;
+    output list<Equation> eqs;
+    output list<Equation> ieqs;
+    output list<list<Statement>> algs;
+    output list<list<Statement>> ialgs;
+  protected
+    Class inheritedClass;
+  algorithm
+    inheritedClass := InstNode.getClass(cls);
+    (eqs, ieqs, algs, ialgs) :=
+      match inheritedClass
+        case EXPANDED_CLASS()
+          algorithm
+            eqs := listAppend(i_eqs, inheritedClass.equations);
+            ieqs := listAppend(i_ieqs, inheritedClass.initialEquations);
+            algs := listAppend(i_algs, inheritedClass.algorithms);
+            ialgs := listAppend(i_ialgs, inheritedClass.initialAlgorithms);
+            for ext in inheritedClass.extendsNodes loop
+              (eqs, ieqs, algs, ialgs) := collectInherited(ext, eqs, ieqs, algs, ialgs);
+            end for;
+          then
+            (eqs, ieqs, algs, ialgs);
+      end match;
+  end collectInherited;
+
+  function components
+    input Class cls;
+    output array<InstNode> components;
+  algorithm
+    components := match cls
+      case EXPANDED_CLASS() then cls.components;
+      case INSTANCED_CLASS() then cls.components;
     end match;
   end components;
 
   function setComponents
-    input array<ComponentNode> components;
-    input output Instance instance;
+    input array<InstNode> components;
+    input output Class cls;
   algorithm
-    _ := match instance
+    _ := match cls
       case EXPANDED_CLASS()
         algorithm
-          instance.components := components;
+          cls.components := components;
         then
           ();
 
       case INSTANCED_CLASS()
         algorithm
-          instance.components := components;
+          cls.components := components;
         then
           ();
     end match;
   end setComponents;
 
+  function elements
+    input Class cls;
+    output ClassTree.Tree els;
+  algorithm
+    els := match cls
+      case EXPANDED_CLASS() then cls.elements;
+      case INSTANCED_CLASS() then cls.elements;
+    end match;
+  end elements;
+
   function setElements
     input ClassTree.Tree elements;
-    input output Instance instance;
+    input output Class cls;
   algorithm
-    _ := match instance
+    _ := match cls
       case EXPANDED_CLASS()
         algorithm
-          instance.elements := elements;
+          cls.elements := elements;
         then
           ();
 
       case INSTANCED_CLASS()
         algorithm
-          instance.elements := elements;
+          cls.elements := elements;
         then
           ();
     end match;
@@ -187,76 +256,45 @@ uniontype Instance
     input list<Equation> initialEquations;
     input list<list<Statement>> algorithms;
     input list<list<Statement>> initialAlgorithms;
-    input output Instance instance;
+    input output Class cls;
   algorithm
-    instance := match instance
+    cls := match cls
       case EXPANDED_CLASS()
-        then EXPANDED_CLASS(instance.elements, instance.extendsNodes, instance.components,
-          instance.modifier, equations, initialEquations, algorithms, initialAlgorithms);
+        then EXPANDED_CLASS(cls.elements, cls.extendsNodes, cls.components,
+          cls.modifier, equations, initialEquations, algorithms, initialAlgorithms);
 
       case INSTANCED_CLASS()
-        then INSTANCED_CLASS(instance.elements, instance.components, equations,
+        then INSTANCED_CLASS(cls.elements, cls.components, equations,
           initialEquations, algorithms, initialAlgorithms);
     end match;
   end setSections;
 
   function lookupElement
     input String name;
-    input Instance instance;
-    output Element element;
+    input Class cls;
+    output InstNode node;
   protected
     ClassTree.Tree scope;
+    Class.Element element;
   algorithm
-    scope := match instance
-      case EXPANDED_CLASS() then instance.elements;
-      case INSTANCED_CLASS() then instance.elements;
+    scope := match cls
+      case EXPANDED_CLASS() then cls.elements;
+      case INSTANCED_CLASS() then cls.elements;
     end match;
 
     element := ClassTree.get(scope, name);
+
+    node := match element
+      case Element.CLASS() then element.node;
+      case Element.COMPONENT() then arrayGet(components(cls), element.index);
+    end match;
   end lookupElement;
 
-  function lookupClass
-    input String name;
-    input Instance instance;
-    output InstNode cls;
-  algorithm
-    Element.CLASS(node = cls) := lookupElement(name, instance);
-  end lookupClass;
-
-  function lookupComponent
-    input String name;
-    input Instance instance;
-    output ComponentNode component;
-  protected
-    Integer index;
-  algorithm
-    component := lookupComponentByElement(lookupElement(name, instance), instance);
-  end lookupComponent;
-
-  function lookupComponentByIndex
-    input Integer index;
-    input Instance instance;
-    output ComponentNode component;
-  algorithm
-    component := arrayGet(components(instance), index);
-  end lookupComponentByIndex;
-
-  function lookupComponentByElement
-    input Element element;
-    input Instance instance;
-    output ComponentNode component;
-  protected
-    Integer index;
-  algorithm
-    Element.COMPONENT(index = index) := element;
-    component := arrayGet(components(instance), index);
-  end lookupComponentByElement;
-
   function isBuiltin
-    input Instance instance;
+    input Class cls;
     output Boolean isBuiltin;
   algorithm
-    isBuiltin := match instance
+    isBuiltin := match cls
       case PARTIAL_BUILTIN() then true;
       case INSTANCED_BUILTIN() then true;
       else false;
@@ -265,31 +303,30 @@ uniontype Instance
 
   function setModifier
     input Modifier modifier;
-    input output Instance instance;
+    input output Class cls;
   algorithm
-    _ := match instance
+    _ := match cls
       case PARTIAL_CLASS()
         algorithm
-          instance.modifier := modifier;
+          cls.modifier := modifier;
         then
           ();
 
       case EXPANDED_CLASS()
         algorithm
-          instance.modifier := modifier;
+          cls.modifier := modifier;
         then
           ();
 
       case PARTIAL_BUILTIN()
         algorithm
-          instance.modifier := modifier;
+          cls.modifier := modifier;
         then
           ();
 
       else
         algorithm
-          Error.addInternalError("NFInstance.setModifier got unmodifiable instance!\n",
-            Absyn.dummyInfo);
+          assert(false, getInstanceName() + " got unmodifiable instance");
         then
           fail();
 
@@ -297,41 +334,41 @@ uniontype Instance
   end setModifier;
 
   function getModifier
-    input Instance instance;
+    input Class cls;
     output Modifier modifier;
   algorithm
-    modifier := match instance
-      case PARTIAL_CLASS() then instance.modifier;
-      case EXPANDED_CLASS() then instance.modifier;
-      case PARTIAL_BUILTIN() then instance.modifier;
+    modifier := match cls
+      case PARTIAL_CLASS() then cls.modifier;
+      case EXPANDED_CLASS() then cls.modifier;
+      case PARTIAL_BUILTIN() then cls.modifier;
       else Modifier.NOMOD();
     end match;
   end getModifier;
 
   function clone
-    input output Instance instance;
+    input output Class cls;
   algorithm
-    () := match instance
+    () := match cls
       local
         ClassTree.Tree tree;
 
-      case PARTIAL_CLASS()
-        algorithm
-          instance.classes := ClassTree.map(instance.classes, cloneEntry);
-        then
-          ();
+      //case PARTIAL_CLASS()
+      //  algorithm
+      //    instance.classes := ClassTree.map(instance.classes, cloneEntry);
+      //  then
+      //    ();
 
       case EXPANDED_CLASS()
         algorithm
-          instance.elements := ClassTree.map(instance.elements, cloneEntry);
-          Array.map(instance.components, ComponentNode.clone);
+          //instance.elements := ClassTree.map(instance.elements, cloneEntry);
+          cls.components := Array.map(cls.components, InstNode.clone);
         then
           ();
 
       case INSTANCED_CLASS()
         algorithm
-          instance.elements := ClassTree.map(instance.elements, cloneEntry);
-          Array.map(instance.components, ComponentNode.clone);
+          //instance.elements := ClassTree.map(instance.elements, cloneEntry);
+          cls.components := Array.map(cls.components, InstNode.clone);
         then
           ();
 
@@ -349,7 +386,7 @@ uniontype Instance
       else entry;
     end match;
   end cloneEntry;
-end Instance;
+end Class;
 
 annotation(__OpenModelica_Interface="frontend");
-end NFInstance;
+end NFClass;

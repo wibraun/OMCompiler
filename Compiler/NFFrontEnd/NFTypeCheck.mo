@@ -480,6 +480,42 @@ algorithm
   end try;
 end checkLogicalBinaryOperation;
 
+public function checkLogicalUnaryOperation
+  "petfr:
+  Typechecks logical unary operations, i.e. the not operator"
+  input DAE.Exp exp1;
+  input DAE.Type type1;
+  input DAE.Operator operator;
+  output DAE.Exp exp;
+  output DAE.Type ty;
+protected
+  DAE.Exp e1;
+  DAE.Operator op;
+  DAE.TypeSource ty_src;
+  String e1_str, ty1_str, msg_str, op_str, s1;
+algorithm
+  try
+    true := Types.isBoolean(type1);
+    // Logical unary operations here are allowed only on Booleans.
+    ty := type1;
+    op := Expression.setOpType(operator, ty);
+    exp := DAE.LUNARY(op, exp1);
+
+  else
+    e1_str := ExpressionDump.printExpStr(exp1);
+    ty1_str := Types.unparseTypeNoAttr(type1);
+    op_str := DAEDump.dumpOperatorString(operator);
+
+    // Just for proper error messages.
+    msg_str := if not (Types.isBoolean(type1)) then
+      "\n: Logical operations involving non-Boolean types are not valid in Modelica." else ty1_str;
+
+    s1 := "' " + e1_str + op_str  + " '";
+
+    Error.addSourceMessage(Error.UNRESOLVABLE_TYPE, {s1, msg_str}, Absyn.dummyInfo);
+  end try;
+end checkLogicalUnaryOperation;
+
 public function checkRelationOperation
   "mahge:
   Type checks relational operations. Relations on scalars are handled
@@ -531,7 +567,7 @@ public function checkBinaryOperation
   "mahge:
   Type checks binary operations. operations on scalars are handled
   simply by using Types.matchType(). This way conversions from Integer to Real
-  are handled internaly.
+  are handled internally.
   Operations involving arrays and Complex types are handled differently."
   input DAE.Exp exp1;
   input DAE.Type type1;
@@ -609,6 +645,39 @@ algorithm
   end try;
 end checkBinaryOperation;
 
+public function checkUnaryOperation
+  "petfr:
+  Type checks arithmetic unary operations. Both for simple scalar types and
+  operations involving array types. Builds DAE unary node."
+  input DAE.Exp exp1;
+  input DAE.Type type1;
+  input DAE.Operator operator;
+  output DAE.Exp unaryExp;
+  output DAE.Type unaryType;
+protected
+  DAE.Operator op;
+  DAE.TypeSource ty_src;
+  String e1_str, ty1_str, s1;
+algorithm
+  try
+    // Arithmetic type expected for Unary operators, i.e., UMINUS, UMINUS_ARR;  UPLUS removed
+    true := Types.isNumericType(type1);
+
+    unaryType := type1;
+    op := Expression.setOpType(operator, unaryType);
+    unaryExp := match op
+              case DAE.ADD() then exp1; // If UNARY +, +exp1, remove it since no unary DAE.ADD
+              else DAE.UNARY(op, exp1);
+            end match;
+  else
+    e1_str := ExpressionDump.printExpStr(exp1);
+    ty1_str := Types.unparseTypeNoAttr(type1);
+    s1 := "' " + e1_str + DAEDump.dumpOperatorSymbol(operator) + " '" +
+       " Arithmetic type expected for this unary operator ";
+    Error.addSourceMessage(Error.UNRESOLVABLE_TYPE, {s1, ty1_str}, Absyn.dummyInfo);
+    fail();
+  end try;
+end checkUnaryOperation;
 
 public function checkBinaryOperationArrays
   "mahge:
@@ -825,7 +894,8 @@ algorithm
 
     else
       algorithm
-        Error.addInternalError("TypeCheck.checkBinaryOperationArrays: got a binary operation that is not handled yet", Absyn.dummyInfo);
+        assert(false, getInstanceName() + ": got a binary operation that is not
+            handled yet");
       then
         fail();
   end match;
@@ -1203,7 +1273,7 @@ algorithm
         s2 = "' " + t1Str + DAEDump.dumpOperatorString(inOp) + t2Str + " '";
         Error.addSourceMessage(Error.UNRESOLVABLE_TYPE, {s1,s2,t1Str}, Absyn.dummyInfo);
         true = Flags.isSet(Flags.FAILTRACE);
-        Debug.traceln("- NFTypeCheck.checkBinaryOperationArrays failed with type mismatch: " + t1Str + " tys: " + t2Str);
+        Debug.traceln("- " + getInstanceName() + " failed with type mismatch: " + t1Str + " tys: " + t2Str);
       then
         fail();
 
@@ -1716,7 +1786,7 @@ end checkBinaryOperationArrays_old;
 //   END: TypeCall helper functions
 // ************************************************************** //
 
-protected function matchTypeBothWays
+function matchTypeBothWays
   "mahge:
   Tries to match to types. First by converting the 2nd one to the 1st.
   if not possible then tries to convert the 1st to the 2nd."
@@ -1724,7 +1794,7 @@ protected function matchTypeBothWays
   input DAE.Type type1;
   input output DAE.Exp exp2;
   input DAE.Type type2;
-        output DAE.Type matchedType;
+  output DAE.Type matchedType;
 algorithm
   try
     (exp2, matchedType) := Types.matchType(exp2, type2, type1, true);
@@ -1732,6 +1802,54 @@ algorithm
     (exp1, matchedType) := Types.matchType(exp1, type1, type2, true);
   end try;
 end matchTypeBothWays;
+
+
+public function isInteger
+  input DAE.Type inType;
+  output Boolean b;
+algorithm
+  b := match(inType)
+    case DAE.T_INTEGER() then true;
+    else false;
+  end match;
+end isInteger;
+
+public function isReal
+  input DAE.Type inType;
+  output Boolean b;
+algorithm
+  b := match(inType)
+    case DAE.T_REAL() then true;
+    else false;
+  end match;
+end isReal;
+
+public function isBoolean
+  input DAE.Type inType;
+  output Boolean b;
+algorithm
+  b := match(inType)
+    case DAE.T_BOOL() then true;
+    else false;
+  end match;
+end isBoolean;
+
+public function isEnum
+  input DAE.Type inType;
+  output Boolean b;
+algorithm
+  b := match(inType)
+    case DAE.T_ENUMERATION() then true;
+    else false;
+  end match;
+end isEnum;
+
+function isNumeric
+  input DAE.Type inType;
+  output Boolean b;
+algorithm
+  b := isReal(inType) or isInteger(inType);
+end isNumeric;
 
 protected function getArrayTypeDims
 "This will fail if type is not array type.
@@ -1741,37 +1859,41 @@ Use in places where only arrays are expected"
 algorithm
   outDims := match (inType)
     case DAE.T_ARRAY() then inType.dims;
+    case DAE.T_FUNCTION() then getArrayTypeDims(inType.funcResultType);
     else fail();
   end match;
 end getArrayTypeDims;
 
-protected function getTypeDims
+public function getTypeDims
 "This will NOT fail if type is not array type."
   input DAE.Type inType;
   output DAE.Dimensions outDims;
 algorithm
   outDims := match (inType)
     case DAE.T_ARRAY() then inType.dims;
+    case DAE.T_FUNCTION() then getTypeDims(inType.funcResultType);
     else {};
   end match;
 end getTypeDims;
 
-protected function getNrDims
+public function getNrDims
   input DAE.Type inType;
   output Integer outNrDims;
 algorithm
   outNrDims := match (inType)
     case DAE.T_ARRAY() then listLength(inType.dims);
+    case DAE.T_FUNCTION() then getNrDims(inType.funcResultType);
     else 0;
   end match;
 end getNrDims;
 
-protected function underlyingType
+public function underlyingType
   input DAE.Type inType;
   output DAE.Type outType;
 algorithm
   outType := match(inType)
     case DAE.T_ARRAY() then inType.ty;
+    case DAE.T_FUNCTION() then underlyingType(inType.funcResultType);
     else inType;
   end match;
 end underlyingType;
@@ -1786,6 +1908,44 @@ algorithm
     else DAE.T_ARRAY(inType, inDims, Types.getTypeSource(inType));
   end match;
 end promoteLeft;
+
+function applySubsToDims
+  input list<DAE.Dimension> inDims;
+  input list<DAE.Subscript> inSubs;
+  output list<DAE.Dimension> outDims = {};
+protected
+  DAE.Dimension dim;
+  list<DAE.Dimension> dims1, dims2, slicedims;
+  DAE.Type baseTy, ixty;
+algorithm
+  dims1 := inDims;
+  dims2 := {};
+
+  for sub in inSubs loop
+    _ := match sub
+      case DAE.INDEX()
+        algorithm
+          ixty := Expression.typeof(sub.exp);
+          slicedims := getTypeDims(ixty);
+          if listLength(slicedims) > 0 then
+            assert(listLength(slicedims) == 1,
+              getInstanceName() + " failed. Got a slice with more than one dim?");
+            _::dims1 := dims1;
+            {dim} := slicedims;
+            outDims := dim::outDims;
+          end if;
+        then
+          ();
+
+      case DAE.WHOLEDIM()
+        algorithm
+          dim::dims1 := dims1;
+          outDims := dim::outDims;
+        then
+          ();
+    end match;
+  end for;
+end applySubsToDims;
 
 protected function isOpBinaryElemWise
   input DAE.Operator inOperator;
@@ -1846,14 +2006,19 @@ algorithm
       Integer ns;
       DAE.Type t;
       DAE.Dimensions dims;
-    case (DAE.T_ARRAY(ty = t, dims = dims))
+
+    case DAE.T_ARRAY(ty = t, dims = dims)
       equation
         // TODO: we shouldn't allow T_ARRAY(T_ARRAY(),_,_) structures anymore
         // Make sure it gets caught.
         ns = getArrayNumberOfDimensions(t) + listLength(dims);
       then
         ns;
+
+    case DAE.T_FUNCTION() then getArrayNumberOfDimensions(inType.funcResultType);
+
     else 0;
+
   end match;
 end getArrayNumberOfDimensions;
 
@@ -1910,6 +2075,278 @@ algorithm
   s2 := "' " + t1Str + DAEDump.dumpOperatorString(inOp) + t2Str + " '";
   Error.addSourceMessage(Error.UNRESOLVABLE_TYPE, {s1,s2,suggestion}, Absyn.dummyInfo);
 end binaryArrayOpError;
+
+public function getCrefType
+  input DAE.ComponentRef inCref;
+  output DAE.Type outType;
+protected
+  DAE.Type baseTy;
+  list<DAE.Dimension> dims, accdims;
+algorithm
+  (accdims,baseTy) := getCrefType2(inCref);
+  if listLength(accdims) > 0 then
+    outType := DAE.T_ARRAY(baseTy, accdims, DAE.emptyTypeSource);
+  else
+    outType := baseTy;
+  end if;
+end getCrefType;
+
+function getCrefType2
+  input DAE.ComponentRef inCref;
+  input output list<DAE.Dimension> accDims = {};
+  output DAE.Type baseType;
+protected
+  list<DAE.Dimension> dims;
+algorithm
+  _ := match inCref
+
+    case DAE.CREF_IDENT()
+      algorithm
+        baseType := underlyingType(inCref.identType);
+        dims := getTypeDims(inCref.identType);
+        dims := applySubsToDims(dims, inCref.subscriptLst);
+        accDims := dims;
+      then ();
+
+    case DAE.CREF_QUAL()
+      algorithm
+        (accDims,baseType) := getCrefType2(inCref.componentRef);
+        dims := getTypeDims(inCref.identType);
+        dims := applySubsToDims(dims, inCref.subscriptLst);
+        accDims := listAppend(dims, accDims);
+      then ();
+
+    else
+      fail();
+  end match;
+end getCrefType2;
+
+public function getRangeType
+  input DAE.Exp inStart;
+  input DAE.Type inStartTy;
+  input Option<DAE.Exp> inOptStep;
+  input Option<DAE.Type> inOptStepTy;
+  input DAE.Exp inEnd;
+  input DAE.Type inEndTy;
+  input SourceInfo info;
+  output DAE.Type outType;
+protected
+  Boolean stepreal;
+  DAE.Type stepty;
+algorithm
+
+  stepreal := false;
+  if isNumeric(inStartTy) and isNumeric(inEndTy) then
+    if isSome(inOptStepTy) then
+	    SOME(stepty) := inOptStepTy;
+	    if not isNumeric(stepty) then
+	      Error.addInternalError("Invalid range expression. Step expression is not numeric type.", info);
+	      fail();
+	    end if;
+	    stepreal := isReal(stepty);
+    end if;
+    try
+      outType := getNumericRangeType(inStart, inOptStep, inEnd);
+    else
+      // TODO: for now let it be unknown. However the expression (end-start)/step + 1 should be the dim expression.
+      if stepreal or isReal(inStartTy) or isReal(inEndTy) then
+        outType := DAE.T_ARRAY(DAE.T_REAL_DEFAULT, {DAE.DIM_UNKNOWN()}, DAE.emptyTypeSource);
+      else
+        outType := DAE.T_ARRAY(DAE.T_INTEGER_DEFAULT, {DAE.DIM_UNKNOWN()}, DAE.emptyTypeSource);
+      end if;
+    end try;
+
+  elseif isBoolean(inStartTy) and isBoolean(inEndTy) then
+    if isSome(inOptStepTy) then
+      Error.addInternalError("Invalid range expression. Non numeric range exressions can not have steps.", info);
+      fail();
+    end if;
+    try
+      outType := getBooleanRangeType(inStart, inOptStep, inEnd);
+    else
+      // TODO: for now let it be unknown. However an expression that can deduce the size from the possible true/false
+      // combinations should be the dim expression.
+      outType := DAE.T_ARRAY(DAE.T_BOOL_DEFAULT, {DAE.DIM_UNKNOWN()}, DAE.emptyTypeSource);
+    end try;
+
+  elseif isEnum(inStartTy) and isEnum(inEndTy) then
+    if isSome(inOptStepTy) then
+      Error.addInternalError("Invalid range expression. Non numeric range exressions can not have steps.", info);
+      fail();
+    end if;
+    Error.addInternalError("Enumerator ranges are not handled yet.", info);
+    fail();
+
+  else
+    Error.addInternalError("Invalid range expression. Start and end expressions have different types.", info);
+    fail();
+  end if;
+
+end getRangeType;
+
+
+function getNumericRangeType
+  input DAE.Exp inStart;
+  input Option<DAE.Exp> inOptStep;
+  input DAE.Exp inEnd;
+  output DAE.Type outType;
+algorithm
+  _ := match(inStart, inOptStep, inEnd)
+    local
+      Integer size;
+      DAE.Exp step;
+      DAE.Dimension dim;
+
+    case (DAE.ICONST(),NONE(),DAE.ICONST())
+      algorithm
+        size := inEnd.integer - inStart.integer + 1;
+        dim := DAE.DIM_INTEGER(size);
+        outType := DAE.T_ARRAY(DAE.T_INTEGER_DEFAULT, {dim}, DAE.emptyTypeSource);
+      then ();
+    case (DAE.ICONST(),NONE(),DAE.RCONST())
+      algorithm
+        size := Util.realRangeSize(intReal(inStart.integer), 1.0, inEnd.real);
+        dim := DAE.DIM_INTEGER(size);
+        outType := DAE.T_ARRAY(DAE.T_REAL_DEFAULT, {dim}, DAE.emptyTypeSource);
+      then ();
+    case (DAE.RCONST(),NONE(),DAE.ICONST())
+      algorithm
+        size := Util.realRangeSize(inStart.real, 1.0, intReal(inEnd.integer));
+        dim := DAE.DIM_INTEGER(size);
+        outType := DAE.T_ARRAY(DAE.T_REAL_DEFAULT, {dim}, DAE.emptyTypeSource);
+      then ();
+    case (DAE.RCONST(),NONE(),DAE.RCONST())
+      algorithm
+        size := Util.realRangeSize(inStart.real, 1.0, inEnd.real);
+        dim := DAE.DIM_INTEGER(size);
+        outType := DAE.T_ARRAY(DAE.T_REAL_DEFAULT, {dim}, DAE.emptyTypeSource);
+      then ();
+
+    case (DAE.ICONST(),SOME(step as DAE.ICONST()),DAE.ICONST())
+      algorithm
+        size := inEnd.integer - inStart.integer;
+        size := intDiv(size, step.integer) + 1;
+        dim := DAE.DIM_INTEGER(size);
+        outType := DAE.T_ARRAY(DAE.T_INTEGER_DEFAULT, {dim}, DAE.emptyTypeSource);
+      then ();
+    case (DAE.ICONST(),SOME(step as DAE.ICONST()),DAE.RCONST())
+      algorithm
+        size := Util.realRangeSize(intReal(inStart.integer), intReal(step.integer), inEnd.real);
+        dim := DAE.DIM_INTEGER(size);
+        outType := DAE.T_ARRAY(DAE.T_REAL_DEFAULT, {dim}, DAE.emptyTypeSource);
+      then ();
+    case (DAE.ICONST(),SOME(step as DAE.RCONST()),DAE.ICONST())
+      algorithm
+        size := Util.realRangeSize(intReal(inStart.integer), step.real, intReal(inEnd.integer));
+        dim := DAE.DIM_INTEGER(size);
+        outType := DAE.T_ARRAY(DAE.T_REAL_DEFAULT, {dim}, DAE.emptyTypeSource);
+      then ();
+    case (DAE.ICONST(),SOME(step as DAE.RCONST()),DAE.RCONST())
+      algorithm
+        size := Util.realRangeSize(intReal(inStart.integer), step.real, inEnd.real);
+        dim := DAE.DIM_INTEGER(size);
+        outType := DAE.T_ARRAY(DAE.T_REAL_DEFAULT, {dim}, DAE.emptyTypeSource);
+      then ();
+
+    case (DAE.RCONST(),SOME(step as DAE.ICONST()),DAE.ICONST())
+      algorithm
+        size := Util.realRangeSize(inStart.real, intReal(step.integer), intReal(inEnd.integer));
+        dim := DAE.DIM_INTEGER(size);
+        outType := DAE.T_ARRAY(DAE.T_REAL_DEFAULT, {dim}, DAE.emptyTypeSource);
+      then ();
+    case (DAE.RCONST(),SOME(step as DAE.ICONST()),DAE.RCONST())
+      algorithm
+        size := Util.realRangeSize(inStart.real, intReal(step.integer), inEnd.real);
+        dim := DAE.DIM_INTEGER(size);
+        outType := DAE.T_ARRAY(DAE.T_REAL_DEFAULT, {dim}, DAE.emptyTypeSource);
+      then ();
+    case (DAE.RCONST(),SOME(step as DAE.RCONST()),DAE.ICONST())
+      algorithm
+        size := Util.realRangeSize(inStart.real, step.real, intReal(inEnd.integer));
+        dim := DAE.DIM_INTEGER(size);
+        outType := DAE.T_ARRAY(DAE.T_REAL_DEFAULT, {dim}, DAE.emptyTypeSource);
+      then ();
+    case (DAE.RCONST(),SOME(step as DAE.RCONST()),DAE.RCONST())
+      algorithm
+        size := Util.realRangeSize(inStart.real, step.real, inEnd.real);
+        dim := DAE.DIM_INTEGER(size);
+        outType := DAE.T_ARRAY(DAE.T_REAL_DEFAULT, {dim}, DAE.emptyTypeSource);
+      then ();
+    else
+      fail();
+  end match;
+end getNumericRangeType;
+
+function getBooleanRangeType
+  input DAE.Exp inStart;
+  input Option<DAE.Exp> inOptStep;
+  input DAE.Exp inEnd;
+  output DAE.Type outType;
+algorithm
+  _ := match(inStart, inOptStep, inEnd)
+
+    case (DAE.BCONST(true),NONE(),DAE.BCONST(false))
+      algorithm
+        outType := DAE.T_ARRAY(DAE.T_BOOL_DEFAULT, {DAE.DIM_INTEGER(0)}, DAE.emptyTypeSource);
+      then ();
+    case (DAE.BCONST(false),NONE(),DAE.BCONST(true))
+      algorithm
+        outType := DAE.T_ARRAY(DAE.T_BOOL_DEFAULT, {DAE.DIM_INTEGER(2)}, DAE.emptyTypeSource);
+      then ();
+    case (DAE.BCONST(),NONE(),DAE.BCONST())
+      algorithm
+        outType := DAE.T_ARRAY(DAE.T_BOOL_DEFAULT, {DAE.DIM_INTEGER(1)}, DAE.emptyTypeSource);
+      then ();
+    else
+      fail();
+  end match;
+end getBooleanRangeType;
+
+function checkIfExpression
+  input DAE.Exp condExp;
+  input DAE.Type condType;
+  input DAE.Const condVar;
+  input DAE.Exp thenExp;
+  input DAE.Type thenType;
+  input DAE.Const thenVar;
+  input DAE.Exp elseExp;
+  input DAE.Type elseType;
+  input DAE.Const elseVar;
+  input SourceInfo info;
+  output DAE.Exp outExp;
+  output DAE.Type outType;
+  output DAE.Const outVar;
+protected
+   DAE.Exp ec, e1, e2;
+   String s1, s2, s3, s4;
+   Boolean tyMatch;
+algorithm
+  (ec, _, tyMatch) := Types.matchTypeNoFail(condExp, condType, DAE.T_BOOL_DEFAULT);
+
+  // if the condtion is not boolean that's bad :)
+  if not tyMatch then
+    s1 := ExpressionDump.printExpStr(condExp);
+    s2 := Types.unparseType(condType);
+    Error.addSourceMessageAndFail(Error.IF_CONDITION_TYPE_ERROR , {s1, s2}, info);
+  end if;
+
+  (e1, e2, outType, tyMatch) :=
+    Types.checkTypeCompat(thenExp, thenType, elseExp, elseType);
+
+  // if the types are not matching, print an error and fail.
+  if not tyMatch then
+    s1 := ExpressionDump.printExpStr(thenExp);
+    s2 := ExpressionDump.printExpStr(elseExp);
+    s3 := Types.unparseTypeNoAttr(thenType);
+    s4 := Types.unparseTypeNoAttr(elseType);
+    Error.addSourceMessageAndFail(Error.TYPE_MISMATCH_IF_EXP,
+      {"", s1, s3, s2, s4}, info);
+  end if;
+
+  outExp := DAE.IFEXP(ec, e1, e2);
+  outType := thenType;
+  outVar := Types.constAnd(thenVar, elseVar);
+end checkIfExpression;
 
 annotation(__OpenModelica_Interface="frontend");
 end NFTypeCheck;
