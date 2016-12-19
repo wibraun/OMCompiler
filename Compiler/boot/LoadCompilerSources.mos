@@ -220,6 +220,7 @@ if true then /* Suppress output */
     "../Stubs/CevalScriptBackend.mo",
     "../Stubs/DumpGraphviz.mo",
     "../Stubs/FGraphStream.mo",
+    "../Stubs/MathOperation.mo",
     "../Stubs/NFInstDump.mo",
     "../Stubs/Refactor.mo",
     "../Stubs/RewriteRules.mo",
