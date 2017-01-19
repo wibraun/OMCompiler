@@ -90,6 +90,10 @@ typedef struct IDA_SOLVER
   double *statesDer;
   int (*residualFunction)(double time, N_Vector yy, N_Vector yp, N_Vector res, void* userData);
 
+  /* adolc data */
+  double** adolcJac;
+  double* adolcParam;
+
   /* ### ida sensitivities ### */
   int idaSmode;
   int Np;

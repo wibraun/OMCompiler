@@ -52,6 +52,9 @@
 #include "simulation/solver/omc_math.h"
 #include "simulation/solver/ida_solver.h"
 
+#include <adolc/adolc.h>
+#include <adolc/tapedoc/asciitapes.h>
+
 #ifdef WITH_SUNDIALS
 
 
@@ -78,6 +81,10 @@ static int jacobianSparseNum(realtype tt, realtype cj,
     N_Vector tmp1, N_Vector tmp2, N_Vector tmp3);
 
 static int jacobiancoloredKLUNum(realtype tt, realtype cj,
+    N_Vector yy, N_Vector yp, N_Vector rr, SlsMat Jac, void *user_data,
+    N_Vector tmp1, N_Vector tmp2, N_Vector tmp3);
+
+static int jacobianSparseADOLC(realtype tt, realtype cj,
     N_Vector yy, N_Vector yp, N_Vector rr, SlsMat Jac, void *user_data,
     N_Vector tmp1, N_Vector tmp2, N_Vector tmp3);
 
@@ -395,6 +402,7 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
   if(!idaData->daeMode && (idaData->jacobianMethod == COLOREDNUMJAC ||
       idaData->jacobianMethod == COLOREDSYMJAC ||
       idaData->jacobianMethod == KLUSPARSE ||
+      idaData->jacobianMethod == ADOLCSPARSE ||
       idaData->jacobianMethod == SYMJAC))
   {
     if (data->callback->initialAnalyticJacobianA(data, threadData))
@@ -423,15 +431,47 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
       idaData->NNZ = data->simulationInfo->analyticJacobians[data->callback->INDEX_JAC_A].sparsePattern.numberOfNoneZeros;
       flag = IDAKLU(idaData->ida_mem, idaData->N, idaData->NNZ);
       /* to add a cj identety matrix */
-      idaData->tmpJac = NewSparseMat(idaData->N, idaData->N, idaData->NNZ);
+      idaData->tmpJac = NewSparseMat(idaData->N, idaData->N, idaData->N);
     }
     if (checkIDAflag(flag)){
       throwStreamPrint(threadData, "##IDA## Setup of linear solver KLU failed!");
     }
 
     switch (idaData->jacobianMethod){
+    char filename[128];
+
+    char filename2[128];
+    size_t stats[STAT_SIZE];
+    int numparam;
     case KLUSPARSE:
       flag = IDASlsSetSparseJacFn(idaData->ida_mem, jacobianSparseNum);
+      break;
+    case ADOLCSPARSE:
+
+      if(measure_time_flag)
+      {
+        rt_tick(SIM_TIMER_ADOLC_INIT);
+      }
+      idaData->adolcJac = myalloc2(data->modelData->nStates, data->modelData->nStates);
+      idaData->adolcParam = (double*) malloc((1+data->modelData->nParametersReal)*sizeof(double));
+      memcpy(idaData->adolcParam +1, data->simulationInfo->realParameter, sizeof(double)*data->modelData->nParametersReal);
+
+      sprintf(filename, "%s_adolcAsciiTrace.txt", data->modelData->modelFilePrefix);
+      read_ascii_trace(filename, 0);
+
+      /* debug */
+      sprintf(filename2, "%s_adolcAsciiTrace2.txt", data->modelData->modelFilePrefix);
+      tapestats(0,stats);
+      numparam = stats[NUM_PARAM];
+      fprintf(stderr, "Numparams: %d\n", numparam);
+      write_ascii_trace(filename2, 0);
+
+      flag = IDASlsSetSparseJacFn(idaData->ida_mem, jacobianSparseADOLC);
+      if(measure_time_flag)
+      {
+        rt_accumulate(SIM_TIMER_ADOLC_INIT);
+        fprintf(stderr, "Time to prepare Adolc Data: %f\n", rt_accumulated(SIM_TIMER_ADOLC_INIT));
+      }
       break;
     default:
       throwStreamPrint(threadData,"For the klu solver jacobian calculation method has to be %s", JACOBIAN_METHOD[KLUSPARSE]);
@@ -1346,7 +1386,6 @@ static void setJacElementKluSparse(int row, int col, double value, int nth, SlsM
   spJac->rowvals[nth] = row;
   spJac->data[nth] = value;
 }
-
 /*
  *  function calculates a jacobian matrix by
  *  numerical method finite differences with coloring
@@ -1487,6 +1526,93 @@ static int jacobianSparseNum(double tt, double cj,
   if (!idaData->daeMode)
   {
     int i;
+    for (i=0; i < idaData->N; ++i){
+      idaData->tmpJac->colptrs[i] = i;
+      idaData->tmpJac->rowvals[i] = i;
+      idaData->tmpJac->data[i] = -cj;
+    }
+    idaData->tmpJac->colptrs[idaData->N] = idaData->N;
+    SlsAddMat(Jac, idaData->tmpJac);
+  }
+
+  TRACE_POP
+  return 0;
+}
+
+
+/* Element function for sparse matrix set */
+static void setCSR(int row, int col, double value, int nth, SlsMat spJac)
+{
+  spJac->colptrs[col+1] = nth+1;
+  spJac->rowvals[nth] = row;
+  spJac->data[nth] = value;
+}
+
+/*
+ * provides adolc jacobian to be used with ida
+ */
+static int jacobianSparseADOLC(double tt, double cj,
+    N_Vector yy, N_Vector yp, N_Vector rr,
+    SlsMat Jac, void *user_data,
+    N_Vector tmp1, N_Vector tmp2, N_Vector tmp3)
+{
+  TRACE_PUSH
+  IDA_SOLVER* idaData = (IDA_SOLVER*)user_data;
+  DATA* data = (DATA*)(((IDA_USERDATA*)idaData->simData)->data);
+  threadData_t* threadData = (threadData_t*)(((IDA_USERDATA*)((IDA_SOLVER*)user_data)->simData)->threadData);
+  int i;
+  static int repeat = 0;
+  static unsigned int *rows = NULL;
+  static unsigned int *cols = NULL;
+  static double *values = NULL;
+  static int nnz;
+  int options[4] = { 0,1,0,0 };
+  double *y = N_VGetArrayPointer(yy);
+
+  SlsSetToZero(Jac);
+
+  /* set time variable parameter */
+  idaData->adolcParam[0] = tt;
+
+  /* the first argument is the same number as in function name after system */
+  /* jacobian contains the derivatives of $P$DER$Px w.r.t $Px and */
+  set_param_vec(0, data->modelData->nParametersReal+1, idaData->adolcParam);
+
+  /* tick */
+  if(measure_time_flag)
+  {
+    rt_tick(SIM_TIMER_JACOBIAN);
+  }
+  sparse_jac(0, idaData->N, idaData->N, repeat, y, &nnz,
+             &rows, &cols, &values, options);
+
+  /* tock */
+  if(measure_time_flag)
+  {
+    rt_accumulate(SIM_TIMER_JACOBIAN);
+  }
+
+  if (!repeat)
+  {
+    repeat = 1;
+  }
+
+  /* use CSR format */
+  Jac->NNZ = nnz;
+  for(i = 0; i < nnz; i++)
+  {
+    setCSR((int)rows[i], (int)cols[i], values[i], i, Jac);
+  }
+
+  /* debug */
+  if (ACTIVE_STREAM(LOG_JAC)){
+    infoStreamPrint(LOG_JAC, 0, "##IDA## Sparse Matrix A.");
+    PrintSparseMat(Jac);
+  }
+
+  /* add cj to diagonal elements and store in Jac */
+  if (!idaData->daeMode)
+  {
     for (i=0; i < idaData->N; ++i){
       idaData->tmpJac->colptrs[i] = i;
       idaData->tmpJac->rowvals[i] = i;
