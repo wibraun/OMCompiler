@@ -621,6 +621,11 @@ int finishSimulation(DATA* data, threadData_t *threadData, SOLVER_INFO* solverIn
     infoStreamPrint(LOG_STATS_V, 0, "%5ld calls of functionZeroCrossings", data->simulationInfo->callStatistics.functionZeroCrossings);
     messageClose(LOG_STATS_V);
 
+    infoStreamPrint(LOG_STATS_V, 1, "timings:");
+    infoStreamPrint(LOG_STATS_V, 0, "%g time read adolc trace", rt_accumulated(SIM_TIMER_ADOLC_INIT));
+    infoStreamPrint(LOG_STATS_V, 0, "%g evaluation time jacobian", rt_accumulated(SIM_TIMER_JACOBIAN));
+    messageClose(LOG_STATS_V);
+
     infoStreamPrint(LOG_STATS_V, 1, "linear systems");
     for(ui=0; ui<data->modelData->nLinearSystems; ui++)
       printLinearSystemSolvingStatistics(data, ui, LOG_STATS_V);

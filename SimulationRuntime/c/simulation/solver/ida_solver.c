@@ -88,6 +88,10 @@ static int jacobianSparseADOLC(realtype tt, realtype cj,
     N_Vector yy, N_Vector yp, N_Vector rr, SlsMat Jac, void *user_data,
     N_Vector tmp1, N_Vector tmp2, N_Vector tmp3);
 
+static int jacobianSymbolicColored(realtype tt, realtype cj,
+    N_Vector yy, N_Vector yp, N_Vector rr, SlsMat Jac, void *user_data,
+    N_Vector tmp1, N_Vector tmp2, N_Vector tmp3);
+
 static int residualFunctionIDA(double time, N_Vector yy, N_Vector yp, N_Vector res, void* userData);
 int rootsFunctionIDA(double time, N_Vector yy, N_Vector yp, double *gout, void* userData);
 
@@ -449,6 +453,9 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
     case KLUSPARSE:
       flag = IDASlsSetSparseJacFn(idaData->ida_mem, jacobianSparseNum);
       break;
+    case COLOREDSYMJAC:
+      flag = IDASlsSetSparseJacFn(idaData->ida_mem, jacobianSymbolicColored);
+      break;
     case ADOLCSPARSE:
 
       if(measure_time_flag)
@@ -474,7 +481,6 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
       if(measure_time_flag)
       {
         rt_accumulate(SIM_TIMER_ADOLC_INIT);
-        fprintf(stderr, "Time to prepare Adolc Data: %f\n", rt_accumulated(SIM_TIMER_ADOLC_INIT));
       }
       break;
     default:
@@ -1382,6 +1388,7 @@ static int jacobianOwnNumIDA(long int Neq, double tt, double cj,
 /* Element function for sparse matrix set */
 static void setJacElementKluSparse(int row, int col, double value, int nth, SlsMat spJac)
 {
+  infoStreamPrint(LOG_JAC, 0, "Set elem %d: %d,%d = %f", nth, col, row, value);
   if (col > 0){
     if (spJac->colptrs[col] == 0){
       spJac->colptrs[col] = nth;
@@ -1389,6 +1396,116 @@ static void setJacElementKluSparse(int row, int col, double value, int nth, SlsM
   }
   spJac->rowvals[nth] = row;
   spJac->data[nth] = value;
+}
+/* Element function for sparse matrix set */
+static void setCSR(int row, int col, double value, int nth, SlsMat spJac)
+{
+  spJac->colptrs[col+1] = nth+1;
+  spJac->rowvals[nth] = row;
+  spJac->data[nth] = value;
+}
+
+
+static
+int symJacAColored(DATA* data, threadData_t *threadData, SlsMat Jac)
+{
+  TRACE_PUSH
+  const int index = data->callback->INDEX_JAC_A;
+  unsigned int i,j,l,ii;
+
+  for(i=0; i < data->simulationInfo->analyticJacobians[index].sparsePattern.maxColors; i++)
+  {
+    for(ii=0; ii < data->simulationInfo->analyticJacobians[index].sizeCols; ii++)
+      if(data->simulationInfo->analyticJacobians[index].sparsePattern.colorCols[ii]-1 == i)
+        data->simulationInfo->analyticJacobians[index].seedVars[ii] = 1;
+
+    data->callback->functionJacA_column(data, threadData);
+
+    for(j = 0; j < data->simulationInfo->analyticJacobians[index].sizeCols; j++)
+    {
+      if(data->simulationInfo->analyticJacobians[index].seedVars[j] == 1)
+      {
+        ii = data->simulationInfo->analyticJacobians[index].sparsePattern.leadindex[j];
+        while(ii < data->simulationInfo->analyticJacobians[index].sparsePattern.leadindex[j+1])
+        {
+          l  = data->simulationInfo->analyticJacobians[index].sparsePattern.index[ii];
+          setCSR(l, j, data->simulationInfo->analyticJacobians[index].resultVars[l], ii, Jac);
+          ii++;
+        };
+      }
+    }
+    for(ii=0; ii < data->simulationInfo->analyticJacobians[index].sizeCols; ii++)
+      if(data->simulationInfo->analyticJacobians[index].sparsePattern.colorCols[ii]-1 == i) data->simulationInfo->analyticJacobians[index].seedVars[ii] = 0;
+  }
+
+
+  TRACE_POP
+  return 0;
+}
+
+/*
+ * provides a analytical Jacobian to be used with DASSL
+ */
+static
+int jacobianSymbolicColored(realtype tt, realtype cj,
+    N_Vector yy, N_Vector yp, N_Vector rr, SlsMat Jac, void *userData,
+    N_Vector tmp1, N_Vector tmp2, N_Vector tmp3)
+{
+  TRACE_PUSH
+  IDA_SOLVER* idaData = (IDA_SOLVER*)userData;
+  DATA* data = (DATA*)(((IDA_USERDATA*)idaData->simData)->data);
+  threadData_t* threadData = (threadData_t*)(((IDA_USERDATA*)((IDA_SOLVER*)userData)->simData)->threadData);
+  void* ida_mem = idaData->ida_mem;
+  const int index = data->callback->INDEX_JAC_A;
+
+  double *states = N_VGetArrayPointer(yy);
+
+  setContext(data, &tt, CONTEXT_JACOBIAN);
+
+  if(measure_time_flag)
+  {
+    rt_tick(SIM_TIMER_JACOBIAN);
+  }
+  /* it's needed to clear the matrix */
+  SlsSetToZero(Jac);
+  Jac->colptrs[idaData->N] = idaData->NNZ;
+  data->localData[0]->timeValue = tt;
+  data->localData[0]->realVars = states;
+  /* read input vars */
+  externalInputUpdate(data);
+  data->callback->input_function(data, threadData);
+  /* eval ode*/
+  data->callback->functionODE(data, threadData);
+  symJacAColored(data, threadData, Jac);
+  /* finish matrix colptrs */
+  Jac->colptrs[idaData->N] = idaData->NNZ;
+  if(measure_time_flag)
+  {
+    rt_accumulate(SIM_TIMER_JACOBIAN);
+  }
+
+  /* debug */
+  if (ACTIVE_STREAM(LOG_JAC)){
+    infoStreamPrint(LOG_JAC, 0, "##IDA## Sparse Matrix A.");
+    PrintSparseMat(Jac);
+  }
+
+  /* add cj to diagonal elements and store in Jac */
+  if (!idaData->daeMode)
+  {
+    int i;
+    for (i=0; i < idaData->N; ++i){
+      idaData->tmpJac->colptrs[i] = i;
+      idaData->tmpJac->rowvals[i] = i;
+      idaData->tmpJac->data[i] = -cj;
+    }
+    idaData->tmpJac->colptrs[idaData->N] = idaData->N;
+    SlsAddMat(Jac, idaData->tmpJac);
+  }
+  unsetContext(data);
+
+  TRACE_POP
+  return 0;
 }
 /*
  *  function calculates a jacobian matrix by
@@ -1513,12 +1630,23 @@ static int jacobianSparseNum(double tt, double cj,
   DATA* data = (DATA*)(((IDA_USERDATA*)idaData->simData)->data);
   threadData_t* threadData = (threadData_t*)(((IDA_USERDATA*)((IDA_SOLVER*)user_data)->simData)->threadData);
 
+  /* tick */
+  if(measure_time_flag)
+  {
+    rt_tick(SIM_TIMER_JACOBIAN);
+  }
   if(jacobianSparseNumIDA(tt, yy, yp, rr, Jac, cj, user_data))
   {
     throwStreamPrint(threadData, "Error, can not get Matrix A ");
     TRACE_POP
     return 1;
   }
+  /* tock */
+  if(measure_time_flag)
+  {
+    rt_accumulate(SIM_TIMER_JACOBIAN);
+  }
+
 
   /* debug */
   if (ACTIVE_STREAM(LOG_JAC)){
@@ -1541,15 +1669,6 @@ static int jacobianSparseNum(double tt, double cj,
 
   TRACE_POP
   return 0;
-}
-
-
-/* Element function for sparse matrix set */
-static void setCSR(int row, int col, double value, int nth, SlsMat spJac)
-{
-  spJac->colptrs[col+1] = nth+1;
-  spJac->rowvals[nth] = row;
-  spJac->data[nth] = value;
 }
 
 /*
