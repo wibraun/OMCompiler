@@ -916,6 +916,10 @@ package MathOperation
     end ASSIGN_PARAM;
     record ASSIGN_PASSIVE
     end ASSIGN_PASSIVE;
+	  record ASSIGN_IND
+	  end ASSIGN_IND;
+	  record ASSIGN_DEP
+	  end ASSIGN_DEP;
     record PLUS
       Boolean isActive;
     end PLUS;
@@ -960,6 +964,8 @@ package MathOperation
     record OPERATIONDATA
       list<Operation> operations;
       Integer maxTmpIndex;
+      list<Integer> independents;
+      list<Integer> dependents;
     end OPERATIONDATA;
   end OperationData;
 
