@@ -4349,8 +4349,12 @@ algorithm
     tmpExps := list(if ComponentReference.crefEqual(cref, c) then DAE.RCONST(1.0) else DAE.RCONST(0.0) for c in inDiffCrefs);
     repl := BackendVarTransform.emptyReplacements();
     repl := List.threadFold1(inDiffCrefs, tmpExps, wrapaddReplacement, NONE(), repl);
-    print("\nDump replacements: ");
+    //print("\nDump replacements: ");
     BackendVarTransform.dumpReplacements(repl);
+    
+    // replace protected and output variables in function body
+    tmpSyst := BackendVarTransform.performReplacementsEqSystem(tmpSyst, repl);
+    //BackendDump.printEqSystem(tmpSyst);
 
   end for;
 end createFullSysts;
