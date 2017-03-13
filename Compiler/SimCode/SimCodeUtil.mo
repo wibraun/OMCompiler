@@ -4098,6 +4098,7 @@ algorithm
   (outJacobianMatrixes, ouniqueEqIndex) :=
   matchcontinue (inSymJacobians, inSimVarHT, iuniqueEqIndex, inNames)
     local
+      list<BackendDAE.EqSystem> systs;
       BackendDAE.EqSystem syst;
       BackendDAE.Shared shared;
       BackendDAE.StrongComponents comps;
@@ -4105,7 +4106,7 @@ algorithm
 
       DAE.ComponentRef x;
       list<BackendDAE.Var>  diffVars, diffedVars, alldiffedVars, seedVarLst, allVars;
-      list<DAE.ComponentRef> diffCompRefs, diffedCompRefs, allCrefs;
+      list<DAE.ComponentRef> diffCompRefs, diffedCompRefs, allCrefs, seedCrefs;
 
       Integer uniqueEqIndex, nRows;
 
@@ -4127,6 +4128,7 @@ algorithm
       list<tuple<Integer, list<Integer>>> sparseInts, sparseIntsT;
       list<list<Integer>> coloring;
       Option<BackendDAE.SymbolicJacobian> optionBDAE;
+      list<SimCode.JacobianColumn> jacColumns;
 
       SimCode.JacobianMatrix tmpJac;
       HashTableCrefSimVar.HashTable crefToSimVarHTJacobian;
@@ -4221,11 +4223,6 @@ algorithm
         if Flags.isSet(Flags.JAC_DUMP2) then
           print("analytical Jacobians -> creating SimCode equations for Matrix " + name + " time: " + realString(clock()) + "\n");
         end if;
-        // generate also discrete equations, they might be introduced by wrapFunctionCalls
-        (columnEquations, _, uniqueEqIndex, _) = createEquations(false, false, true, false, syst, shared, comps, iuniqueEqIndex, {});
-        if Flags.isSet(Flags.JAC_DUMP2) then
-          print("analytical Jacobians -> created all SimCode equations for Matrix " + name +  " time: " + realString(clock()) + "\n");
-        end if;
 
         // create SimCodeVar.SimVars from jacobian vars
         dummyVar = ("dummyVar" + name);
@@ -4312,7 +4309,16 @@ algorithm
         crefToSimVarHTJacobian = List.fold(seedVars, addSimVarToHashTable, crefToSimVarHTJacobian);
         crefToSimVarHTJacobian = List.fold(columnVars, addSimVarToHashTable, crefToSimVarHTJacobian);
 
+        seedCrefs = list(v.name for v in seedVars);
+        jacColumns = createFullSysts(syst, seedCrefs);
+
+        (columnEquations, _, uniqueEqIndex, _) = createEquations(false, false, true, false, syst, shared, comps, iuniqueEqIndex, {});
+        if Flags.isSet(Flags.JAC_DUMP2) then
+          print("analytical Jacobians -> created all SimCode equations for Matrix " + name +  " time: " + realString(clock()) + "\n");
+        end if;
+
         tmpJac = SimCode.JAC_MATRIX({SimCode.JAC_COLUMN(columnEquations, columnVars, nRows)}, seedVars, name, sparseInts, sparseIntsT, coloring, maxColor, -1, 0, SOME(crefToSimVarHTJacobian));
+
         linearModelMatrices = tmpJac::inJacobianMatrixes;
         (linearModelMatrices, uniqueEqIndex) = createSymbolicJacobianssSimCode(rest, inSimVarHT, uniqueEqIndex, restnames, linearModelMatrices);
      then
@@ -4324,6 +4330,45 @@ algorithm
         fail();
   end matchcontinue;
 end createSymbolicJacobianssSimCode;
+
+
+protected function createFullSysts
+  input BackendDAE.EqSystem inSyst;
+  input list<DAE.ComponentRef> inDiffCrefs;
+  output list<SimCode.JacobianColumn> outJacColumns = {};
+protected
+  BackendDAE.EqSystem tmpSyst;
+  list<DAE.ComponentRef> tmpVars;
+  list<DAE.Exp> tmpExps;
+  BackendVarTransform.VariableReplacements repl;
+algorithm
+  //
+
+  for cref in inDiffCrefs loop
+    tmpSyst := BackendDAEUtil.copyEqSystem(inSyst);
+    tmpExps := list(if ComponentReference.crefEqual(cref, c) then DAE.RCONST(1.0) else DAE.RCONST(0.0) for c in inDiffCrefs);
+    repl := BackendVarTransform.emptyReplacements();
+    repl := List.threadFold1(inDiffCrefs, tmpExps, wrapaddReplacement, NONE(), repl);
+    print("\nDump replacements: ");
+    BackendVarTransform.dumpReplacements(repl);
+
+  end for;
+end createFullSysts;
+
+
+protected function wrapaddReplacement
+  input DAE.ComponentRef inElement1;
+  input DAE.Exp inElement2;
+  input Option<FuncTypeExp_ExpToBoolean> inFuncTypeExpExpToBooleanOption;
+  input BackendVarTransform.VariableReplacements inFoldArg;
+  output BackendVarTransform.VariableReplacements outFoldArg;
+  partial function FuncTypeExp_ExpToBoolean
+    input DAE.Exp inExp;
+    output Boolean outBoolean;
+  end FuncTypeExp_ExpToBoolean;
+algorithm
+  outFoldArg := BackendVarTransform.addReplacement(inFoldArg, inElement1, inElement2, inFuncTypeExpExpToBooleanOption);
+end wrapaddReplacement;
 
 public function getSimVars2Crefs
   input list<DAE.ComponentRef> inCrefs;
