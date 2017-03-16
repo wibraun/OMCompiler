@@ -323,7 +323,7 @@ package SimCode
       Option<FmiModelStructure> modelStructure;
       PartitionData partitionData;
       Option<DaeModeData> daeModeData;
-      Option<MathOperation.OperationData> modelOperationData; /* model operation data for adolc */
+      list<MathOperation.OperationData> modelOperationData; /* model operation data for adolc */
     end SIMCODE;
   end SimCode;
 
@@ -816,6 +816,9 @@ package MathOperation
     record UNARY_CALL
       Absyn.Ident ident;
     end UNARY_CALL;
+	  record MODELICA_CALL
+	    Absyn.Ident ident;
+	  end MODELICA_CALL;
   end MathOperator;
 
   uniontype Operand
@@ -827,6 +830,9 @@ package MathOperation
     end OPERAND_CONST;
     record OPERAND_TIME
     end OPERAND_TIME;
+    record OPERAND_INDEX
+      Integer i;
+  end OPERAND_INDEX;
   end Operand;
 
   uniontype Operation
@@ -843,6 +849,7 @@ package MathOperation
       Integer maxTmpIndex;
       list<Integer> independents;
       list<Integer> dependents;
+      String name;
     end OPERATIONDATA;
   end OperationData;
 

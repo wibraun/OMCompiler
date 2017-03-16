@@ -133,7 +133,7 @@ uniontype SimCode
     Option<FmiModelStructure> modelStructure;
     PartitionData partitionData;
     Option<DaeModeData> daeModeData;
-    Option<MathOperation.OperationData> modelOperationData; /* model operation data for adolc */
+    list<MathOperation.OperationData> modelOperationData; /* model operation data for adolc */
   end SIMCODE;
 end SimCode;
 
