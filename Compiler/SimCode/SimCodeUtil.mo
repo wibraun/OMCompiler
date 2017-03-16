@@ -280,6 +280,7 @@ protected
   constant Boolean debug = false;
 
   Option<MathOperation.OperationData> modelOperationData;
+  DAE.FunctionTree funcTree;
 algorithm
   try
     execStat("Backend phase and start with SimCode phase");
@@ -321,7 +322,8 @@ algorithm
                                 constraints=constraints,
                                 classAttrs=classAttributes,
                                 symjacs=symJacs,
-                                eventInfo=eventInfo) := dlow.shared;
+                                eventInfo=eventInfo,
+                                functionTree=funcTree) := dlow.shared;
 
     removedEqs := BackendDAEUtil.collapseRemovedEqs(dlow);
 
@@ -546,7 +548,7 @@ algorithm
 
     // create model operation data for adolc
     if  Flags.getConfigBool(Flags.GEN_ADOLC_TRACE) then
-      modelOperationData := MathOperation.createOperationDataEqns(List.flatten(odeEquations), crefToSimVarHT, modelInfo.vars);
+      modelOperationData := MathOperation.createOperationData(List.flatten(odeEquations), crefToSimVarHT, modelInfo.varInfo, funcTree);
       //MathOperation.dumpOperationData(modelOperationData);
       execStat("simCode: ADOLC createOperationData");
     else
