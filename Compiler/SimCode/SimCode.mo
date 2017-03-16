@@ -153,7 +153,7 @@ uniontype SimCode
     PartitionData partitionData;
     Option<DaeModeData> daeModeData;
     list<SimEqSystem> inlineEquations;
-    Option<MathOperation.OperationData> modelOperationData; /* model operation data for adolc */
+    list<MathOperation.OperationData> modelOperationData; /* model operation data for adolc */
   end SIMCODE;
 end SimCode;
 
