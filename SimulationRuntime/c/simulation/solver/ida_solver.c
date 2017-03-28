@@ -1596,6 +1596,13 @@ static void setCSR(int row, int col, double value, int nth, SlsMat spJac)
   spJac->rowvals[nth] = row;
   spJac->data[nth] = value;
 }
+/* Element function for sparse matrix set */
+static void setCSC(int col, int row, double value, int nth, SlsMat spJac)
+{
+  spJac->colptrs[col]++;
+  spJac->rowvals[nth] = row;
+  spJac->data[nth] = value;
+}
 
 
 static
@@ -1930,13 +1937,6 @@ static int callSparseJacobian(double tt, double cj,
     retVal = jacoColoredNumericalSparse(tt, yy, yp, rr, Jac, cj, user_data);
   }
   /* tock */
-  if(measure_time_flag)
-  {
-    rt_accumulate(SIM_TIMER_JACOBIAN);
-  }
-
-
-  /* profiling */
   rt_accumulate(SIM_TIMER_JACOBIAN);
 
   /* debug */
@@ -2099,7 +2099,7 @@ static int jacobianSparseADOLC(double tt, double cj,
   IDA_SOLVER* idaData = (IDA_SOLVER*)user_data;
   DATA* data = (DATA*)(((IDA_USERDATA*)idaData->simData)->data);
   threadData_t* threadData = (threadData_t*)(((IDA_USERDATA*)((IDA_SOLVER*)user_data)->simData)->threadData);
-  int i;
+  int i, temp1, temp2, colsum = 0;
   static int repeat = 0;
   static unsigned int *rows = NULL;
   static unsigned int *cols = NULL;
@@ -2136,16 +2136,29 @@ static int jacobianSparseADOLC(double tt, double cj,
     repeat = 1;
   }
 
-  /* use CSR format */
-  Jac->NNZ = nnz;
+  /* transform to CSC format */
+  for (i = 0; i < nnz; i++){
+    Jac->colptrs[(int)cols[i]]++;
+  }
+  /* sum the nnz per col to get Jac->colptrs[] */
+  for(i = 0; i <= idaData->N; i++){
+    temp1 = Jac->colptrs[i];
+    Jac->colptrs[i] = colsum;
+    colsum += temp1;
+  }
   for(i = 0; i < nnz; i++)
   {
-    setCSR((int)rows[i], (int)cols[i], values[i], i, Jac);
+    setCSC((int)cols[i], (int)rows[i], values[i], Jac->colptrs[cols[i]], Jac);
   }
+  for(i = idaData->N; i >= 1; i--){
+    Jac->colptrs[i] = Jac->colptrs[i-1];
+  }
+  Jac->colptrs[0] = 0;
+  Jac->NNZ = nnz;
 
   /* debug */
   if (ACTIVE_STREAM(LOG_JAC)){
-    infoStreamPrint(LOG_JAC, 0, "##IDA## Sparse Matrix A.");
+    infoStreamPrint(LOG_JAC, 0, "##IDA## Sparse ADOLC Matrix");
     PrintSparseMat(Jac);
   }
 
