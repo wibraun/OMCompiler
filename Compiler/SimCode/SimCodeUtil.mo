@@ -7709,7 +7709,7 @@ algorithm
 end dumpSimEqSystemLst;
 
 
-protected function simEqSystemString
+public function simEqSystemString
 "outputs a string representation of the given SimEqSystem.
 author:Waurich TUD 2016-04"
   input SimCode.SimEqSystem eqSysIn;
