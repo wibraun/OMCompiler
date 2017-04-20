@@ -31,6 +31,7 @@ DgesvSolver::DgesvSolver(ILinearAlgLoop* algLoop, ILinSolverSettings* settings)
 	, _zeroVec            (NULL)
 	, _iterationStatus    (CONTINUE)
 	, _firstCall          (true)
+    , _fNominal (NULL)
 {
 }
 
@@ -44,6 +45,7 @@ DgesvSolver::~DgesvSolver()
 	if(_A)              delete []  _A;
 	if(_ihelpArray)       delete []  _ihelpArray;
 	if(_zeroVec)          delete []  _zeroVec;
+    if (_fNominal)		  delete []    _fNominal;
 }
 
 void DgesvSolver::initialize()
@@ -70,6 +72,7 @@ void DgesvSolver::initialize()
 			if(_A)             delete []  _A;
 			if(_ihelpArray)      delete []  _ihelpArray;
 			if(_zeroVec)         delete []  _zeroVec;
+			if (_fNominal)		 delete []    _fNominal;
 
 			_y                = new double[_dimSys];
 			_y0               = new double[_dimSys];
@@ -79,6 +82,7 @@ void DgesvSolver::initialize()
 			_A              = new double[_dimSys*_dimSys];
 			_ihelpArray       = new long int[_dimSys];
 			_zeroVec          = new double[_dimSys];
+			_fNominal          = new double[_dimSys];
 
 			_algLoop->getReal(_y);
 			_algLoop->getReal(_y0);
@@ -106,19 +110,31 @@ void DgesvSolver::solve()
 	_iterationStatus = CONTINUE;
 
 	//use lapack
-	long int dimRHS  = 1;          // Dimension of right hand side of linear system (=_b)
-	long int irtrn  = 0;          // Return-flag of Fortran code
+	long int dimRHS  = 1; // Dimension of right hand side of linear system (=_b)
+	long int irtrn  = 0; // Return-flag of Fortran code
 
 	if(_algLoop->isLinearTearing())
-		_algLoop->setReal(_zeroVec);	//if the system is linear Tearing it means that the system is of the form Ax-b=0, so plugging in x=0 yields -b for the left hand side
+		_algLoop->setReal(_zeroVec); //if the system is linear Tearing it means that the system is of the form Ax-b=0, so plugging in x=0 yields -b for the left hand side
 
 	_algLoop->evaluate();
-	_algLoop->getRHS(_b);
+	_algLoop->getb(_b);
 
-	const matrix_t& A = _algLoop->getSystemMatrix();
+	const matrix_t& A = _algLoop->getAMatrix();
 	const double* Atemp = A.data().begin();
 
 	memcpy(_A, Atemp, _dimSys*_dimSys*sizeof(double));
+
+
+    for (int j = 0, idx = 0; j < _dimSys; j++)
+		for (int i = 0; i < _dimSys; i++, idx++)
+			_fNominal[i] = std::max(std::abs(Atemp[idx]), _fNominal[i]);
+
+	for (int j = 0, idx = 0; j < _dimSys; j++)
+		for (int i = 0; i < _dimSys; i++, idx++)
+			_A[idx] /= _fNominal[i];
+
+	for (int i = 0; i < _dimSys; i++)
+        _b[i] /= _fNominal[i];
 
 	dgesv_(&_dimSys,&dimRHS,_A,&_dimSys,_ihelpArray,_b,&_dimSys,&irtrn);
 
@@ -132,6 +148,7 @@ void DgesvSolver::solve()
 		_iterationStatus = DONE;
 
 
+	//we need to revert the sign of y, because the sign of b was changed before.
 	if(_algLoop->isLinearTearing()){
 		for(int i=0; i<_dimSys; i++)
 			_y[i]=-_b[i];
@@ -140,7 +157,7 @@ void DgesvSolver::solve()
 	}
 
 	_algLoop->setReal(_y);
-	if(_algLoop->isLinearTearing())		_algLoop->evaluate();//warum nur in diesem Fall??
+	if(_algLoop->isLinearTearing())		_algLoop->evaluate();//resets the right hand side to zero in the case of linear tearing. Otherwise, the b vector on the right hand side needs no update.
 }
 
 IAlgLoopSolver::ITERATIONSTATUS DgesvSolver::getIterationStatus()

@@ -28,12 +28,23 @@
 #     if the equation systems of a FMU should be solved with sundials solvers      -DFMU_SUNDIALS=ON [default: OFF]
 #     if the logger should be completely disabled or used                          -DUSE_LOGGER=OFF [default: ON]
 #     specify target platform for compilation                                      -DPLATFORM=<dynamic, static or platform triple> [default: "dynamic"]
-#
+#     use Klu sparse liner solver 												   -DUSE_KLU [default: OFF]
+#     use NOX non linear solver from trilinos library                              -DUSE_TRILINOS [default: OFF]
 #     Example: "cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo" to create statically linked libraries
 #
 # The used defines are stored in the SYSTEM_CFLAGS variable, which is passed to the ModelicaConfig.inc and written in the PrecompiledHeader.cmake
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.9)
+
+IF(UNIX)
+IF(APPLE)
+# We set the rpath manually, later...
+ELSE(APPLE)
+# Needed to find Sundials; actually only the Sundials objects need this,
+# but there are so many of them
+SET(CMAKE_INSTALL_RPATH "$ORIGIN:$ORIGIN/..")
+ENDIF(APPLE)
+ENDIF(UNIX)
 
 if(NOT PLATFORM OR PLATFORM STREQUAL "dynamic")
   set(BUILD_SHARED_LIBS ON)
@@ -75,8 +86,8 @@ OPTION(BOOST_STATIC_LINKING "BOOST_STATIC_LINKING" OFF)
 OPTION(USE_BOOST_REALPATHS "USE_BOOST_REALPATHS" OFF)
 OPTION(RUNTIME_PROFILING "RUNTIME_PROFILING" OFF)
 OPTION(FMU_SUNDIALS "FMU_SUNDIALS" OFF)
-OPTION(SUNDIALS_ROOT "SUNDIALS ROOT" "")
 OPTION(KLU_ROOT "KLU ROOT" "")
+OPTION(TRILINOS_ROOT "TRILINOS ROOT" "")
 OPTION(USE_CPP_03 "USE_CPP_03" OFF)
 
 #Set Variables
@@ -117,6 +128,7 @@ SET(RTEulerName ${LIBPREFIX}RTEuler${LIBSUFFIX})
 SET(IdaName ${LIBPREFIX}Ida${LIBSUFFIX})
 SET(IdasName ${LIBPREFIX}Idas${LIBSUFFIX})
 SET(KinsolName ${LIBPREFIX}Kinsol${LIBSUFFIX})
+SET(NoxName ${LIBPREFIX}Nox${LIBSUFFIX})
 SET(LinearSolverName ${LIBPREFIX}LinearSolver${LIBSUFFIX})
 SET(DgesvSolverName ${LIBPREFIX}DgesvSolver${LIBSUFFIX})
 SET(ModelicaName ${LIBPREFIX}Modelica${LIBSUFFIX})
@@ -133,7 +145,8 @@ SET(FMUName ${LIBPREFIX}FMU${LIBSUFFIX})
 SET(DgesvName ${LIBPREFIX}Dgesv) # only static version
 
 SET(USE_MICO OFF)
-SET(USE_KLU OFF)
+SET(USE_KLU CACHE BOOL OFF)
+SET(USE_TRILINOS CACHE BOOL OFF)
 SET(REDUCE_DAE OFF)
 IF(NOT FMU_TARGET OR FMU_SUNDIALS)
   SET(USE_SUNDIALS ON)
@@ -412,11 +425,11 @@ FIND_PACKAGE(Boost COMPONENTS log log_setup)
 
 # Deactivate threading stuff in MSVC release mode, because this produces linker errors to boost::exception_ptr
 IF(MSVC AND (CMAKE_BUILD_TYPE_UPPER STREQUAL "RELEASE"))
-	SET(Boost_THREAD_LIBRARY_RELEASE "NOT_FOUND")
-	SET(Boost_THREAD_LIBRARY_DEBUG "NOT_FOUND")
-	MESSAGE(STATUS "Boost threading disabled because othwerwise the MSVC build produces linker errors in release mode.")
+  SET(Boost_THREAD_LIBRARY_RELEASE "NOT_FOUND")
+  SET(Boost_THREAD_LIBRARY_DEBUG "NOT_FOUND")
+  MESSAGE(STATUS "Boost threading disabled because othwerwise the MSVC build produces linker errors in release mode.")
 ELSE(MSVC AND (CMAKE_BUILD_TYPE_UPPER STREQUAL "RELEASE"))
-	FIND_PACKAGE(Boost COMPONENTS thread atomic)
+  FIND_PACKAGE(Boost COMPONENTS thread atomic)
 ENDIF(MSVC AND (CMAKE_BUILD_TYPE_UPPER STREQUAL "RELEASE"))
 
 IF(NOT(COMPILER_SUPPORTS_CXX11))
@@ -490,20 +503,22 @@ MESSAGE(STATUS ${LAPACK_LIBRARIES})
 IF(USE_SUNDIALS)
   #set sundials solvers include and library directories
   IF(MSVC)
-    SET(Sundials_Path "${CMAKE_SOURCE_DIR}/../../3rdParty/sundials/build_msvc")
+    SET(SUNDIALS_INLCUDE_HOME  "${CMAKE_SOURCE_DIR}/../../3rdParty/sundials/build_msvc/include/")
+    SET(SUNDIALS_LIBRARY_RELEASE_HOME "${CMAKE_SOURCE_DIR}/../../3rdParty/sundials/build_msvc/lib/")
   ELSE(MSVC)
-    SET(Sundials_Path "${CMAKE_SOURCE_DIR}/../../3rdParty/sundials/build")
+    SET(SUNDIALS_INLCUDE_HOME  ${CMAKE_INSTALL_PREFIX}/include/omc/c/sundials)
+    SET(SUNDIALS_LIBRARY_RELEASE_HOME   ${CMAKE_INSTALL_PREFIX}/${LIBINSTALLEXT}/..)
   ENDIF(MSVC)
-  SET(SUNDIALS_INLCUDE_HOME  ${Sundials_Path}/include)
-  SET(SUNDIALS_LIBRARY_RELEASE_HOME  ${Sundials_Path}/lib)
+
   MESSAGE(STATUS "Sundials include:")
   MESSAGE(STATUS "${SUNDIALS_INLCUDE_HOME}")
   MESSAGE(STATUS "Sundials library:")
   MESSAGE(STATUS "${SUNDIALS_LIBRARY_RELEASE_HOME}")
 
-  FIND_PATH(SUNDIALS_INCLUDE_DIR cvode/cvode.h PATHS ${SUNDIALS_INLCUDE_HOME} $ENV{SUNDIALS_ROOT}/include)
+
+  FIND_PATH(SUNDIALS_INCLUDE_DIR cvode/cvode.h PATHS ${SUNDIALS_INLCUDE_HOME})
   IF (NOT SUNDIALS_INCLUDE_DIR)
-    MESSAGE(FATAL_ERROR "Could not find Sundials, specify environment variable SUNDIALS_ROOT")
+    MESSAGE(FATAL_ERROR "Could not find Sundials; compile omc first")
   ELSE(NOT SUNDIALS_INCLUDE_DIR)
     INCLUDE_DIRECTORIES(${SUNDIALS_INCLUDE_DIR})
     # Extract the version number from sundials_config.h
@@ -575,11 +590,22 @@ IF(USE_KLU)
   #set klu solvers include and library directories
   IF(MSVC)
     SET(Klu_Path "${CMAKE_SOURCE_DIR}/../../3rdParty/SuiteSparse/install_msvc")
+
+#            SET(KLU_INLCUDE_HOME  ${Klu_Path}/include/omc/c/suitesparse/Include)
+#    SET(KLU_LIBRARY_RELEASE_HOME  ${Klu_Path}/lib/omc)
   ELSE(MSVC)
-    SET(Klu_Path "${CMAKE_SOURCE_DIR}/../../3rdParty/SuiteSparse/build")
+    SET(Klu_Path "${CMAKE_SOURCE_DIR}/../../3rdParty/SuiteSparse")
+    #SET(Klu_Path ${CMAKE_SOURCE_DIR}/../../../build/include/omc/c/suitesparse/Include) #"${CMAKE_SOURCE_DIR}/../../3rdParty/SuiteSparse")
   ENDIF(MSVC)
-  SET(KLU_INLCUDE_HOME  ${Klu_Path}/include/omc/c/suitesparse/Include)
-  SET(KLU_LIBRARY_RELEASE_HOME  ${Klu_Path}/lib/omc)
+
+  IF(MSVC)
+  SET(KLU_INLCUDE_HOME ${Klu_Path}/include/omc/c/suitesparse/Include) #${Klu_Path}/KLU/Include)
+  SET(KLU_LIBRARY_RELEASE_HOME ${Klu_Path}/lib/omc) #${Klu_Path}/build)
+  ELSE(MSVC)
+  SET(KLU_INLCUDE_HOME ${Klu_Path}/Include) #${Klu_Path}/KLU/Include)
+  SET(KLU_LIBRARY_RELEASE_HOME ${Klu_Path}/build) #${Klu_Path}/build)
+  ENDIF(MSVC)
+
   MESSAGE(STATUS "Klu include:")
   MESSAGE(STATUS "${KLU_INLCUDE_HOME}")
   MESSAGE(STATUS "Klu library:")
@@ -615,10 +641,100 @@ IF(USE_KLU)
   SET(KLU_LIBRARIES ${KLU_LIB} ${AMD_LIB} ${BTF} ${COLAMD})
 
   MESSAGE(STATUS "Klu Libraries:")
-  MESSAGE(STATUS "${KNU_LIBRARIES}")
-
+  MESSAGE(STATUS "${KLU_LIBRARIES}")
   ADD_DEFINITIONS(-Dklu)
 ENDIF(USE_KLU)
+
+
+
+# Find Trilinos/Nox solvers
+IF(USE_TRILINOS)
+  IF(MSVC)
+    SET(Trilinos_Path "${CMAKE_SOURCE_DIR}/../../3rdParty/trilinos-nox/build_msvc")
+  ELSE(MSVC)
+    SET(Trilinos_Path "${CMAKE_SOURCE_DIR}/../../3rdParty/trilinos-nox/build")
+  ENDIF(MSVC)
+  SET(TRILINOS_INLCUDE_HOME  ${Trilinos_Path}/include)
+  IF(WIN32)
+    SET(TRILINOS_LIBRARY_RELEASE_HOME  ${Trilinos_Path}/bin)
+  ELSE(WIN32)
+    SET(TRILINOS_LIBRARY_RELEASE_HOME  ${Trilinos_Path}/lib)
+  ENDIF(WIN32)
+  MESSAGE(STATUS "Trilinos include:")
+  MESSAGE(STATUS "${TRILINOS_INLCUDE_HOME}")
+  MESSAGE(STATUS "Trilinos library:")
+  MESSAGE(STATUS "${TRILINOS_LIBRARY_RELEASE_HOME}")
+
+  FIND_PATH(TRILINOS_INCLUDE_DIR NOX.H PATHS ${TRILINOS_INLCUDE_HOME} $ENV{TRILINOS_ROOT}/include)
+  IF (NOT TRILINOS_INCLUDE_DIR)
+    MESSAGE(FATAL_ERROR "Could not find Trilinos, specify environment variable TRILINOS_ROOT")
+  ELSE(NOT TRILINOS_INCLUDE_DIR)
+    INCLUDE_DIRECTORIES(${TRILINOS_INCLUDE_DIR})
+  ENDIF(NOT TRILINOS_INCLUDE_DIR)
+
+  FIND_LIBRARY(NOX_LIB "nox" NO_DEFAULT_PATH NO_SYSTEM_ENVIRONMENT_PATH PATHS ${TRILINOS_LIBRARY_RELEASE_HOME} $ENV{TRILINOS_ROOT}/lib)
+  IF(NOT NOX_LIB)
+    MESSAGE(FATAL_ERROR "Could not find nox library!")
+  ENDIF()
+
+  FIND_LIBRARY(NOXLAPACK_LIB "noxlapack" NO_DEFAULT_PATH NO_SYSTEM_ENVIRONMENT_PATH PATHS ${TRILINOS_LIBRARY_RELEASE_HOME} $ENV{TRILINOS_ROOT}/lib)
+  IF(NOT NOXLAPACK_LIB)
+    MESSAGE(FATAL_ERROR "Could not find noxlapack library!")
+  ENDIF()
+
+  FIND_LIBRARY(BELOS_LIB "belos" NO_DEFAULT_PATH NO_SYSTEM_ENVIRONMENT_PATH PATHS ${TRILINOS_LIBRARY_RELEASE_HOME} $ENV{TRILINOS_ROOT}/lib)
+  IF(NOT BELOS_LIB)
+    MESSAGE(FATAL_ERROR "Could not find belos library!")
+  ENDIF()
+
+  FIND_LIBRARY(LOCA_LIB "loca" NO_DEFAULT_PATH NO_SYSTEM_ENVIRONMENT_PATH PATHS ${TRILINOS_LIBRARY_RELEASE_HOME} $ENV{TRILINOS_ROOT}/lib)
+  IF(NOT LOCA_LIB)
+    MESSAGE(FATAL_ERROR "Could not find loca library!")
+  ENDIF()
+
+  FIND_LIBRARY(LOCALAPACK_LIB "localapack" NO_DEFAULT_PATH NO_SYSTEM_ENVIRONMENT_PATH PATHS ${TRILINOS_LIBRARY_RELEASE_HOME} $ENV{TRILINOS_ROOT}/lib)
+  IF(NOT LOCALAPACK_LIB)
+    MESSAGE(FATAL_ERROR "Could not find localapack library!")
+  ENDIF()
+
+  FIND_LIBRARY(ML_LIB "ml" NO_DEFAULT_PATH NO_SYSTEM_ENVIRONMENT_PATH PATHS ${TRILINOS_LIBRARY_RELEASE_HOME} $ENV{TRILINOS_ROOT}/lib)
+  IF(NOT ML_LIB)
+    MESSAGE(FATAL_ERROR "Could not find ml library!")
+  ENDIF()
+
+  FIND_LIBRARY(TEUCHOSCOMM_LIB "teuchoscomm" NO_DEFAULT_PATH NO_SYSTEM_ENVIRONMENT_PATH PATHS ${TRILINOS_LIBRARY_RELEASE_HOME} $ENV{TRILINOS_ROOT}/lib)
+  IF(NOT TEUCHOSCOMM_LIB)
+    MESSAGE(FATAL_ERROR "Could not find teuchoscomm library!")
+  ENDIF()
+
+  FIND_LIBRARY(TEUCHOSCORE_LIB "teuchoscore" NO_DEFAULT_PATH NO_SYSTEM_ENVIRONMENT_PATH PATHS ${TRILINOS_LIBRARY_RELEASE_HOME} $ENV{TRILINOS_ROOT}/lib)
+  IF(NOT TEUCHOSCORE_LIB)
+    MESSAGE(FATAL_ERROR "Could not find teuchoscore library!")
+  ENDIF()
+
+  FIND_LIBRARY(TEUCHOSNUMERICS_LIB "teuchosnumerics" NO_DEFAULT_PATH NO_SYSTEM_ENVIRONMENT_PATH PATHS ${TRILINOS_LIBRARY_RELEASE_HOME} $ENV{TRILINOS_ROOT}/lib)
+  IF(NOT TEUCHOSNUMERICS_LIB)
+    MESSAGE(FATAL_ERROR "Could not find teuchosnumerics library!")
+  ENDIF()
+
+  FIND_LIBRARY(TEUCHOSPARAMETERLIST_LIB "teuchosparameterlist" NO_DEFAULT_PATH NO_SYSTEM_ENVIRONMENT_PATH PATHS ${TRILINOS_LIBRARY_RELEASE_HOME} $ENV{TRILINOS_ROOT}/lib)
+  IF(NOT TEUCHOSPARAMETERLIST_LIB)
+    MESSAGE(FATAL_ERROR "Could not find teuchosparameterlist library!")
+  ENDIF()
+
+  FIND_LIBRARY(TEUCHOSREMAINDER_LIB "teuchosremainder" NO_DEFAULT_PATH NO_SYSTEM_ENVIRONMENT_PATH PATHS ${TRILINOS_LIBRARY_RELEASE_HOME} $ENV{TRILINOS_ROOT}/lib)
+  IF(NOT TEUCHOSREMAINDER_LIB)
+    MESSAGE(FATAL_ERROR "Could not find teuchosremainder library!")
+  ENDIF()
+
+  SET(TRILINOS_LIBRARIES ${NOX_LIB} ${NOXLAPACK_LIB} ${BELOS_LIB} ${LOCA_LIB} ${LOCALAPACK_LIB} ${ML_LIB} ${TEUCHOSCOMM_LIB} ${TEUCHOSCORE_LIB} ${TEUCHOSNUMERICS_LIB} ${TEUCHOSPARAMETERLIST_LIB} ${TEUCHOSREMAINDER_LIB} )
+
+  MESSAGE(STATUS "Trilinos Libraries:")
+  MESSAGE(STATUS "${TRILINOS_LIBRARIES}")
+
+  ADD_DEFINITIONS(-Dtrilinos)
+ENDIF(USE_TRILINOS)
+
 
 #Handle umfpack
 #FIND_PACKAGE(SuiteSparse)
@@ -759,12 +875,6 @@ IF(USE_SUNDIALS)
   GET_TARGET_PROPERTY(libKinsol ${KinsolName} LOCATION)
   GET_FILENAME_COMPONENT(libKinsolName ${libKinsol} NAME)
 
-  GET_TARGET_PROPERTY(libLinearSolver ${LinearSolverName} LOCATION)
-  GET_FILENAME_COMPONENT(libLinearSolverName ${libLinearSolver} NAME)
-
-  GET_TARGET_PROPERTY(libDgesvSolver ${DgesvSolverName} LOCATION)
-  GET_FILENAME_COMPONENT(libDgesvSolverName ${libDgesvSolver} NAME)
-
   #GET_TARGET_PROPERTY(libIdas ${IdasName} LOCATION)
   #GET_FILENAME_COMPONENT(libIdasName ${libIdas} NAME)
   #GET_TARGET_PROPERTY(libIda ${IdaName} LOCATION)
@@ -778,12 +888,27 @@ IF(USE_SUNDIALS)
   #set(IDA_LIB ${libIdaName})
 ENDIF(USE_SUNDIALS)
 
+IF(USE_TRILINOS)
+  ADD_SUBDIRECTORY(Solver/Nox)
+
+  GET_TARGET_PROPERTY(libNox ${NoxName} LOCATION)
+  GET_FILENAME_COMPONENT(libNoxName ${libNox} NAME)
+
+  SET(NOX_LIB ${libNoxName})
+ENDIF(USE_TRILINOS)
+
+GET_TARGET_PROPERTY(libLinearSolver ${LinearSolverName} LOCATION)
+GET_FILENAME_COMPONENT(libLinearSolverName ${libLinearSolver} NAME)
+
+GET_TARGET_PROPERTY(libDgesvSolver ${DgesvSolverName} LOCATION)
+GET_FILENAME_COMPONENT(libDgesvSolverName ${libDgesvSolver} NAME)
+
 GET_TARGET_PROPERTY(libPeer ${PeerName} LOCATION)
 GET_FILENAME_COMPONENT(libPeerName ${libPeer} NAME)
 
 IF(OPENMP_FOUND)
-	GET_TARGET_PROPERTY(libCppDASSL ${CppDASSLName} LOCATION)
-	GET_FILENAME_COMPONENT(libCppDASSLName ${libCppDASSL} NAME)
+  GET_TARGET_PROPERTY(libCppDASSL ${CppDASSLName} LOCATION)
+  GET_FILENAME_COMPONENT(libCppDASSLName ${libCppDASSL} NAME)
 ENDIF(OPENMP_FOUND)
 
 GET_TARGET_PROPERTY(libRTRK ${RTRKName} LOCATION)
