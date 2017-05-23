@@ -1133,6 +1133,7 @@ static int JacobianSymbolicColored(double *t, double *y, double *yprime, double 
   if(measure_time_flag)
   {
     rt_accumulate(SIM_TIMER_JACOBIAN);
+    infoStreamPrint(LOG_STATS_V, 0, "jac %g", rt_accumulated(SIM_TIMER_JACOBIAN));
   }
 
   /* add cj to the diagonal elements of the matrix */
@@ -1186,6 +1187,7 @@ static int JacobianSymbolic(double *t, double *y, double *yprime, double *deltaD
   if(measure_time_flag)
   {
     rt_accumulate(SIM_TIMER_JACOBIAN);
+    infoStreamPrint(LOG_STATS_V, 0, "jac %g", rt_accumulated(SIM_TIMER_JACOBIAN));
   }
 
   /* add cj to the diagonal elements of the matrix */
