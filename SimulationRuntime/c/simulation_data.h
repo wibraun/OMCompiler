@@ -328,6 +328,7 @@ typedef struct LINEAR_SYSTEM_DATA
   modelica_integer nnz;                 /* number of nonzero entries */
   modelica_integer size;
   modelica_integer equationIndex;       /* index for EQUATION_INFO */
+  modelica_integer adolcIndex;           /* index for adolc otherwise -1 */
 
   void *solverData;
   modelica_real *x;                     /* solution vector x */

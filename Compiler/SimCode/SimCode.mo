@@ -361,6 +361,7 @@ uniontype LinearSystem
     Option<JacobianMatrix> jacobianMatrix;
     list<DAE.ElementSource> sources;
     Integer indexLinearSystem;
+    Integer adolcIndex;
   end LINEARSYSTEM;
 end LinearSystem;
 
