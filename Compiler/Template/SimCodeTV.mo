@@ -533,6 +533,7 @@ package SimCode
       list<DAE.ElementSource> sources;
       Integer indexLinearSystem;
       Integer nUnknowns;
+      Integer adolcIndex;
     end LINEARSYSTEM;
   end LinearSystem;
 
@@ -946,8 +947,8 @@ package MathOperation
     end COND_ASSIGN;
     record COND_EQ_ASSIGN
     end COND_EQ_ASSIGN;
-	  record EXT_DIFF_V2
-    end EXT_DIFF_V2;
+	  record EXT_DIFF_V
+    end EXT_DIFF_V;
   end MathOperator;
 
   uniontype Operand
