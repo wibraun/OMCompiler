@@ -1942,6 +1942,7 @@ template functionInitialLinearSystemsTemp(list<SimEqSystem> allEquations, String
            linearSystemData[<%ls.indexLinearSystem%>].setA = setLinearMatrixA<%ls.index%>;
            linearSystemData[<%ls.indexLinearSystem%>].setb = setLinearVectorb<%ls.index%>;
            linearSystemData[<%ls.indexLinearSystem%>].initializeStaticLSData = initializeStaticLSData<%ls.index%>;
+           linearSystemData[<%ls.indexLinearSystem%>].adolcIndex = <%ls.adolcIndex%>;
            >>
          case SOME(__) then
            let size = listLength(ls.vars)
@@ -1963,6 +1964,7 @@ template functionInitialLinearSystemsTemp(list<SimEqSystem> allEquations, String
            linearSystemData[<%ls.indexLinearSystem%>].setA = NULL;//setLinearMatrixA<%ls.index%>;
            linearSystemData[<%ls.indexLinearSystem%>].setb = NULL; //setLinearVectorb<%ls.index%>;
            linearSystemData[<%ls.indexLinearSystem%>].initializeStaticLSData = initializeStaticLSData<%ls.index%>;
+           linearSystemData[<%ls.indexLinearSystem%>].adolcIndex = <%ls.adolcIndex%>;
            >>
          else
          error(sourceInfo(), ' No jacobian create for linear system <%ls.index%>.')
@@ -1998,6 +2000,7 @@ template functionInitialLinearSystemsTemp(list<SimEqSystem> allEquations, String
            linearSystemData[<%at.indexLinearSystem%>].setA = setLinearMatrixA<%at.index%>;
            linearSystemData[<%at.indexLinearSystem%>].setb = setLinearVectorb<%at.index%>;
            linearSystemData[<%at.indexLinearSystem%>].initializeStaticLSData = initializeStaticLSData<%at.index%>;
+           linearSystemData[<%at.indexLinearSystem%>].adolcIndex = <%at.adolcIndex%>;
            >>
          case SOME(__) then
            let size = listLength(ls.vars)
@@ -2024,6 +2027,7 @@ template functionInitialLinearSystemsTemp(list<SimEqSystem> allEquations, String
            linearSystemData[<%ls.indexLinearSystem%>].setA = NULL;//setLinearMatrixA<%ls.index%>;
            linearSystemData[<%ls.indexLinearSystem%>].setb = NULL; //setLinearVectorb<%ls.index%>;
            linearSystemData[<%ls.indexLinearSystem%>].initializeStaticLSData = initializeStaticLSData<%ls.index%>;
+           linearSystemData[<%ls.indexLinearSystem%>].adolcIndex = <%ls.adolcIndex%>;
 
            assertStreamPrint(NULL, nLinearSystems > <%at.indexLinearSystem%>, "Internal Error: indexlinearSystem mismatch!");
            linearSystemData[<%at.indexLinearSystem%>].equationIndex = <%at.index%>;
@@ -2038,6 +2042,7 @@ template functionInitialLinearSystemsTemp(list<SimEqSystem> allEquations, String
            linearSystemData[<%at.indexLinearSystem%>].setA = NULL;//setLinearMatrixA<%at.index%>;
            linearSystemData[<%at.indexLinearSystem%>].setb = NULL; //setLinearVectorb<%at.index%>;
            linearSystemData[<%at.indexLinearSystem%>].initializeStaticLSData = initializeStaticLSData<%at.index%>;
+           linearSystemData[<%at.indexLinearSystem%>].adolcIndex = <%at.adolcIndex%>;
            >>
          else
          error(sourceInfo(), ' No jacobian create for linear system <%ls.index%> or <%at.index%>.')

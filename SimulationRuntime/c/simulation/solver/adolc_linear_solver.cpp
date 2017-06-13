@@ -32,6 +32,7 @@
  */
 
 #include <string.h>
+#include <vector>
 #include <adolc/edfclasses.h>
 
 
@@ -53,7 +54,7 @@ public:
     virtual int fov_reverse(int iArrLen, int* iArr, int nout, int nin, int *outsz, int dir, double ***Up, int *insz, double ***Zp, double **x, double **y, void* ctx);
 };
 
-static LinearSolverEdf linSolEdf;
+static std::vector<LinearSolverEdf> linSolEdfVec;
 
 int LinearSolverEdf::function(int iArrLen, int *iArr, int nin, int nout, int *insz, double **x, int *outsz, double **y, void* ctx) {
 
@@ -72,22 +73,30 @@ int LinearSolverEdf::function(int iArrLen, int *iArr, int nin, int nout, int *in
   double* b = y[0];
   for(int i=0; i<nb; ++i){
     b[i] = x[1][i];
+    //printf("b[%d] = %f\n", i, b[i]);
   }
 
   for(int i = 0; i<nnz; ++i){
-    A[iArr[i]+iArr[i+1]*nb] = x[0][i];
+    A[iArr[2*i]+iArr[2*i+1]*nb] = x[0][i];
+    //printf("A[%d, %d] = %f\n", iArr[2*i], iArr[2*i+1], A[iArr[2*i]+iArr[2*i+1]*nb]);
   }
 
   dgesv_(&nx, &nrhs, A, &nx, ipriv, b, &nb, &info);
+
+  /*
+  for(int i=0; i<nb; ++i){
+      printf("sol[%d] = %f\n", i, b[i]);
+  }
+  */
 
 
   free(A);
   free(ipriv);
   if(info < 0){
-    printf("Error solving linear system of equations. Argument %d illegal.", info);
+    printf("function: Error solving linear system of equations. Argument %d illegal.\n", info);
     return -info;
   }else if (info > 0){
-    printf("Error solving linear system of equations. System singular in row %d.", info);
+    printf("function: Error solving linear system of equations. System singular in row %d.\n", info);
     return -info;
   }
 
@@ -120,7 +129,7 @@ int LinearSolverEdf::fos_forward(int iArrLen, int* iArr, int nin, int nout, int 
   int *ipriv = (int*) calloc(nx, sizeof(int));
 
   for(int i = 0; i<nnz; ++i){
-    A[iArr[i]+iArr[i+1]*nb] = xp[0][i];
+    A[iArr[2*i]+iArr[2*i+1]*nb] = xp[0][i];
   }
 
   double* b = yp[0];
@@ -136,7 +145,7 @@ int LinearSolverEdf::fos_forward(int iArrLen, int* iArr, int nin, int nout, int 
 
 
   for(int i = 0; i<nnz; ++i){
-    A[iArr[i]+iArr[i+1]*nb] = x[0][i];
+    A[iArr[2*i]+iArr[2*i+1]*nb] = x[0][i];
   }
 
   dgesv_(&nx, &nrhs, A, &nx, ipriv, b, &nb, &info);
@@ -144,10 +153,10 @@ int LinearSolverEdf::fos_forward(int iArrLen, int* iArr, int nin, int nout, int 
   free(A);
   free(ipriv);
   if(info < 0){
-    printf("Error solving linear system of equations. Argument %d illegal.", info);
+    printf("fos_forward: Error solving linear system of equations. Argument %d illegal.\n", info);
     return -info;
   }else if (info > 0){
-    printf("Error solving linear system of equations. System singular in row %d.", info);
+    printf("fos_forward: Error solving linear system of equations. System singular in row %d.\n", info);
     return -info;
   }
 
@@ -184,7 +193,7 @@ int LinearSolverEdf::fov_forward(int iArrLen, int* iArr, int nin, int nout, int 
   for (int k = 0; k < ndir; ++k){
 
     for(int i = 0; i<nnz; ++i){
-      A[iArr[i]+iArr[i+1]*nb] = Xp[0][i][k];
+      A[iArr[2*i]+iArr[2*i+1]*nb] = Xp[0][i][k];
     }
 
     for(int i=0; i<nb; ++i){
@@ -195,7 +204,7 @@ int LinearSolverEdf::fov_forward(int iArrLen, int* iArr, int nin, int nout, int 
   }
 
   for(int i = 0; i<nnz; ++i){
-    A[iArr[i]+iArr[i+1]*nb] = x[0][i];
+    A[iArr[2*i]+iArr[2*i+1]*nb] = x[0][i];
   }
 
   dgesv_(&nx, &nrhs, A, &nx, ipriv, &b[0][0], &nb, &info);
@@ -203,10 +212,10 @@ int LinearSolverEdf::fov_forward(int iArrLen, int* iArr, int nin, int nout, int 
   free(A);
   free(ipriv);
   if(info < 0){
-    printf("Error solving linear system of equations. Argument %d illegal.", info);
+    printf("fov_forward: Error solving linear system of equations. Argument %d illegal.\n", info);
     return -info;
   }else if (info > 0){
-    printf("Error solving linear system of equations. System singular in row %d.", info);
+    printf("fov_forward: Error solving linear system of equations. System singular in row %d.\n", info);
     return -info;
   }
 
@@ -219,4 +228,16 @@ int LinearSolverEdf::fos_reverse(int iArrLen, int* iArr, int nout, int nin, int 
 }
 int LinearSolverEdf::fov_reverse(int iArrLen, int* iArr, int nout, int nin, int *outsz, int dir, double ***Up, int *insz, double ***Zp, double **x, double **y, void* ctx){
   return 0;
+}
+
+#include "simulation/solver/adolc_linear_solver.h"
+
+unsigned int alloc_adolc_lin_sol(int nnz, int nb, int nx) {
+    int insz[2], outsz[1];
+    insz[0] = nnz;
+    insz[1] = nb;
+    outsz[0] = nx;
+    linSolEdfVec.emplace_back();
+    linSolEdfVec.back().allocate_mem(2,1,insz,outsz);
+    return linSolEdfVec.back().get_index();
 }
