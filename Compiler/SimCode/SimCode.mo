@@ -375,6 +375,7 @@ uniontype NonlinearSystem
     Option<JacobianMatrix> jacobianMatrix;
     Boolean homotopySupport;
     Boolean mixedSystem;
+    Integer adolcIndex;
   end NONLINEARSYSTEM;
 end NonlinearSystem;
 
