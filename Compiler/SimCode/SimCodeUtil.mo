@@ -3424,6 +3424,7 @@ algorithm
       Integer uniqueEqIndex;
       list<BackendDAE.Equation> eqn_lst;
       list<DAE.ComponentRef> crefs;
+      list<DAE.ComponentRef> inputCrefs;
       list<SimCode.SimEqSystem> resEqs;
       list<SimCodeVar.SimVar> simVars;
       list<DAE.Exp> beqs;
@@ -3498,10 +3499,11 @@ algorithm
       eqn_lst = BackendEquation.equationList(inEquationArray);
       crefs = BackendVariable.getAllCrefFromVariables(inVars);
       (resEqs, uniqueEqIndex, tempvars) = createNonlinearResidualEquations(eqn_lst, iuniqueEqIndex, itempvars);
+      (_, (inputCrefs, _, _)) = traverseExpsEqSystems(resEqs, collectInputVars, ({}, crefs, inAllVars), {});
       // create symbolic jacobian for simulation
       (jacobianMatrix, uniqueEqIndex, tempvars) = createSymbolicSimulationJacobian(inJacobian, uniqueEqIndex, tempvars);
       (_, homotopySupport) = BackendEquation.traverseExpsOfEquationList(eqn_lst, containsHomotopyCall, false);
-    then ({SimCode.SES_NONLINEAR(SimCode.NONLINEARSYSTEM(uniqueEqIndex, resEqs, crefs, {}, {}, 0, jacobianMatrix, homotopySupport, mixedSystem, -1), NONE())}, uniqueEqIndex+1, tempvars);
+    then ({SimCode.SES_NONLINEAR(SimCode.NONLINEARSYSTEM(uniqueEqIndex, resEqs, crefs, {}, inputCrefs, 0, jacobianMatrix, homotopySupport, mixedSystem, -1), NONE())}, uniqueEqIndex+1, tempvars);
 
     // No analytic jacobian available. Generate non-linear system.
     case (_, _) equation
@@ -3511,8 +3513,9 @@ algorithm
       eqn_lst = BackendEquation.equationList(inEquationArray);
       crefs = BackendVariable.getAllCrefFromVariables(inVars);
       (resEqs, uniqueEqIndex, tempvars) = createNonlinearResidualEquations(eqn_lst, iuniqueEqIndex, itempvars);
+      (_, (inputCrefs, _, _)) = traverseExpsEqSystems(resEqs, collectInputVars, ({}, crefs, inAllVars), {});
       (_, homotopySupport) = BackendEquation.traverseExpsOfEquationList(eqn_lst, containsHomotopyCall, false);
-    then ({SimCode.SES_NONLINEAR(SimCode.NONLINEARSYSTEM(uniqueEqIndex, resEqs, crefs, {}, {}, 0, NONE(), homotopySupport, mixedSystem, -1), NONE())}, uniqueEqIndex+1, tempvars);
+    then ({SimCode.SES_NONLINEAR(SimCode.NONLINEARSYSTEM(uniqueEqIndex, resEqs, crefs, {}, inputCrefs, 0, NONE(), homotopySupport, mixedSystem, -1), NONE())}, uniqueEqIndex+1, tempvars);
 
     // failure
     else equation
