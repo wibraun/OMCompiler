@@ -371,7 +371,7 @@ uniontype NonlinearSystem
     Integer index;
     list<SimEqSystem> eqs;
     list<DAE.ComponentRef> crefs; // iteration vars
-    list<DAE.ComponentRef> internalCrefs; // dependend vars
+    list<DAE.ComponentRef> internalCrefs; // inner vars
     list<DAE.ComponentRef> inputCrefs; // input vars
     Integer indexNonLinearSystem;
     Option<JacobianMatrix> jacobianMatrix;

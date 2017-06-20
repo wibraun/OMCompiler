@@ -857,6 +857,7 @@ package MathOperation
       list<Integer> independents;
       list<Integer> dependents;
       String name;
+      Integer numParameters;
     end OPERATIONDATA;
   end OperationData;
 
