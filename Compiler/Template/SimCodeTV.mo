@@ -478,13 +478,16 @@ package SimCode
 
   uniontype NonlinearSystem
     record NONLINEARSYSTEM
-      Integer index;
-      list<SimEqSystem> eqs;
-      list<DAE.ComponentRef> crefs;
-      Integer indexNonLinearSystem;
-      Option<JacobianMatrix> jacobianMatrix;
-      Boolean homotopySupport;
-      Boolean mixedSystem;
+	    Integer index;
+	    list<SimEqSystem> eqs;
+	    list<DAE.ComponentRef> crefs; // iteration vars
+	    list<DAE.ComponentRef> innerCrefs; // inner vars
+	    list<DAE.ComponentRef> inputCrefs; // input vars
+	    Integer indexNonLinearSystem;
+	    Option<JacobianMatrix> jacobianMatrix;
+	    Boolean homotopySupport;
+	    Boolean mixedSystem;
+	    Integer adolcIndex;
     end NONLINEARSYSTEM;
   end NonlinearSystem;
 
