@@ -542,12 +542,15 @@ package SimCode
       Integer index;
       list<SimEqSystem> eqs;
       list<DAE.ComponentRef> crefs;
+ 	    list<DAE.ComponentRef> innerCrefs; // inner vars
+	    list<DAE.ComponentRef> inputCrefs; // input vars
       Integer indexNonLinearSystem;
       Integer nUnknowns;
       Option<JacobianMatrix> jacobianMatrix;
       Boolean homotopySupport;
       Boolean mixedSystem;
       Boolean tornSystem;
+	    Integer adolcIndex;
     end NONLINEARSYSTEM;
   end NonlinearSystem;
 
