@@ -2468,6 +2468,9 @@ template generateNonLinearSystemData(NonlinearSystem system, String strictSet, S
       nonLinearSystemData[<%nls.indexNonLinearSystem%>].jacobianIndex = <%jacIndex%>;
       nonLinearSystemData[<%nls.indexNonLinearSystem%>].initializeStaticNLSData = initializeStaticDataNLS<%nls.index%>;
       nonLinearSystemData[<%nls.indexNonLinearSystem%>].getIterationVars = getIterationVarsNLS<%nls.index%>;
+      nonLinearSystemData[<%nls.indexNonLinearSystem%>].size_innerVars = <%listLength(nls.innerCrefs)%>;
+      nonLinearSystemData[<%nls.indexNonLinearSystem%>].size_inputVars = <%listLength(nls.inputCrefs)%>;
+      nonLinearSystemData[<%nls.indexNonLinearSystem%>].adolcIndex = <%adolcIndex%>;
       >>
 end generateNonLinearSystemData;
 

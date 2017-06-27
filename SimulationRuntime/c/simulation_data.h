@@ -252,6 +252,10 @@ typedef struct NONLINEAR_SYSTEM_DATA
   modelica_integer size;
   modelica_integer equationIndex;      /* index for EQUATION_INFO */
 
+  modelica_integer size_innerVars;
+  modelica_integer size_inputVars;
+  modelica_integer adolcIndex;           /* index for adolc otherwise -1 */
+
   modelica_boolean homotopySupport;    /* 1 if homotopy is available, 0 otherwise */
   modelica_boolean mixedSystem;        /* 1 if the system contains discrete variables, 0 otherwise */
   /* attributes of iteration variables */
@@ -643,6 +647,9 @@ typedef struct SIMULATION_INFO
   STATE_SET_DATA* stateSetData;
 
   DAEMODE_DATA* daeModeData;
+
+  /* adolc data tag */
+  short adolcTag;
 
   /* delay vars */
   double tStart;
