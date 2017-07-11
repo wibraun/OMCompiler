@@ -103,6 +103,7 @@ int allocateNewtonData(int size, void** voiddata)
 
   data->rwork = (double*) malloc((size)*sizeof(double));
   data->iwork = (int*) malloc(size*sizeof(int));
+  data->trans = 'N';
 
   /* damped newton */
   data->x_new = (double*) malloc(size*sizeof(double));
@@ -182,7 +183,6 @@ int _omc_newton(int(*f)(int*, double*, double*, void*, int), DATA_NEWTON* solver
 
   double error_f  = 1.0 + *eps, scaledError_f = 1.0 + *eps, delta_x = 1.0 + *eps, delta_f = 1.0 + *eps, delta_x_scaled = 1.0 + *eps, lambda = 1.0;
   double current_fvec_enorm, enorm_new;
-
 
   if(ACTIVE_STREAM(LOG_NLS_V))
   {
@@ -359,7 +359,7 @@ void printErrors(double delta_x, double delta_x_scaled, double delta_f, double e
 int solveLinearSystem(int* n, int* iwork, double* fvec, double *fjac, DATA_NEWTON* solverData)
 {
   int i, nrsh=1, lapackinfo;
-  char trans = 'N';
+  char trans = solverData->trans;
 
   /* if no factorization is given, calculate it */
   if (solverData->factorization == 0)
