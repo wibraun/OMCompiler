@@ -1032,20 +1032,40 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   threadData_t *threadData = (threadData_t*)(void*)((double**)rpar)[2];
   const int index = data->callback->INDEX_JAC_A;
   unsigned int i,j,k;
+  unsigned int columns = data->simulationInfo->analyticJacobians[index].sizeCols;
+  unsigned int rows = data->simulationInfo->analyticJacobians[index].sizeRows;
+  ANALYTIC_JACOBIAN* jac = &(data->simulationInfo->analyticJacobians[index]);
 
   k = 0;
-  for(i=0; i < data->simulationInfo->analyticJacobians[index].sizeCols; i++)
+#pragma omp parallel
+  default(none)
+
+  // allocate memory for every thread (local)
+  private(jac->tmpVars, jac->resultVars)
+  ANALYTIC_JACOBIAN* t_jac = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
+  t_jac->sizeCols = columns;
+  t_jac->sizeRows = rows;
+  t_jac->sizeTmpVars = jac->sizeTmpVars;
+  t_jac->tmpVars = (double*) malloc(sizeof(double)*t_jac->sizeTmpVars));
+  t_jac->resultVars = (double*) malloc(sizeof(double)*t_jac->sizeRows));
+  t_jac->seedVars = (double*) malloc(sizeof(double)*t_jac->sizeCols));
+  // thread private data, all members untouched beside of anlyticalJacobians
+  DATA* t_data =
+  t_data->simulationInfo->analyticJacobians[index] = *t_jac;
+
+#pragma omp for
+  for(i=0; i < columns; i++)
   {
-    data->simulationInfo->analyticJacobians[index].seedVars[i] = 1.0;
+    t_jac->seedVars[i] = 1.0;
 
-    data->callback->functionJacA_column(data, threadData);
+    data->callback->functionJacA_column(t_data, threadData);
 
-    for(j = 0; j < data->simulationInfo->analyticJacobians[index].sizeRows; j++)
+    for(j = 0; j < rows; j++)
     {
-      matrixA[k++] = data->simulationInfo->analyticJacobians[index].resultVars[j];
+      matrixA[i*columns+j] = t_jac->resultVars[j];
     }
 
-    data->simulationInfo->analyticJacobians[index].seedVars[i] = 0.0;
+    t_jac->seedVars[i] = 0.0;
   }
 
   TRACE_POP
@@ -1079,7 +1099,7 @@ int jacA_num(double *t, double *y, double *yprime, double *delta, double *matrix
     delta_hhh = *h * yprime[i];
     delta_hh = delta_h * fmax(fmax(fabs(y[i]),fabs(delta_hhh)),fabs(1. / wt[i]));
     delta_hh = (delta_hhh >= 0 ? delta_hh : -delta_hh);
-    delta_hh = y[i] + delta_hh - y[i];
+    delta_hh = y[i] + delta_hh - y[i]
     deltaInv = 1. / delta_hh;
     ysave = y[i];
     y[i] += delta_hh;
