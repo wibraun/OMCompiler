@@ -27,6 +27,9 @@
  * CONDITIONS OF OSMC-PL.
  *
  */
+#ifdef _OPENMP
+  #include <omp.h>
+#endif
 
 #include <string.h>
 #include <setjmp.h>
@@ -1034,30 +1037,28 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   unsigned int i,j,k;
   unsigned int columns = data->simulationInfo->analyticJacobians[index].sizeCols;
   unsigned int rows = data->simulationInfo->analyticJacobians[index].sizeRows;
+  unsigned int sizeTmpVars = data->simulationInfo->analyticJacobians[index].sizeTmpVars;
   ANALYTIC_JACOBIAN* jac = &(data->simulationInfo->analyticJacobians[index]);
 
   k = 0;
-#pragma omp parallel
-  default(none)
+#pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars)
+{
 
   // allocate memory for every thread (local)
-  private(jac->tmpVars, jac->resultVars)
   ANALYTIC_JACOBIAN* t_jac = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
   t_jac->sizeCols = columns;
   t_jac->sizeRows = rows;
-  t_jac->sizeTmpVars = jac->sizeTmpVars;
-  t_jac->tmpVars = (double*) malloc(sizeof(double)*t_jac->sizeTmpVars));
-  t_jac->resultVars = (double*) malloc(sizeof(double)*t_jac->sizeRows));
-  t_jac->seedVars = (double*) malloc(sizeof(double)*t_jac->sizeCols));
-  // thread private data, all members untouched beside of anlyticalJacobians
-  t_data->simulationInfo->analyticJacobians[index] = *t_jac;
+  t_jac->sizeTmpVars = sizeTmpVars;
+  t_jac->tmpVars = (double*) malloc(sizeof(double)*t_jac->sizeTmpVars);
+  t_jac->resultVars = (double*) malloc(sizeof(double)*t_jac->sizeRows);
+  t_jac->seedVars = (double*) calloc(t_jac->sizeCols, sizeof(double));
 
 #pragma omp for
   for(i=0; i < columns; i++)
   {
     t_jac->seedVars[i] = 1.0;
 
-    data->callback->functionJacA_column(data, threadData);
+    data->callback->functionJacA_column(data, threadData, t_jac);
 
     for(j = 0; j < rows; j++)
     {
@@ -1066,7 +1067,7 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
 
     t_jac->seedVars[i] = 0.0;
   }
-
+}
   TRACE_POP
   return 0;
 }
@@ -1098,7 +1099,7 @@ int jacA_num(double *t, double *y, double *yprime, double *delta, double *matrix
     delta_hhh = *h * yprime[i];
     delta_hh = delta_h * fmax(fmax(fabs(y[i]),fabs(delta_hhh)),fabs(1. / wt[i]));
     delta_hh = (delta_hhh >= 0 ? delta_hh : -delta_hh);
-    delta_hh = y[i] + delta_hh - y[i]
+    delta_hh = y[i] + delta_hh - y[i];
     deltaInv = 1. / delta_hh;
     ysave = y[i];
     y[i] += delta_hh;
