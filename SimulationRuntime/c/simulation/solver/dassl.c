@@ -1050,7 +1050,6 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   t_jac->resultVars = (double*) malloc(sizeof(double)*t_jac->sizeRows));
   t_jac->seedVars = (double*) malloc(sizeof(double)*t_jac->sizeCols));
   // thread private data, all members untouched beside of anlyticalJacobians
-  DATA* t_data =
   t_data->simulationInfo->analyticJacobians[index] = *t_jac;
 
 #pragma omp for
@@ -1058,7 +1057,7 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   {
     t_jac->seedVars[i] = 1.0;
 
-    data->callback->functionJacA_column(t_data, threadData);
+    data->callback->functionJacA_column(data, threadData);
 
     for(j = 0; j < rows; j++)
     {
