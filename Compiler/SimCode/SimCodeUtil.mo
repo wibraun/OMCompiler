@@ -1020,12 +1020,12 @@ algorithm
       list<tuple<Integer, Integer, SimCode.SimEqSystem>> simJac,simJac2;
       list<DAE.ElementSource> sources,sources2;
       Boolean homotopySupport, homotopySupport2;
-      Boolean mixedSystem, mixedSystem2, tornSystem, tornSystem2;
+      Boolean mixedSystem, mixedSystem2, tornSystem, tornSystem2, partOfJac;
 
     // no dynamic tearing
-    case(SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(index, partOfMixed, tornSystem, vars, beqs, simJac, eqs, optSymJac, sources, _, nUnknowns), NONE()), _) equation
+    case(SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(index, partOfMixed, tornSystem, vars, beqs, simJac, eqs, optSymJac, sources, _, nUnknowns, partOfJac), NONE()), _) equation
       sysIndex = inSysIndexMap[index];
-    then SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(index, partOfMixed, tornSystem, vars, beqs, simJac, eqs, optSymJac, sources, sysIndex, nUnknowns), NONE());
+    then SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(index, partOfMixed, tornSystem, vars, beqs, simJac, eqs, optSymJac, sources, sysIndex, nUnknowns, partOfJac), NONE());
 
     case(SimCode.SES_NONLINEAR(SimCode.NONLINEARSYSTEM(index, eqs, crefs, _, nUnknowns, optSymJac, homotopySupport, mixedSystem, tornSystem), NONE()), _) equation
       eqs = List.map1(eqs, setSystemIndexMap, inSysIndexMap);
@@ -1033,10 +1033,10 @@ algorithm
     then SimCode.SES_NONLINEAR(SimCode.NONLINEARSYSTEM(index, eqs, crefs, sysIndex, nUnknowns, optSymJac, homotopySupport, mixedSystem, tornSystem), NONE());
 
     // dynamic tearing
-    case(SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(index, partOfMixed, tornSystem, vars, beqs, simJac, eqs, optSymJac, sources, _, nUnknowns), SOME(SimCode.LINEARSYSTEM(index2, partOfMixed2, _, vars2, beqs2, simJac2, eqs2, optSymJac2, sources2, _, nUnknowns2))), _) equation
+    case(SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(index, partOfMixed, tornSystem, vars, beqs, simJac, eqs, optSymJac, sources, _, nUnknowns, partOfJac), SOME(SimCode.LINEARSYSTEM(index2, partOfMixed2, _, vars2, beqs2, simJac2, eqs2, optSymJac2, sources2, _, nUnknowns2, _))), _) equation
       sysIndex = inSysIndexMap[index];
       sysIndex2 = inSysIndexMap[index2];
-    then SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(index, partOfMixed, tornSystem, vars, beqs, simJac, eqs, optSymJac, sources, sysIndex, nUnknowns), SOME(SimCode.LINEARSYSTEM(index2, partOfMixed2, tornSystem, vars2, beqs2, simJac2, eqs2, optSymJac2, sources2, sysIndex2, nUnknowns2)));
+    then SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(index, partOfMixed, tornSystem, vars, beqs, simJac, eqs, optSymJac, sources, sysIndex, nUnknowns, partOfJac), SOME(SimCode.LINEARSYSTEM(index2, partOfMixed2, tornSystem, vars2, beqs2, simJac2, eqs2, optSymJac2, sources2, sysIndex2, nUnknowns2, partOfJac)));
 
     case(SimCode.SES_NONLINEAR(SimCode.NONLINEARSYSTEM(index=index, eqs=eqs, crefs=crefs, nUnknowns=nUnknowns, jacobianMatrix=optSymJac, homotopySupport=homotopySupport, mixedSystem=mixedSystem, tornSystem=tornSystem), SOME(SimCode.NONLINEARSYSTEM(index=index2, eqs=eqs2, crefs=crefs2, nUnknowns=nUnknowns2, jacobianMatrix=optSymJac2, homotopySupport=homotopySupport2, mixedSystem=mixedSystem2, tornSystem=tornSystem2))), _) equation
       eqs = List.map1(eqs, setSystemIndexMap, inSysIndexMap);
@@ -3575,6 +3575,7 @@ algorithm
       Boolean mixedSystem;
       BackendDAE.TearingSet strictTearingSet;
       Option<BackendDAE.TearingSet> casualTearingSet;
+      Boolean partOfJac;
 
     // EQUATIONSYSTEM: continuous system of equations
     case (BackendDAE.EQSYSTEM(orderedVars=vars, orderedEqs=eqns),
@@ -3598,7 +3599,8 @@ algorithm
         var_lst_1 = List.map(var_lst, BackendVariable.transformXToXd);
         vars_1 = BackendVariable.listVar1(var_lst_1);
         eqns_1 = BackendEquation.listEquation(eqn_lst);
-        (equations_, uniqueEqIndex, tempvars) = createOdeSystem2(false, vars_1, globalKnownVars, eqns_1, jacobian, jac_tp, funcs, vars, iuniqueEqIndex, ei, mixedSystem, itempvars);
+        partOfJac = BackendDAEUtil.isJacobianDAE(ishared);
+        (equations_, uniqueEqIndex, tempvars) = createOdeSystem2(false, vars_1, globalKnownVars, eqns_1, jacobian, jac_tp, funcs, vars, iuniqueEqIndex, ei, mixedSystem, partOfJac, itempvars);
         uniqueEqIndexMapping = uniqueEqIndex-1; //a system with this index is created that contains all the equations with the indeces from iuniqueEqIndex to uniqueEqIndex-2
         //tmpEqSccMapping = appendSccIdxRange(iuniqueEqIndex, uniqueEqIndex - 1, isccIndex, ieqSccMapping);
         tmpEqSccMapping = appendSccIdxRange(uniqueEqIndexMapping, uniqueEqIndex - 1, isccIndex, ieqSccMapping);
@@ -3637,6 +3639,7 @@ protected function createOdeSystem2
   input Integer iuniqueEqIndex;
   input BackendDAE.ExtraInfo iei;
   input Boolean mixedSystem;
+  input Boolean partOfJac;
   input list<SimCodeVar.SimVar> itempvars;
   output list<SimCode.SimEqSystem> equations_;
   output Integer ouniqueEqIndex;
@@ -3693,11 +3696,12 @@ algorithm
       (beqs, sources) = BackendDAEUtil.getEqnSysRhs(inEquationArray, inVars, SOME(inFuncs));
       beqs = listReverse(beqs);
       simJac = List.map1(jac, jacToSimjac, inVars);
-    if (Config.simCodeTarget()=="Cpp") then
-    simJac = List.sort(simJac,simJacCSRToCSC);
-    end if;
 
-    then ({SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(iuniqueEqIndex, mixedEvent, false, simVars, beqs, simJac, {}, NONE(), sources, 0, inVars.numberOfVars), NONE())}, iuniqueEqIndex+1, itempvars);
+      if (Config.simCodeTarget()=="Cpp") then
+        simJac = List.sort(simJac,simJacCSRToCSC);
+      end if;
+
+    then ({SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(iuniqueEqIndex, mixedEvent, false, simVars, beqs, simJac, {}, NONE(), sources, 0, inVars.numberOfVars, partOfJac), NONE())}, iuniqueEqIndex+1, itempvars);
 
     // Time varying nonlinear jacobian. Non-linear system of equations.
     case (_, BackendDAE.JAC_GENERIC()) equation
@@ -3814,6 +3818,8 @@ algorithm
        SimCode.NonlinearSystem nlSystem;
        Option<SimCode.LinearSystem> alternativeTearingL;
        Option<SimCode.NonlinearSystem> alternativeTearingNl;
+       BackendDAE.BackendDAEType backendDAEType;
+       Boolean partOfJac;
 
      // CASE: linear
      case(true, BackendDAE.EQSYSTEM(orderedVars=vars, orderedEqs=eqns), BackendDAE.SHARED(globalKnownVars=globalKnownVars)) equation
@@ -3839,7 +3845,8 @@ algorithm
        simequations = listAppend(simequations, resEqs);
 
        (jacobianMatrix, uniqueEqIndex, tempvars) = createSymbolicSimulationJacobian(inJacobian, uniqueEqIndex, tempvars);
-       lSystem = SimCode.LINEARSYSTEM(uniqueEqIndex, false, true, simVars, {}, {}, simequations, jacobianMatrix, {}, 0, listLength(tvars)+nInnerVars+listLength(tempvars)-listLength(itempvars));
+       partOfJac = BackendDAEUtil.isJacobianDAE(ishared);
+       lSystem = SimCode.LINEARSYSTEM(uniqueEqIndex, false, true, simVars, {}, {}, simequations, jacobianMatrix, {}, 0, listLength(tvars)+nInnerVars+listLength(tempvars)-listLength(itempvars), partOfJac);
        tempvars2 = tempvars;
 
        // Do if dynamic tearing is activated
@@ -3860,7 +3867,7 @@ algorithm
          simequations = listAppend(simequations, resEqs);
 
          (jacobianMatrix, uniqueEqIndex, tempvars2) = createSymbolicSimulationJacobian(inJacobian, uniqueEqIndex, tempvars2);
-         alternativeTearingL = SOME(SimCode.LINEARSYSTEM(uniqueEqIndex, false, true, simVars, {}, {}, simequations, jacobianMatrix, {}, 0, listLength(tvars)+nInnerVars+listLength(tempvars2)-listLength(tempvars)));
+         alternativeTearingL = SOME(SimCode.LINEARSYSTEM(uniqueEqIndex, false, true, simVars, {}, {}, simequations, jacobianMatrix, {}, 0, listLength(tvars)+nInnerVars+listLength(tempvars2)-listLength(tempvars), partOfJac));
 
        else
          alternativeTearingL = NONE();
@@ -9158,6 +9165,7 @@ algorithm
       BackendDAE.WhenOperator whenOpNew;
       Option<SimCode.SimEqSystem> oelsewe;
       BackendDAE.Constraints cons;
+      Boolean partOfJac;
 
     case SimCode.SES_RESIDUAL(index= index, exp = e, source = source)
       equation
@@ -9191,14 +9199,14 @@ algorithm
          */
 
     // no dynamic tearing
-    case SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(index, partOfMixed, tornSystem, vars, elst, simJac, discEqs, symJac, sources, indexSys, nUnknowns), NONE())
+    case SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(index, partOfMixed, tornSystem, vars, elst, simJac, discEqs, symJac, sources, indexSys, nUnknowns, partOfJac), NONE())
       equation
         simJac1 = List.map(simJac, addDivExpErrorMsgtosimJac);
         symJac = addDivExpErrorMsgtosymJac(symJac);
         elst1 = List.map1(elst, addDivExpErrorMsgtoExp, DAE.emptyElementSource);
         discEqs1 =  List.map(discEqs, addDivExpErrorMsgtoSimEqSystem);
       then
-        SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(index, partOfMixed, tornSystem, vars, elst1, simJac1, discEqs1, symJac, sources, indexSys, nUnknowns), NONE());
+        SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(index, partOfMixed, tornSystem, vars, elst1, simJac1, discEqs1, symJac, sources, indexSys, nUnknowns, partOfJac), NONE());
 
     case SimCode.SES_NONLINEAR(SimCode.NONLINEARSYSTEM(index=index, eqs=discEqs, crefs=crefs, indexNonLinearSystem=indexSys, nUnknowns=nUnknowns, jacobianMatrix=symJac, homotopySupport=homotopySupport, mixedSystem=mixedSystem, tornSystem=tornSystem), NONE())
       equation
@@ -9208,7 +9216,7 @@ algorithm
         SimCode.SES_NONLINEAR(SimCode.NONLINEARSYSTEM(index, discEqs, crefs, indexSys, nUnknowns, symJac, homotopySupport, mixedSystem, tornSystem), NONE());
 
     // dynamic tearing
-    case SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(index, partOfMixed, tornSystem, vars, elst, simJac, discEqs, symJac, sources, indexSys, nUnknowns), SOME(SimCode.LINEARSYSTEM(index1, partOfMixed1, tornSystem1, vars1, elst1, simJac1, discEqs1, symJac1, sources1, indexSys1, nUnknowns1)))
+    case SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(index, partOfMixed, tornSystem, vars, elst, simJac, discEqs, symJac, sources, indexSys, nUnknowns, partOfJac), SOME(SimCode.LINEARSYSTEM(index1, partOfMixed1, tornSystem1, vars1, elst1, simJac1, discEqs1, symJac1, sources1, indexSys1, nUnknowns1, _)))
       equation
         simJac = List.map(simJac, addDivExpErrorMsgtosimJac);
         symJac = addDivExpErrorMsgtosymJac(symJac);
@@ -9219,7 +9227,7 @@ algorithm
         elst1 = List.map1(elst1, addDivExpErrorMsgtoExp, DAE.emptyElementSource);
         discEqs1 =  List.map(discEqs1, addDivExpErrorMsgtoSimEqSystem);
       then
-        SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(index, partOfMixed, tornSystem, vars, elst, simJac, discEqs, symJac, sources, indexSys, nUnknowns), SOME(SimCode.LINEARSYSTEM(index1, partOfMixed1, tornSystem1, vars1, elst1, simJac1, discEqs1, symJac1, sources1, indexSys1, nUnknowns1)));
+        SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(index, partOfMixed, tornSystem, vars, elst, simJac, discEqs, symJac, sources, indexSys, nUnknowns, partOfJac), SOME(SimCode.LINEARSYSTEM(index1, partOfMixed1, tornSystem1, vars1, elst1, simJac1, discEqs1, symJac1, sources1, indexSys1, nUnknowns1, partOfJac)));
 
     case SimCode.SES_NONLINEAR(SimCode.NONLINEARSYSTEM(index=index, eqs=discEqs, crefs=crefs, indexNonLinearSystem=indexSys, nUnknowns=nUnknowns, jacobianMatrix=symJac, homotopySupport=homotopySupport, mixedSystem=mixedSystem, tornSystem=tornSystem), SOME(SimCode.NONLINEARSYSTEM(index=index1, eqs=discEqs1, crefs=crefs1, indexNonLinearSystem=indexSys1, nUnknowns=nUnknowns1, jacobianMatrix=symJac1, homotopySupport=homotopySupport1, mixedSystem=mixedSystem1, tornSystem=tornSystem1)))
       equation
@@ -12342,7 +12350,7 @@ algorithm
       Option<SimCode.JacobianMatrix> jac;
       Option<SimCode.SimEqSystem> elseWhen;
       Boolean homotopySupport;
-      Boolean mixedSystem, tornSystem;
+      Boolean mixedSystem, tornSystem, partOfJac;
       list<BackendDAE.WhenOperator> whenStmtLst;
       BackendDAE.Constraints cons;
     case(SimCode.SES_RESIDUAL(exp=exp,source=source),_)
@@ -12371,9 +12379,9 @@ algorithm
     case(SimCode.SES_INVERSE_ALGORITHM(statements=stmts, knownOutputCrefs=crefs), _) equation
       simEqSys = SimCode.SES_INVERSE_ALGORITHM(idx, stmts, crefs);
     then simEqSys;
-    case(SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(partOfMixed=pom,tornSystem=tornSystem,vars=simVars,beqs=expLst,sources=sources,simJac=simJac,residual=simEqSysLst,jacobianMatrix=jac,indexLinearSystem=idxLS,nUnknowns=nUnknowns)),_)
+    case(SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(partOfMixed=pom,tornSystem=tornSystem,vars=simVars,beqs=expLst,sources=sources,simJac=simJac,residual=simEqSysLst,jacobianMatrix=jac,indexLinearSystem=idxLS,nUnknowns=nUnknowns,partOfJac=partOfJac)),_)
       equation
-        simEqSys = SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(idx,pom,tornSystem,simVars,expLst,simJac,simEqSysLst,jac,sources,idxLS,nUnknowns), NONE());
+        simEqSys = SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(idx,pom,tornSystem,simVars,expLst,simJac,simEqSysLst,jac,sources,idxLS,nUnknowns,partOfJac), NONE());
     then simEqSys;
     case(SimCode.SES_NONLINEAR(SimCode.NONLINEARSYSTEM(eqs=simEqSysLst,crefs=crefs,indexNonLinearSystem=idxNLS,nUnknowns=nUnknowns,jacobianMatrix=jac,homotopySupport=homotopySupport,mixedSystem=mixedSystem, tornSystem=tornSystem)),_)
       equation

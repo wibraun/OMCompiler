@@ -137,25 +137,26 @@ int getAnalyticalJacobianUmfPack(DATA* data, threadData_t *threadData, int sysNu
   LINEAR_SYSTEM_DATA* systemData = &(((DATA*)data)->simulationInfo->linearSystemData[sysNumber]);
 
   const int index = systemData->jacobianIndex;
+  ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[systemData->jacobianIndex]);
   int nth = 0;
-  int nnz = data->simulationInfo->analyticJacobians[index].sparsePattern.numberOfNoneZeros;
+  int nnz = jacobian->sparsePattern.numberOfNoneZeros;
 
-  for(i=0; i < data->simulationInfo->analyticJacobians[index].sizeRows; i++)
+  for(i=0; i < jacobian->sizeRows; i++)
   {
-    data->simulationInfo->analyticJacobians[index].seedVars[i] = 1;
+    jacobian->seedVars[i] = 1;
 
-    ((systemData->analyticalJacobianColumn))(data, threadData);
+    ((systemData->analyticalJacobianColumn))(data, threadData, jacobian);
 
-    for(j = 0; j < data->simulationInfo->analyticJacobians[index].sizeCols; j++)
+    for(j = 0; j < jacobian->sizeCols; j++)
     {
-      if(data->simulationInfo->analyticJacobians[index].seedVars[j] == 1)
+      if(jacobian->seedVars[j] == 1)
       {
-        ii = data->simulationInfo->analyticJacobians[index].sparsePattern.leadindex[j];
-        while(ii < data->simulationInfo->analyticJacobians[index].sparsePattern.leadindex[j+1])
+        ii = jacobian->sparsePattern.leadindex[j];
+        while(ii < jacobian->sparsePattern.leadindex[j+1])
         {
-          l  = data->simulationInfo->analyticJacobians[index].sparsePattern.index[ii];
-          /* infoStreamPrint(LOG_LS_V, 0, "set on Matrix A (%d, %d)(%d) = %f", i, l, nth, -data->simulationInfo->analyticJacobians[index].resultVars[l]); */
-          systemData->setAElement(i, l, -data->simulationInfo->analyticJacobians[index].resultVars[l], nth, (void*) systemData, threadData);
+          l  = jacobian->sparsePattern.index[ii];
+          /* infoStreamPrint(LOG_LS_V, 0, "set on Matrix A (%d, %d)(%d) = %f", i, l, nth, -jacobian->resultVars[l]); */
+          systemData->setAElement(i, l, -jacobian->resultVars[l], nth, (void*) systemData, threadData);
           nth++;
           ii++;
         };
@@ -163,7 +164,7 @@ int getAnalyticalJacobianUmfPack(DATA* data, threadData_t *threadData, int sysNu
     };
 
     /* de-activate seed variable for the corresponding color */
-    data->simulationInfo->analyticJacobians[index].seedVars[i] = 0;
+    jacobian->seedVars[i] = 0;
   }
 
   return 0;

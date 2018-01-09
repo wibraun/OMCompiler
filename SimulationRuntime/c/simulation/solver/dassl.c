@@ -334,7 +334,8 @@ int dassl_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo,
      dasslData->dasslJacobian == COLOREDSYMJAC ||
      dasslData->dasslJacobian == SYMJAC)
   {
-    if (data->callback->initialAnalyticJacobianA(data, threadData))
+    ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[data->callback->INDEX_JAC_A]);
+    if (data->callback->initialAnalyticJacobianA(data, threadData, jacobian))
     {
       infoStreamPrint(LOG_STDOUT, 0, "Jacobian or SparsePattern is not generated or failed to initialize! Switch back to normal.");
       dasslData->dasslJacobian = INTERNALNUMJAC;
@@ -985,32 +986,34 @@ int jacA_symColored(double *t, double *y, double *yprime, double *delta, double 
   threadData_t *threadData = (threadData_t*)(void*)((double**)rpar)[2];
 
   const int index = data->callback->INDEX_JAC_A;
+  ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[index]);
+
   unsigned int i,j,l,k,ii;
 
-  for(i=0; i < data->simulationInfo->analyticJacobians[index].sparsePattern.maxColors; i++)
+  for(i=0; i < jacobian->sparsePattern.maxColors; i++)
   {
-    for(ii=0; ii < data->simulationInfo->analyticJacobians[index].sizeCols; ii++)
-      if(data->simulationInfo->analyticJacobians[index].sparsePattern.colorCols[ii]-1 == i)
-        data->simulationInfo->analyticJacobians[index].seedVars[ii] = 1;
+    for(ii=0; ii < jacobian->sizeCols; ii++)
+      if(jacobian->sparsePattern.colorCols[ii]-1 == i)
+        jacobian->seedVars[ii] = 1;
 
-    data->callback->functionJacA_column(data, threadData);
+    data->callback->functionJacA_column(data, threadData, jacobian);
 
-    for(j = 0; j < data->simulationInfo->analyticJacobians[index].sizeCols; j++)
+    for(j = 0; j < jacobian->sizeCols; j++)
     {
-      if(data->simulationInfo->analyticJacobians[index].seedVars[j] == 1)
+      if(jacobian->seedVars[j] == 1)
       {
-        ii = data->simulationInfo->analyticJacobians[index].sparsePattern.leadindex[j];
-        while(ii < data->simulationInfo->analyticJacobians[index].sparsePattern.leadindex[j+1])
+        ii = jacobian->sparsePattern.leadindex[j];
+        while(ii < jacobian->sparsePattern.leadindex[j+1])
         {
-          l  = data->simulationInfo->analyticJacobians[index].sparsePattern.index[ii];
-          k  = j*data->simulationInfo->analyticJacobians[index].sizeRows + l;
-          matrixA[k] = data->simulationInfo->analyticJacobians[index].resultVars[l];
+          l  = jacobian->sparsePattern.index[ii];
+          k  = j*jacobian->sizeRows + l;
+          matrixA[k] = jacobian->resultVars[l];
           ii++;
         };
       }
     }
-    for(ii=0; ii < data->simulationInfo->analyticJacobians[index].sizeCols; ii++)
-      if(data->simulationInfo->analyticJacobians[index].sparsePattern.colorCols[ii]-1 == i) data->simulationInfo->analyticJacobians[index].seedVars[ii] = 0;
+    for(ii=0; ii < jacobian->sizeCols; ii++)
+      if(jacobian->sparsePattern.colorCols[ii]-1 == i) jacobian->seedVars[ii] = 0;
 
   }
 
@@ -1030,22 +1033,25 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   DATA* data = (DATA*)(void*)((double**)rpar)[0];
   DASSL_DATA* dasslData = (DASSL_DATA*)(void*)((double**)rpar)[1];
   threadData_t *threadData = (threadData_t*)(void*)((double**)rpar)[2];
+
   const int index = data->callback->INDEX_JAC_A;
+  ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[index]);
+
   unsigned int i,j,k;
 
   k = 0;
-  for(i=0; i < data->simulationInfo->analyticJacobians[index].sizeCols; i++)
+  for(i=0; i < jacobian->sizeCols; i++)
   {
-    data->simulationInfo->analyticJacobians[index].seedVars[i] = 1.0;
+    jacobian->seedVars[i] = 1.0;
 
-    data->callback->functionJacA_column(data, threadData);
+    data->callback->functionJacA_column(data, threadData, jacobian);
 
-    for(j = 0; j < data->simulationInfo->analyticJacobians[index].sizeRows; j++)
+    for(j = 0; j < jacobian->sizeRows; j++)
     {
-      matrixA[k++] = data->simulationInfo->analyticJacobians[index].resultVars[j];
+      matrixA[k++] = jacobian->resultVars[j];
     }
 
-    data->simulationInfo->analyticJacobians[index].seedVars[i] = 0.0;
+    jacobian->seedVars[i] = 0.0;
   }
 
   TRACE_POP
@@ -1128,6 +1134,8 @@ int jacA_numColored(double *t, double *y, double *yprime, double *delta, double 
   threadData_t *threadData = (threadData_t*)(void*)((double**)rpar)[2];
 
   const int index = data->callback->INDEX_JAC_A;
+  ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[index]);
+
   double delta_h = numericalDifferentiationDeltaXsolver;
   double delta_hhh;
   int ires;
@@ -1137,11 +1145,11 @@ int jacA_numColored(double *t, double *y, double *yprime, double *delta, double 
 
   unsigned int i,j,l,k,ii;
 
-  for(i = 0; i < data->simulationInfo->analyticJacobians[index].sparsePattern.maxColors; i++)
+  for(i = 0; i < jacobian->sparsePattern.maxColors; i++)
   {
-    for(ii=0; ii < data->simulationInfo->analyticJacobians[index].sizeCols; ii++)
+    for(ii=0; ii < jacobian->sizeCols; ii++)
     {
-      if(data->simulationInfo->analyticJacobians[index].sparsePattern.colorCols[ii]-1 == i)
+      if(jacobian->sparsePattern.colorCols[ii]-1 == i)
       {
         delta_hhh = *h * yprime[ii];
         delta_hh[ii] = delta_h * fmax(fmax(fabs(y[ii]),fabs(delta_hhh)),fabs(1./wt[ii]));
@@ -1165,15 +1173,15 @@ int jacA_numColored(double *t, double *y, double *yprime, double *delta, double 
 
     increaseJacContext(data);
 
-    for(ii = 0; ii < data->simulationInfo->analyticJacobians[index].sizeCols; ii++)
+    for(ii = 0; ii < jacobian->sizeCols; ii++)
     {
-      if(data->simulationInfo->analyticJacobians[index].sparsePattern.colorCols[ii]-1 == i)
+      if(jacobian->sparsePattern.colorCols[ii]-1 == i)
       {
-        j = data->simulationInfo->analyticJacobians[index].sparsePattern.leadindex[ii];
-        while(j < data->simulationInfo->analyticJacobians[index].sparsePattern.leadindex[ii+1])
+        j = jacobian->sparsePattern.leadindex[ii];
+        while(j < jacobian->sparsePattern.leadindex[ii+1])
         {
-          l  =  data->simulationInfo->analyticJacobians[index].sparsePattern.index[j];
-          k  = l + ii*data->simulationInfo->analyticJacobians[index].sizeRows;
+          l  =  jacobian->sparsePattern.index[j];
+          k  = l + ii*jacobian->sizeRows;
           matrixA[k] = (dasslData->newdelta[l] - delta[l]) * delta_hh[ii];
           j++;
         };
