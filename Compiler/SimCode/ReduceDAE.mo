@@ -340,6 +340,7 @@ protected function addLabelToEquations
       list<DAE.Statement> statements,statements2;
 	 list<SimCode.SimEqSystem> residual;
     Option<SimCode.JacobianMatrix> jacobianMatrix;
+      Boolean partOfJac;
 
     // nothing
     case ({},vars,idx,_,_) then ({},vars,idx,{});
@@ -394,7 +395,7 @@ protected function addLabelToEquations
       then
         (SimCode.SES_ALGORITHM(i,statements2) :: es_1,vars_2,idx3,labels3);
     // linear systems
-    case (((eq as SimCode.SES_LINEAR (SimCode.LINEARSYSTEM(i,partOfLinear,tornSystem,varsLin,b,A,residual,jacobianMatrix,sourcelist,idxLS,nUnknownsLS),NONE())) :: es),vars,idx,_,_)
+    case (((eq as SimCode.SES_LINEAR (SimCode.LINEARSYSTEM(i,partOfLinear,tornSystem,varsLin,b,A,residual,jacobianMatrix,sourcelist,idxLS,nUnknownsLS,partOfJac),NONE())) :: es),vars,idx,_,_)
       equation
 
         if(Flags.isSet(Flags.REDUCE_DAE)) then
@@ -407,7 +408,7 @@ protected function addLabelToEquations
         labels3=listAppend(labels,labels2);
 
       then
-        (SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(i,partOfLinear,tornSystem,varsLin,b,A2,residual,jacobianMatrix,sourcelist,idxLS,nUnknownsLS),NONE()) :: es_1,vars_2,idx3,labels3);
+        (SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(i,partOfLinear,tornSystem,varsLin,b,A2,residual,jacobianMatrix,sourcelist,idxLS,nUnknownsLS,partOfJac),NONE()) :: es_1,vars_2,idx3,labels3);
     // non-linear systems
     case (((eq as SimCode.SES_NONLINEAR(SimCode.NONLINEARSYSTEM(index=i,eqs=nl,crefs=crefs,indexNonLinearSystem=idxNLS,nUnknowns=nUnknownsNLS,jacobianMatrix=jacobianMatrix),NONE())) :: es),vars,idx,_,_)
       equation

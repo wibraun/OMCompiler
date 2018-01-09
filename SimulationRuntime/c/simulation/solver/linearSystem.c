@@ -96,16 +96,17 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
     /* check if analytical jacobian is created */
     if (1 == linsys[i].method)
     {
+      ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[linsys[i].jacobianIndex]);
       if(linsys[i].jacobianIndex != -1)
       {
         assertStreamPrint(threadData, 0 != linsys[i].analyticalJacobianColumn, "jacobian function pointer is invalid" );
       }
-      if(linsys[i].initialAnalyticalJacobian(data, threadData))
+      if(linsys[i].initialAnalyticalJacobian(data, threadData, jacobian))
       {
         linsys[i].jacobianIndex = -1;
         throwStreamPrint(threadData, "Failed to initialize the jacobian for torn linear system %d.", (int)linsys[i].equationIndex);
       }
-      nnz = data->simulationInfo->analyticJacobians[linsys[i].jacobianIndex].sparsePattern.numberOfNoneZeros;
+      nnz = jacobian->sparsePattern.numberOfNoneZeros;
       linsys[i].nnz = nnz;
     }
 

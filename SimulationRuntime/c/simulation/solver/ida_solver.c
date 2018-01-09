@@ -443,7 +443,8 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
       idaData->jacobianMethod == KLUSPARSE ||
       idaData->jacobianMethod == SYMJAC))
   {
-    if (data->callback->initialAnalyticJacobianA(data, threadData))
+    ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[data->callback->INDEX_JAC_A]);
+    if (data->callback->initialAnalyticJacobianA(data, threadData, jacobian))
     {
       infoStreamPrint(LOG_STDOUT, 0, "Jacobian or SparsePattern is not generated or failed to initialize! Switch back to normal.");
       idaData->jacobianMethod = INTERNALNUMJAC;

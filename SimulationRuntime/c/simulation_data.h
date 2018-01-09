@@ -269,8 +269,8 @@ typedef struct NONLINEAR_SYSTEM_DATA
    *
    * if analyticalJacobianColumn == NULL no analyticalJacobian is available
    */
-  int (*analyticalJacobianColumn)(void*, threadData_t*);
-  int (*initialAnalyticalJacobian)(void*, threadData_t*);
+  int (*analyticalJacobianColumn)(void*, threadData_t*, ANALYTIC_JACOBIAN*);
+  int (*initialAnalyticalJacobian)(void*, threadData_t*, ANALYTIC_JACOBIAN*);
   modelica_integer jacobianIndex;
 
   SPARSE_PATTERN sparsePattern;        /* sparse pattern if no jacobian is available */
@@ -321,8 +321,8 @@ typedef struct LINEAR_SYSTEM_DATA
   void (*setAElement)(int row, int col, double value, int nth, void *data, threadData_t *threadData);
   void (*setBElement)(int row, double value, void *data, threadData_t *threadData);
 
-  int (*analyticalJacobianColumn)(void*, threadData_t*);
-  int (*initialAnalyticalJacobian)(void*, threadData_t*);
+  int (*analyticalJacobianColumn)(void*, threadData_t*, ANALYTIC_JACOBIAN*);
+  int (*initialAnalyticalJacobian)(void*, threadData_t*, ANALYTIC_JACOBIAN*);
   modelica_integer jacobianIndex;
 
   void (*residualFunc)(void**, const double*, double*, const int*);
@@ -349,6 +349,7 @@ typedef struct LINEAR_SYSTEM_DATA
   modelica_boolean solved;              /* 1: solved in current step - else not */
   modelica_boolean failed;              /* 1: failed while last try with lapack - else not */
   modelica_boolean useSparseSolver;     /* 1: use sparse solver, - else any solver */
+  ANALYTIC_JACOBIAN* jacobian;     		/* if != NULL then it's the parent jacobian matrix */
 
   /* statistics */
   unsigned long numberOfCall;           /* number of solving calls of this system */
@@ -405,8 +406,8 @@ typedef struct STATE_SET_DATA
    *
    * if analyticalJacobianColumn == NULL no analyticalJacobian is available
    */
-  int (*analyticalJacobianColumn)(void*, threadData_t*);
-  int (*initialAnalyticalJacobian)(void*, threadData_t*);
+  int (*analyticalJacobianColumn)(void*, threadData_t*, ANALYTIC_JACOBIAN*);
+  int (*initialAnalyticalJacobian)(void*, threadData_t*, ANALYTIC_JACOBIAN*);
   modelica_integer jacobianIndex;
 }STATE_SET_DATA;
 #else
