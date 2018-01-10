@@ -174,10 +174,9 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
     switch(data->simulationInfo->lsMethod)
     {
       case LS_LAPACK:
-        linsys[i].A = (double*) malloc(size*size*sizeof(double));
         linsys[i].setAElement = setAElement;
         linsys[i].setBElement = setBElement;
-        allocateLapackData(size, linsys[i].solverData);
+        //allocateLapackData(size, linsys[i].solverData);
         break;
 
     #if !defined(OMC_MINIMAL_RUNTIME)
@@ -212,12 +211,11 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
         break;
 
       case LS_DEFAULT:
-        linsys[i].A = (double*) malloc(size*size*sizeof(double));
         linsys[i].setAElement = setAElement;
         linsys[i].setBElement = setBElement;
 
-        allocateLapackData(size, linsys[i].solverData);
-        allocateTotalPivotData(size, linsys[i].solverData);
+        //allocateLapackData(size, linsys[i].solverData);
+        //allocateTotalPivotData(size, linsys[i].solverData);
 
         break;
 
@@ -333,8 +331,8 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
       switch(data->simulationInfo->lsMethod)
       {
       case LS_LAPACK:
-        freeLapackData(linsys[i].solverData);
-        free(linsys[i].A);
+        //freeLapackData(linsys[i].solverData);
+        //free(linsys[i].A);
         break;
 
   #if !defined(OMC_MINIMAL_RUNTIME)
@@ -362,9 +360,9 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
         break;
 
       case LS_DEFAULT:
-        free(linsys[i].A);
-        freeLapackData(linsys[i].solverData);
-        freeTotalPivotData(linsys[i].solverData);
+        //free(linsys[i].A);
+        //freeLapackData(linsys[i].solverData);
+        //freeTotalPivotData(linsys[i].solverData);
         break;
 
       default:
@@ -395,7 +393,7 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
  *
  *  \author wbraun
  */
-int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber)
+int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
 {
   TRACE_PUSH
   int success;
@@ -448,7 +446,7 @@ int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber)
     switch(data->simulationInfo->lsMethod)
     {
     case LS_LAPACK:
-      success = solveLapack(data, threadData, sysNumber);
+      success = solveLapack(data, threadData, sysNumber, aux_x);
       break;
 
   #if !defined(OMC_MINIMAL_RUNTIME)
@@ -479,7 +477,7 @@ int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber)
       break;
 
     case LS_DEFAULT:
-      success = solveLapack(data, threadData, sysNumber);
+      success = solveLapack(data, threadData, sysNumber, aux_x);
 
       /* check if solution process was successful, if not use alternative tearing set if available (dynamic tearing)*/
       if (!success && linsys->strictTearingFunctionCall != NULL){

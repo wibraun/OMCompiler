@@ -63,8 +63,8 @@ int allocateLapackData(int size, void** voiddata)
   data->work = _omc_allocateVectorData(size);
 
   data->x = _omc_createVector(size, NULL);
-  data->b = _omc_createVector(size, NULL);
-  data->A = _omc_createMatrix(size, size, NULL);
+  data->b = _omc_allocateVectorData(size);
+  data->A = _omc_allocateMatrixData(size, size);
 
   *voiddata = (void*)data;
   return 0;
@@ -81,8 +81,8 @@ int freeLapackData(void **voiddata)
   _omc_deallocateVectorData(data->work);
 
   _omc_destroyVector(data->x);
-  _omc_destroyVector(data->b);
-  _omc_destroyMatrix(data->A);
+  _omc_deallocateVectorData(data->b);
+  _omc_deallocateMatrixData(data->A);
 
   free(data);
   voiddata[0] = 0;
@@ -159,12 +159,12 @@ static int wrapper_fvec_lapack(_omc_vector* x, _omc_vector* f, int* iflag, void*
  *
  *  \author wbraun
  */
-int solveLapack(DATA *data, threadData_t *threadData, int sysNumber)
+int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
 {
   void *dataAndThreadData[2] = {data, threadData};
   int i, iflag = 1;
   LINEAR_SYSTEM_DATA* systemData = &(data->simulationInfo->linearSystemData[sysNumber]);
-  DATA_LAPACK* solverData = (DATA_LAPACK*)systemData->solverData[0];
+  DATA_LAPACK* solverData;
 
   int success = 1;
 
@@ -179,18 +179,15 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber)
          eqSystemNumber, (int) systemData->size,
          data->localData[0]->timeValue);
 
-
+  allocateLapackData(systemData->size, &solverData);
   /* set data */
-  _omc_setVectorData(solverData->x, systemData->x);
-  _omc_setVectorData(solverData->b, systemData->b);
-  _omc_setMatrixData(solverData->A, systemData->A);
-
+  _omc_setVectorData(solverData->x, aux_x);
 
   rt_ext_tp_tick(&(solverData->timeClock));
   if (0 == systemData->method) {
 
     /* reset matrix A */
-    memset(systemData->A, 0, (systemData->size)*(systemData->size)*sizeof(double));
+    memset(solverData->A, 0, (systemData->size)*(systemData->size)*sizeof(double));
 
     /* update matrix A */
     systemData->setA(data, threadData, systemData);
@@ -288,6 +285,7 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber)
       messageClose(LOG_LS_V);
     }
   }
+  freeLapackData(&solverData);
 
   return success;
 }

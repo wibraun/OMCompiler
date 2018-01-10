@@ -5269,9 +5269,9 @@ case e as SES_LINEAR(lSystem=ls as LINEARSYSTEM(__), alternativeTearing = at) th
     messageClose(LOG_DT);
   }
   <% if profileSome() then 'SIM_PROF_TICK_EQ(modelInfoGetEquation(&data->modelData->modelDataXml,<%ls.index%>).profileBlockIndex);' %>
-  <%ls.vars |> SIMVAR(__) hasindex i0 => 'data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].x[<%i0%>] = <%crefOld(name,1)%>;' ;separator="\n"%>
+  double aux_x[<%listLength(ls.vars)%>] = { <%ls.vars |> SIMVAR(__) hasindex i0 => '<%cref(name)%>' ;separator=","%> };
   <% if ls.partOfJac then 'data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].jacobian = jacobian;'%>
-  retValue = solve_linear_system(data, threadData, <%ls.indexLinearSystem%>);
+  retValue = solve_linear_system(data, threadData, <%ls.indexLinearSystem%>, &aux_x);
 
   /* check if solution process was successful */
   if (retValue > 0){
@@ -5280,7 +5280,7 @@ case e as SES_LINEAR(lSystem=ls as LINEARSYSTEM(__), alternativeTearing = at) th
     <%returnval2%>
   }
   /* write solution */
-  <%ls.vars |> SIMVAR(__) hasindex i0 => '<%cref(name)%> = data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].x[<%i0%>];' ;separator="\n"%>
+  <%ls.vars |> SIMVAR(__) hasindex i0 => '<%cref(name)%> = aux_x[<%i0%>];' ;separator="\n"%>
   <% if profileSome() then 'SIM_PROF_ACC_EQ(modelInfoGetEquation(&data->modelData->modelDataXml,<%ls.index%>).profileBlockIndex);' %>
   <%returnval%>
   >>
