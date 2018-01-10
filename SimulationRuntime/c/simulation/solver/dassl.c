@@ -1048,7 +1048,10 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
 
 #pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i,matrixA,data,threadData) private(j)
 {
-
+  /* debug */
+#ifdef _OPENMP
+  infoStreamPrint(LOG_STDOUT, 0, "OMP: number of threads : %d", omp_get_num_threads());
+#endif
   // allocate memory for every thread (local)
   ANALYTIC_JACOBIAN* t_jac = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
   t_jac->sizeCols = columns;

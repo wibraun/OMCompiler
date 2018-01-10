@@ -208,7 +208,15 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
     wrapper_fvec_lapack(solverData->work, solverData->b, &iflag, dataAndThreadData, sysNumber);
   }
   tmpJacEvalTime = rt_ext_tp_tock(&(solverData->timeClock));
+#ifdef _OPENMP
+  if (!omp_get_thread_num())
+	  systemData->jacobianTime += tmpJacEvalTime;
+//#pragma omp single
+//  systemData->jacobianTime += tmpJacEvalTime;
+#else
   systemData->jacobianTime += tmpJacEvalTime;
+#endif
+
   infoStreamPrint(LOG_LS_V, 0, "###  %f  time to set Matrix A and vector b.", tmpJacEvalTime);
 
   /* Log A*x=b */
