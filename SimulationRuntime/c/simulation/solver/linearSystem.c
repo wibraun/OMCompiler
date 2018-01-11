@@ -403,9 +403,6 @@ int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber, dou
 
   rt_ext_tp_tick(&(linsys->totalTimeClock));
 
-  /* enable to avoid division by zero */
-  data->simulationInfo->noThrowDivZero = 1;
-
   if(linsys->useSparseSolver == 1)
   {
     switch(data->simulationInfo->lssMethod)

@@ -106,7 +106,12 @@ int getAnalyticalJacobianLapack(DATA* data, threadData_t *threadData, double* ja
   LINEAR_SYSTEM_DATA* systemData = &(((DATA*)data)->simulationInfo->linearSystemData[currentSys]);
 
   const int index = systemData->jacobianIndex;
+#ifdef _OPENMP
+  ANALYTIC_JACOBIAN* jacobian = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
+  ((systemData->initialAnalyticalJacobian))(data, threadData, jacobian);
+#else
   ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[systemData->jacobianIndex]);
+#endif;
 
   memset(jac, 0, (systemData->size)*(systemData->size)*sizeof(double));
 
@@ -137,6 +142,10 @@ int getAnalyticalJacobianLapack(DATA* data, threadData_t *threadData, double* ja
         jacobian->seedVars[j] = 0;
     }
   }
+
+#ifdef _OPENMP
+  freeAnalyticalJacobian(jacobian);
+#endif;
 
   return 0;
 }
@@ -196,6 +205,8 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
     systemData->setb(data, threadData, systemData);
   } else {
 
+#pragma critical
+{
     /* calculate jacobian -> matrix A*/
     if(systemData->jacobianIndex != -1){
       getAnalyticalJacobianLapack(data, threadData, solverData->A->data, sysNumber);
@@ -205,7 +216,9 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
 
     /* calculate vector b (rhs) */
     _omc_copyVector(solverData->work, solverData->x);
+
     wrapper_fvec_lapack(solverData->work, solverData->b, &iflag, dataAndThreadData, sysNumber);
+}
   }
   tmpJacEvalTime = rt_ext_tp_tock(&(solverData->timeClock));
 #ifdef _OPENMP
@@ -238,7 +251,8 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
          (int*) &systemData->size,
          &solverData->info);
 
-  infoStreamPrint(LOG_LS_V, 0, "Solve System: %f", rt_ext_tp_tock(&(solverData->timeClock)));
+  solverData->info = 0;
+  infoStreamPrint(LOG_LS, 0, "Solve System: %f", rt_ext_tp_tock(&(solverData->timeClock)));
 
   if(solverData->info < 0)
   {
