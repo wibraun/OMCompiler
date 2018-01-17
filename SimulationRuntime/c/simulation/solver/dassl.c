@@ -1046,12 +1046,31 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   unsigned int sizeTmpVars = data->simulationInfo->analyticJacobians[index].sizeTmpVars;
   ANALYTIC_JACOBIAN* jac = &(data->simulationInfo->analyticJacobians[index]);
 
+/*MS:
+ * Die Parallelisierung ist aber schon korrekt, oder? Im DDT scheint der 2. Thread am pragma omp for zu haengen/stehen zu bleiben.
+ * --> Ja, nee. Das sieht richtig aus.
+ *
+ * Passiert der Segfault immer bei der letzten Gleichung in ScalableTestSuite_Mechanical_FlexibleBeam_ScaledExperiments_FlexibleBeamModelica_N_2_eqFunction_2438?
+ * --> Ja.
+ *
+ * Der Segfault passiert in linearSolverTotalPivot::solveTotalPivot() in getAnalyticalJacobianTotalPivot(data, threadData, solverData->Ab, sysNumber);
+ * weil solverData NULL ist. solverData kommt aus data->simulationInfo->linearSystemData[sysNumber].
+ *
+ * data ist ja erstmal shared. D.h. die enthaltenen Daten kann jeder Thread lesen. D.h. aber auch, dass die Daten in data->simulationInfo
+ * zum Zeitpunkt des Aufrufes von linearSolverTotalPivot::solveTotalPivot() noch nicht geschrieben wurden. Wann bzw. wo müsste das passieren?
+ * Wie sieht das im Nicht-OpenMP-Fall aus?
+ * linearSolverLapack::getAnalyticalJacobianLapack(): Hier wird
+ * */
+
 #pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i,matrixA,data,threadData) private(j)
 {
   /* debug */
 #ifdef _OPENMP
   infoStreamPrint(LOG_STDOUT, 0, "OMP: number of threads : %d", omp_get_num_threads());
+#else
+  infoStreamPrint(LOG_STDOUT, 0, "OMP not used");
 #endif
+
   // allocate memory for every thread (local)
   ANALYTIC_JACOBIAN* t_jac = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
   t_jac->sizeCols = columns;
@@ -1063,7 +1082,9 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
 #pragma omp for
   for(i=0; i < columns; i++)
   {
-	t_jac->seedVars[i] = 1.0;
+	infoStreamPrint(LOG_STDOUT, 0, "OMP-Thread: %d\tcolumn: %d", omp_get_thread_num(), i);
+
+    t_jac->seedVars[i] = 1.0;
 
     data->callback->functionJacA_column(data, threadData, t_jac);
 

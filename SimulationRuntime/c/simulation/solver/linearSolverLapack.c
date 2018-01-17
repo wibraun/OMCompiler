@@ -204,23 +204,23 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
     /* update vector b (rhs) */
     systemData->setb(data, threadData, systemData);
   } else {
+    #pragma critical // single thread at a time
+    {
+      /* calculate jacobian -> matrix A*/
+      if(systemData->jacobianIndex != -1){
+        getAnalyticalJacobianLapack(data, threadData, solverData->A->data, sysNumber);
+      } else {
+        assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
+      }
 
-#pragma critical
-{
-    /* calculate jacobian -> matrix A*/
-    if(systemData->jacobianIndex != -1){
-      getAnalyticalJacobianLapack(data, threadData, solverData->A->data, sysNumber);
-    } else {
-      assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
+      /* calculate vector b (rhs) */
+      _omc_copyVector(solverData->work, solverData->x);
+
+      wrapper_fvec_lapack(solverData->work, solverData->b, &iflag, dataAndThreadData, sysNumber);
     }
-
-    /* calculate vector b (rhs) */
-    _omc_copyVector(solverData->work, solverData->x);
-
-    wrapper_fvec_lapack(solverData->work, solverData->b, &iflag, dataAndThreadData, sysNumber);
-}
   }
   tmpJacEvalTime = rt_ext_tp_tock(&(solverData->timeClock));
+
 #ifdef _OPENMP
   if (!omp_get_thread_num())
 	  systemData->jacobianTime += tmpJacEvalTime;
