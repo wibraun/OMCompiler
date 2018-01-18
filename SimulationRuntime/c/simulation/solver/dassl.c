@@ -1057,9 +1057,9 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   t_jac->sizeCols = columns;
   t_jac->sizeRows = rows;
   t_jac->sizeTmpVars = sizeTmpVars;
-  t_jac->tmpVars = (double*) malloc(sizeof(double)*t_jac->sizeTmpVars);
-  t_jac->resultVars = (double*) malloc(sizeof(double)*t_jac->sizeRows);
-  t_jac->seedVars = (double*) calloc(t_jac->sizeCols, sizeof(double));
+  t_jac->tmpVars    = (double*) calloc(t_jac->sizeTmpVars, sizeof(double));
+  t_jac->resultVars = (double*) calloc(t_jac->sizeRows, sizeof(double));
+  t_jac->seedVars   = (double*) calloc(t_jac->sizeCols, sizeof(double));
 #pragma omp for
   for(i=0; i < columns; i++)
   {
