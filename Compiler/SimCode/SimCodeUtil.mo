@@ -3846,6 +3846,7 @@ algorithm
 
        (jacobianMatrix, uniqueEqIndex, tempvars) = createSymbolicSimulationJacobian(inJacobian, uniqueEqIndex, tempvars);
        partOfJac = BackendDAEUtil.isJacobianDAE(ishared);
+       print("LS index: " + intString(uniqueEqIndex) + " part of Jac: " + boolString(partOfJac) + "\n");
        lSystem = SimCode.LINEARSYSTEM(uniqueEqIndex, false, true, simVars, {}, {}, simequations, jacobianMatrix, {}, 0, listLength(tvars)+nInnerVars+listLength(tempvars)-listLength(itempvars), partOfJac);
        tempvars2 = tempvars;
 

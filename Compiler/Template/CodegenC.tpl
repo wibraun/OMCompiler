@@ -2106,6 +2106,7 @@ template functionSetupLinearSystemsTemp(list<SimEqSystem> linearSystems, String 
          const int equationIndexes[2] = {1,<%ls.index%>};
          DATA* data = (DATA*) inData;
          LINEAR_SYSTEM_DATA* linearSystemData = (LINEAR_SYSTEM_DATA*) systemData;
+         ANALYTIC_JACOBIAN* jacobian = linearSystemData->jacobian;
          <%varDecls%>
          <%MatrixA%>
        }
@@ -2115,6 +2116,7 @@ template functionSetupLinearSystemsTemp(list<SimEqSystem> linearSystems, String 
          const int equationIndexes[2] = {1,<%ls.index%>};
          DATA* data = (DATA*) inData;
          LINEAR_SYSTEM_DATA* linearSystemData = (LINEAR_SYSTEM_DATA*) systemData;
+         ANALYTIC_JACOBIAN* jacobian = linearSystemData->jacobian;
          <%varDecls2%>
          <%vectorb%>
        }
