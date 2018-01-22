@@ -475,7 +475,6 @@ int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber, dou
 
     case LS_DEFAULT:
       success = solveLapack(data, threadData, sysNumber, aux_x);
-
       /* check if solution process was successful, if not use alternative tearing set if available (dynamic tearing)*/
       if (!success && linsys->strictTearingFunctionCall != NULL){
         debugString(LOG_DT, "Solving the casual tearing set failed! Now the strict tearing set is used.");

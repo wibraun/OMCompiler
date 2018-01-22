@@ -2057,7 +2057,14 @@ template functionSetupLinearSystemsTemp(list<SimEqSystem> linearSystems, String 
          DATA *data = (DATA*) ((void**)dataIn[0]);
          threadData_t *threadData = (threadData_t*) ((void**)dataIn[1]);
          const int equationIndexes[2] = {1,<%ls.index%>};
-         <% if ls.partOfJac then 'ANALYTIC_JACOBIAN* jacobian = data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].jacobian;'%>
+         <% if ls.partOfJac then
+         '#ifdef _OPENMP
+           ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].jacobian[omp_get_thread_num()]);
+         #else
+           ANALYTIC_JACOBIAN* jacobian = data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].jacobian;
+         #endif'
+         %>
+
          <%varDeclsRes%>
          <% if profileAll() then 'SIM_PROF_TICK_EQ(<%ls.index%>);' %>
          <% if profileSome() then 'SIM_PROF_ADD_NCALL_EQ(modelInfoGetEquation(&data->modelData->modelDataXml,<%ls.index%>).profileBlockIndex,1);' %>
@@ -5270,7 +5277,16 @@ case e as SES_LINEAR(lSystem=ls as LINEARSYSTEM(__), alternativeTearing = at) th
   }
   <% if profileSome() then 'SIM_PROF_TICK_EQ(modelInfoGetEquation(&data->modelData->modelDataXml,<%ls.index%>).profileBlockIndex);' %>
   double aux_x[<%listLength(ls.vars)%>] = { <%ls.vars |> SIMVAR(__) hasindex i0 => '<%cref(name)%>' ;separator=","%> };
-  <% if ls.partOfJac then 'data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].jacobian = jacobian;'%>
+  <% if ls.partOfJac then
+  '#ifdef _OPENMP
+     data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].jacobian[omp_get_thread_num()] = *jacobian;
+     printf("OPENMP is defined\n");
+   #else
+     data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].jacobian = jacobian;
+     printf("OPENMP is undefined\n");
+   #endif'
+  %>
+
   retValue = solve_linear_system(data, threadData, <%ls.indexLinearSystem%>, &aux_x);
 
   /* check if solution process was successful */
