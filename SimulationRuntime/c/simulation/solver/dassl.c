@@ -1038,20 +1038,19 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   threadData_t *threadData = (threadData_t*)(void*)((double**)rpar)[2];
 
   const int index = data->callback->INDEX_JAC_A;
-  ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[index]);
 
   unsigned int i,j;
-  unsigned int columns = data->simulationInfo->analyticJacobians[index].sizeCols;
-  unsigned int rows = data->simulationInfo->analyticJacobians[index].sizeRows;
-  unsigned int sizeTmpVars = data->simulationInfo->analyticJacobians[index].sizeTmpVars;
   ANALYTIC_JACOBIAN* jac = &(data->simulationInfo->analyticJacobians[index]);
+  unsigned int columns = jac->sizeCols;
+  unsigned int rows = jac->sizeRows;
+  unsigned int sizeTmpVars = jac->sizeTmpVars;
 
 #pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i,matrixA,data,threadData) private(j)
 {
   /* debug */
-#ifdef _OPENMP
-  infoStreamPrint(LOG_STDOUT, 0, "OMP: number of threads : %d", omp_get_num_threads());
-#endif
+//#ifdef _OPENMP
+//  infoStreamPrint(LOG_STDOUT, 0, "OMP: number of threads : %d", omp_get_num_threads());
+//#endif
   // allocate memory for every thread (local)
   ANALYTIC_JACOBIAN* t_jac = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
   t_jac->sizeCols = columns;
@@ -1077,7 +1076,9 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   free(t_jac->tmpVars);
   free(t_jac->resultVars);
   free(t_jac->seedVars);
+  free(t_jac);
 }
+
   TRACE_POP
   return 0;
 }
