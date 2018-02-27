@@ -221,11 +221,14 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
 
   }
   tmpJacEvalTime = rt_ext_tp_tock(&(solverData->timeClock));
+
 #ifdef _OPENMP
-  if (!omp_get_thread_num())
-	  systemData->jacobianTime += tmpJacEvalTime;
-//#pragma omp single
-//  systemData->jacobianTime += tmpJacEvalTime;
+  // MS: Caution with timing if the OpenMP-parallel Jacobian evaluation is used. Depending on the information of interest,
+  //     there are different timings, e.g.:
+  //     1. Accumulate time spent in Jacobian evaluations of all threads will give you the total CPU time.
+  //     2. Track time spent in Jacobian evaluations of each thread separately.
+  //     3. Track time spent in Jacobian evaluations of a specific thread.
+  //     Currently, we do not track any time in this context.
 #else
   systemData->jacobianTime += tmpJacEvalTime;
 #endif
