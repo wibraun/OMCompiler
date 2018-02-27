@@ -495,7 +495,7 @@ int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber, dou
           success=2;
           linsys->failed = 0;
         }
-        else{
+        else {
           linsys->failed = 1;
         }
       }
@@ -510,7 +510,7 @@ int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber, dou
         warningStreamPrint(logLevel, 0, "The default linear solver fails, the fallback solver with total pivoting is started at time %f. That might raise performance issues, for more information use -lv LOG_LS.", data->localData[0]->timeValue);
         success = solveTotalPivot(data, threadData, sysNumber);
         linsys->failed = 1;
-      }else{
+      } else {
         linsys->failed = 0;
       }
       }
@@ -521,10 +521,11 @@ int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber, dou
     }
   }
   linsys->solved = success;
-
-  linsys->totalTime += rt_ext_tp_tock(&(linsys->totalTimeClock));
-  linsys->numberOfCall++;
-
+#pragma omp critical
+  {
+    linsys->totalTime += rt_ext_tp_tock(&(linsys->totalTimeClock));
+    linsys->numberOfCall++;
+  }
   retVal = check_linear_solution(data, 1, sysNumber);
 
   TRACE_POP

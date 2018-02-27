@@ -1034,23 +1034,18 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
 {
   TRACE_PUSH
   DATA* data = (DATA*)(void*)((double**)rpar)[0];
-  DASSL_DATA* dasslData = (DASSL_DATA*)(void*)((double**)rpar)[1];
   threadData_t *threadData = (threadData_t*)(void*)((double**)rpar)[2];
 
   const int index = data->callback->INDEX_JAC_A;
 
-  unsigned int i,j;
+  unsigned int i;
   ANALYTIC_JACOBIAN* jac = &(data->simulationInfo->analyticJacobians[index]);
   unsigned int columns = jac->sizeCols;
   unsigned int rows = jac->sizeRows;
   unsigned int sizeTmpVars = jac->sizeTmpVars;
 
-#pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i,matrixA,data,threadData) private(j)
+#pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i, matrixA, data, threadData)
 {
-  /* debug */
-//#ifdef _OPENMP
-//  infoStreamPrint(LOG_STDOUT, 0, "OMP: number of threads : %d", omp_get_num_threads());
-//#endif
   // allocate memory for every thread (local)
   ANALYTIC_JACOBIAN* t_jac = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
   t_jac->sizeCols = columns;
@@ -1059,6 +1054,8 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   t_jac->tmpVars    = (double*) calloc(t_jac->sizeTmpVars, sizeof(double));
   t_jac->resultVars = (double*) calloc(t_jac->sizeRows, sizeof(double));
   t_jac->seedVars   = (double*) calloc(t_jac->sizeCols, sizeof(double));
+
+  unsigned int j;
 #pragma omp for
   for(i=0; i < columns; i++)
   {
@@ -1067,9 +1064,7 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
     data->callback->functionJacA_column(data, threadData, t_jac);
 
     for(j = 0; j < rows; j++)
-    {
       matrixA[i*columns+j] = t_jac->resultVars[j];
-    }
 
     t_jac->seedVars[i] = 0.0;
   }

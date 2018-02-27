@@ -176,8 +176,7 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
   DATA_LAPACK* solverData;
 
   int success = 1;
-#pragma critical
-{
+
   infoStreamPrint(LOG_LS_V, 0, "----- Thread %i starts solveLapack.\n", omp_get_thread_num());
 
   /* We are given the number of the linear system.
@@ -324,7 +323,6 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
   freeLapackData(&solverData);
 
   infoStreamPrint(LOG_LS_V, 1,"----- Thread %i finishes solveLapack.\n", omp_get_thread_num());
-} // omp critical
 
   return success;
 }
