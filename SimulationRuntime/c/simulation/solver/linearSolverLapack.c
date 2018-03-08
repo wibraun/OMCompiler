@@ -176,7 +176,8 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
   DATA_LAPACK* solverData;
 
   int success = 1;
-
+#pragma critical
+{
   /* We are given the number of the linear system.
    * We want to look it up among all equations. */
   int eqSystemNumber = systemData->equationIndex;
@@ -218,6 +219,7 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
 
       wrapper_fvec_lapack(solverData->work, solverData->b, &iflag, dataAndThreadData, sysNumber);
     }
+
   }
   tmpJacEvalTime = rt_ext_tp_tock(&(solverData->timeClock));
 
@@ -241,6 +243,7 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
 
   rt_ext_tp_tick(&(solverData->timeClock));
 
+
   /* Solve system */
   dgesv_((int*) &systemData->size,
          (int*) &solverData->nrhs,
@@ -251,7 +254,10 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
          (int*) &systemData->size,
          &solverData->info);
 
+<<<<<<< HEAD
   solverData->info = 0;
+=======
+>>>>>>> wibraun/newParJac
   infoStreamPrint(LOG_LS, 0, "Solve System: %f", rt_ext_tp_tock(&(solverData->timeClock)));
 
   if(solverData->info < 0)
@@ -278,11 +284,24 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
   if (1 == success){
 
     if (1 == systemData->method){
+
+
+      if(ACTIVE_STREAM(LOG_LS_V)){
+        _omc_printVector(solverData->work, "Vector work", LOG_LS_V);
+        _omc_printVector(solverData->b, "Vector b", LOG_LS_V);
+      }
       /* take the solution */
       solverData->x = _omc_addVectorVector(solverData->x, solverData->work, solverData->b); // x = xold(work) + xnew(b)
 
+      if(ACTIVE_STREAM(LOG_LS_V)){
+        _omc_printVector(solverData->x, "Vector x", LOG_LS_V);
+      }
       /* update inner equations */
       wrapper_fvec_lapack(solverData->x, solverData->work, &iflag, dataAndThreadData, sysNumber);
+      if(ACTIVE_STREAM(LOG_LS_V)){
+        _omc_printVector(solverData->work, "Vector work", LOG_LS_V);
+      }
+
       residualNorm = _omc_euclideanVectorNorm(solverData->work);
 
       if ((isnan(residualNorm)) || (residualNorm>1e-4)){
@@ -308,6 +327,6 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
     }
   }
   freeLapackData(&solverData);
-
+}
   return success;
 }
