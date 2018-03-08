@@ -111,7 +111,7 @@ int getAnalyticalJacobianLapack(DATA* data, threadData_t *threadData, double* ja
   ((systemData->initialAnalyticalJacobian))(data, threadData, jacobian);
 #else
   ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[systemData->jacobianIndex]);
-#endif;
+#endif
 
   memset(jac, 0, (systemData->size)*(systemData->size)*sizeof(double));
 
@@ -145,7 +145,7 @@ int getAnalyticalJacobianLapack(DATA* data, threadData_t *threadData, double* ja
 
 #ifdef _OPENMP
   freeAnalyticalJacobian(jacobian);
-#endif;
+#endif
 
   return 0;
 }
@@ -257,10 +257,6 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
          (int*) &systemData->size,
          &solverData->info);
 
-<<<<<<< HEAD
-  solverData->info = 0;
-=======
->>>>>>> wibraun/newParJac
   infoStreamPrint(LOG_LS, 0, "Solve System: %f", rt_ext_tp_tock(&(solverData->timeClock)));
 
   if(solverData->info < 0)
