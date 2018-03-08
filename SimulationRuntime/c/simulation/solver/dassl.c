@@ -1108,7 +1108,6 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   free(t_jac->resultVars);
   free(t_jac->seedVars);
   free(t_jac);
-  free(t_jac);
 } // omp parallel
 
   TRACE_POP
