@@ -2059,12 +2059,11 @@ template functionSetupLinearSystemsTemp(list<SimEqSystem> linearSystems, String 
          const int equationIndexes[2] = {1,<%ls.index%>};
          <% if ls.partOfJac then
          '#ifdef _OPENMP
-           ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].jacobian[omp_get_thread_num()]);
+           ANALYTIC_JACOBIAN* jacobian = data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].jacobian[omp_get_thread_num()];
          #else
            ANALYTIC_JACOBIAN* jacobian = data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].jacobian;
          #endif'
          %>
-
          <%varDeclsRes%>
          <% if profileAll() then 'SIM_PROF_TICK_EQ(<%ls.index%>);' %>
          <% if profileSome() then 'SIM_PROF_ADD_NCALL_EQ(modelInfoGetEquation(&data->modelData->modelDataXml,<%ls.index%>).profileBlockIndex,1);' %>
@@ -5279,16 +5278,13 @@ case e as SES_LINEAR(lSystem=ls as LINEARSYSTEM(__), alternativeTearing = at) th
   double aux_x[<%listLength(ls.vars)%>] = { <%ls.vars |> SIMVAR(__) hasindex i0 => '<%cref(name)%>' ;separator=","%> };
   <% if ls.partOfJac then
   '#ifdef _OPENMP
-     data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].jacobian[omp_get_thread_num()] = *jacobian;
-     printf("OPENMP is defined\n");
+     data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].jacobian[omp_get_thread_num()] = jacobian;
    #else
      data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].jacobian = jacobian;
-     printf("OPENMP is undefined\n");
    #endif'
   %>
 
-  retValue = solve_linear_system(data, threadData, <%ls.indexLinearSystem%>, &aux_x);
-
+  retValue = solve_linear_system(data, threadData, <%ls.indexLinearSystem%>, aux_x);
   /* check if solution process was successful */
   if (retValue > 0){
     const int indexes[2] = {1,<%ls.index%>};
@@ -5842,7 +5838,7 @@ case SIMCODE(modelInfo=MODELINFO(varInfo=varInfo as VARINFO(__)), delayedExps=DE
   DLLEXT=<%makefileParams.dllext%>
   CFLAGS_BASED_ON_INIT_FILE=<%extraCflags%>
   DEBUG_FLAGS=<% if boolOr(acceptMetaModelicaGrammar(), Flags.isSet(Flags.GEN_DEBUG_SYMBOLS)) then "-O0 -g"%>
-  CFLAGS=$(CFLAGS_BASED_ON_INIT_FILE) $(DEBUG_FLAGS) <%makefileParams.cflags%> <%match sopt case SOME(s as SIMULATION_SETTINGS(__)) then '<%s.cflags%> ' /* From the simulate() command */%>
+  CFLAGS=$(CFLAGS_BASED_ON_INIT_FILE) $(DEBUG_FLAGS) <%makefileParams.cflags%> <%match sopt case SOME(s as SIMULATION_SETTINGS(__)) then '<%s.cflags%> ' /* From the simulate() command */%> -fopenmp=libiomp5
   <% if stringEq(Config.simCodeTarget(),"JavaScript") then 'OMC_EMCC_PRE_JS=<%makefileParams.omhome%>/lib/<%getTriple()%>/omc/emcc/pre.js<%\n%>'
   %>CPPFLAGS=<%makefileParams.includes ; separator=" "%> -I"<%makefileParams.omhome%>/include/omc/c" -I. -DOPENMODELICA_XML_FROM_FILE_AT_RUNTIME<% if stringEq(Config.simCodeTarget(),"JavaScript") then " -DOMC_EMCC"%><% if Flags.isSet(Flags.OMC_RELOCATABLE_FUNCTIONS) then " -DOMC_GENERATE_RELOCATABLE_CODE"%> -DOMC_MODEL_PREFIX=<%modelNamePrefix(simCode)%> -DOMC_NUM_MIXED_SYSTEMS=<%varInfo.numMixedSystems%> -DOMC_NUM_LINEAR_SYSTEMS=<%varInfo.numLinearSystems%> -DOMC_NUM_NONLINEAR_SYSTEMS=<%varInfo.numNonLinearSystems%> -DOMC_NDELAY_EXPRESSIONS=<%maxDelayedIndex%> -DOMC_NVAR_STRING=<%varInfo.numStringAlgVars%>
   LDFLAGS=<%dirExtra%> <%

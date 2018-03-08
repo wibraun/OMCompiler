@@ -985,40 +985,74 @@ int jacA_symColored(double *t, double *y, double *yprime, double *delta, double 
 {
   TRACE_PUSH
   DATA* data = (DATA*)(void*)((double**)rpar)[0];
-  DASSL_DATA* dasslData = (DASSL_DATA*)(void*)((double**)rpar)[1];
   threadData_t *threadData = (threadData_t*)(void*)((double**)rpar)[2];
 
   const int index = data->callback->INDEX_JAC_A;
-  ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[index]);
+  unsigned int i;
+  ANALYTIC_JACOBIAN* jac = &(data->simulationInfo->analyticJacobians[index]);
+  unsigned int columns = jac->sizeCols;
+  unsigned int rows = jac->sizeRows;
+  unsigned int sizeTmpVars = jac->sizeTmpVars;
+  SPARSE_PATTERN spp = jac->sparsePattern;
 
-  unsigned int i,j,l,k,ii;
+// All columns can be evaluated independently from each other, I think.
+#pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i, matrixA, data, threadData)
+{
+  // Thread-local stuff
+  // allocate memory for every thread (local)
+  ANALYTIC_JACOBIAN* t_jac = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
+  t_jac->sizeCols = columns;
+  t_jac->sizeRows = rows;
+  t_jac->sizeTmpVars = sizeTmpVars;
+  t_jac->tmpVars    = (double*) calloc(t_jac->sizeTmpVars, sizeof(double));
+  t_jac->resultVars = (double*) calloc(t_jac->sizeRows, sizeof(double));
+  t_jac->seedVars   = (double*) calloc(t_jac->sizeCols, sizeof(double));
 
-  for(i=0; i < jacobian->sparsePattern.maxColors; i++)
+  // Todo: Use thread local copy of SparseStructure. Will this be faster?
+  // Currently, we use spp as global struct since there is only read access to it (no writes).
+  //  t_jac->sparsePattern.sizeOfIndex = spp->sizeOfIndex;
+  //  t_jac->sparsePattern.maxColors = spp->maxColors;
+  //  t_jac->sparsePattern.leadindex = (unsigned int*) malloc(sizeof(unsigned int)*t_jac->sparsePattern.sizeOfIndex);
+  unsigned int ii, j, l, k;
+
+#pragma omp for
+  for(i=0; i < spp.maxColors; i++)
   {
-    for(ii=0; ii < jacobian->sizeCols; ii++)
-      if(jacobian->sparsePattern.colorCols[ii]-1 == i)
-        jacobian->seedVars[ii] = 1;
-
-    data->callback->functionJacA_column(data, threadData, jacobian);
-
-    for(j = 0; j < jacobian->sizeCols; j++)
+	//infoStreamPrint(LOG_STATS_V, 0, "Thread-ID %d, color i = %i\n", omp_get_thread_num(), i);
+    for(ii=0; ii < columns; ii++)
     {
-      if(jacobian->seedVars[j] == 1)
+      if(spp.colorCols[ii]-1 == i)
+        t_jac->seedVars[ii] = 1;
+    }
+
+    data->callback->functionJacA_column(data, threadData, t_jac);
+
+    for(j = 0; j < columns; j++)
+    {
+      if(t_jac->seedVars[j] == 1)
       {
-        ii = jacobian->sparsePattern.leadindex[j];
-        while(ii < jacobian->sparsePattern.leadindex[j+1])
+        ii = spp.leadindex[j];
+        while(ii < spp.leadindex[j+1])
         {
-          l  = jacobian->sparsePattern.index[ii];
-          k  = j*jacobian->sizeRows + l;
-          matrixA[k] = jacobian->resultVars[l];
+          l  = spp.index[ii];
+          k  = j*rows + l;
+          matrixA[k] = t_jac->resultVars[l];
           ii++;
         };
       }
     }
-    for(ii=0; ii < jacobian->sizeCols; ii++)
-      if(jacobian->sparsePattern.colorCols[ii]-1 == i) jacobian->seedVars[ii] = 0;
 
-  }
+    for(ii=0; ii < columns; ii++)
+    {
+      if(spp.colorCols[ii]-1 == i)
+        t_jac->seedVars[ii] = 0;
+    }
+  } // for column
+  free(t_jac->tmpVars);
+  free(t_jac->resultVars);
+  free(t_jac->seedVars);
+  free(t_jac);
+} // omp parallel
 
   TRACE_POP
   return 0;
@@ -1034,51 +1068,19 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
 {
   TRACE_PUSH
   DATA* data = (DATA*)(void*)((double**)rpar)[0];
-  DASSL_DATA* dasslData = (DASSL_DATA*)(void*)((double**)rpar)[1];
   threadData_t *threadData = (threadData_t*)(void*)((double**)rpar)[2];
 
   const int index = data->callback->INDEX_JAC_A;
-//!  ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[index]);
 
-  unsigned int i,j;
-  unsigned int columns = data->simulationInfo->analyticJacobians[index].sizeCols;
-  unsigned int rows = data->simulationInfo->analyticJacobians[index].sizeRows;
-  unsigned int sizeTmpVars = data->simulationInfo->analyticJacobians[index].sizeTmpVars;
-//!  ANALYTIC_JACOBIAN* jac = &(data->simulationInfo->analyticJacobians[index]);
+  unsigned int i;
+  ANALYTIC_JACOBIAN* jac = &(data->simulationInfo->analyticJacobians[index]);
+  unsigned int columns = jac->sizeCols;
+  unsigned int rows = jac->sizeRows;
+  unsigned int sizeTmpVars = jac->sizeTmpVars;
 
-  // To not change the interface of solve_linear_system to `solve_linear_system(data, threadData, 2, &aux_x, jacobian)`
-  // we make `data->simulationInfo->linearSystemData[2].jacobian` an array. Every thread can write into [omp_get_thread_num()]
-  // so that there will be no data races.
-  // Todo: Should be allocated once for the simulation, not every time we call jacA_sym()!
-#ifdef _OPENMP
-  LINEAR_SYSTEM_DATA* linsys = &(data->simulationInfo->linearSystemData[2]);
-  linsys->jacobian = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN)*omp_get_max_threads());
-  if( linsys->jacobian != NULL) {
-    printf("\nSpeicher ist reserviert\n");
-  } else {
-    printf("\nKein freier Speicher vorhanden.\n");
-  }
-#endif
-
-#pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i,matrixA,data,threadData) private(j)
+#pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i, matrixA, data, threadData)
 {
-  /* debug */
-#ifdef _OPENMP
-  infoStreamPrint(LOG_STDOUT, 0, "OMP: number of threads : %d", omp_get_num_threads());
-#else
-  infoStreamPrint(LOG_STDOUT, 0, "OMP not used");
-#endif
-  LINEAR_SYSTEM_DATA* linsys = &(data->simulationInfo->linearSystemData[2]);
   // allocate memory for every thread (local)
-  // data->simulationInfo->linearSystemData[2].jacobian[OMP_NUM_THREADS] <-- globales Array, aber jeder Thread schreibt nur in ein bestimmtes Element!
-  ANALYTIC_JACOBIAN* t_jac2 = &(linsys->jacobian[omp_get_thread_num()]);
-  t_jac2->sizeCols = columns;
-  t_jac2->sizeRows = rows;
-  t_jac2->sizeTmpVars = sizeTmpVars;
-  t_jac2->tmpVars    = (double*) calloc(t_jac2->sizeTmpVars, sizeof(double));
-  t_jac2->resultVars = (double*) calloc(t_jac2->sizeRows, sizeof(double));
-  t_jac2->seedVars   = (double*) calloc(t_jac2->sizeCols, sizeof(double));
-
   // Create a thread local analyticJacobians (replace SimulationInfo->analyticaJacobians)
   // This are not the Jacobians of the linear systems! (SimulationInfo->linearSystemData[idx].jacobian)
   ANALYTIC_JACOBIAN* t_jac = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
@@ -1089,28 +1091,24 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   t_jac->resultVars = (double*) calloc(t_jac->sizeRows, sizeof(double));
   t_jac->seedVars   = (double*) calloc(t_jac->sizeCols, sizeof(double));
 
+  unsigned int j;
 #pragma omp for
   for(i=0; i < columns; i++)
   {
-	infoStreamPrint(LOG_STDOUT, 0, "OMP-Thread: %d\tcolumn: %d", omp_get_thread_num(), i);
-
     t_jac->seedVars[i] = 1.0;
 
-// Todo: Fix your code to remove this pragma!
-#pragma omp critical
-{
     data->callback->functionJacA_column(data, threadData, t_jac);
-}
+
     for(j = 0; j < rows; j++)
-    {
       matrixA[i*columns+j] = t_jac->resultVars[j];
-    }
 
     t_jac->seedVars[i] = 0.0;
   } // for loop
   free(t_jac->tmpVars);
   free(t_jac->resultVars);
   free(t_jac->seedVars);
+  free(t_jac);
+  free(t_jac);
 } // omp parallel
 
   TRACE_POP

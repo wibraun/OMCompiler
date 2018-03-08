@@ -116,6 +116,12 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
       infoStreamPrint(LOG_STDOUT, 0, "Using sparse solver for linear system %d,\nbecause density of %.3f remains under threshold of %.3f and size of %d exceeds threshold of %d.\nThe maximum density and the minimal system size for using sparse solvers can be specified\nusing the runtime flags '<-lssMaxDensity=value>' and '<-lssMinSize=value>'.", i, nnz/(double)(size*size), linearSparseSolverMaxDensity, size, linearSparseSolverMinSize);
     }
 
+
+#ifdef _OPENMP
+    linsys[i].jacobian = (ANALYTIC_JACOBIAN**) malloc(omp_get_max_threads()*sizeof(ANALYTIC_JACOBIAN*));
+//    printf("#2 OPENMP is defined\n");
+//    printf("#2 omp_get_max_threads() = %i\n", omp_get_max_threads());
+#endif
     /* allocate more system data */
     linsys[i].nominal = (double*) malloc(size*sizeof(double));
     linsys[i].min = (double*) malloc(size*sizeof(double));
@@ -298,6 +304,11 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
     free(linsys[i].nominal);
     free(linsys[i].min);
     free(linsys[i].max);
+
+#ifdef _OPENMP
+    free(linsys[i].jacobian);
+//    printf("#1 OPENMP is defined\n");
+#endif
 
     if(linsys[i].useSparseSolver == 1)
     {
@@ -483,7 +494,7 @@ int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber, dou
           success=2;
           linsys->failed = 0;
         }
-        else{
+        else {
           linsys->failed = 1;
         }
       }
@@ -498,7 +509,7 @@ int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber, dou
         warningStreamPrint(logLevel, 0, "The default linear solver fails, the fallback solver with total pivoting is started at time %f. That might raise performance issues, for more information use -lv LOG_LS.", data->localData[0]->timeValue);
         success = solveTotalPivot(data, threadData, sysNumber);
         linsys->failed = 1;
-      }else{
+      } else {
         linsys->failed = 0;
       }
       }
@@ -509,10 +520,11 @@ int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber, dou
     }
   }
   linsys->solved = success;
-
-  linsys->totalTime += rt_ext_tp_tock(&(linsys->totalTimeClock));
-  linsys->numberOfCall++;
-
+#pragma omp critical
+  {
+    linsys->totalTime += rt_ext_tp_tock(&(linsys->totalTimeClock));
+    linsys->numberOfCall++;
+  }
   retVal = check_linear_solution(data, 1, sysNumber);
 
   TRACE_POP
