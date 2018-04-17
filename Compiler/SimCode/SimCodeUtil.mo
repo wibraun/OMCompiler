@@ -470,6 +470,12 @@ algorithm
     removedInitialEquations := List.map(removedInitialEquations, addDivExpErrorMsgtoSimEqSystem);
     if debug then execStat("simCode: addDivExpErrorMsgtoSimEqSystem"); end if;
 
+
+    // TODO: fix this ugly hack, allEquation and odeEquation are different system
+    // what is really annoying!
+    (allEquations, adolcIndex) := setAdolcIndexLinSysts(allEquations);
+    allEquations := setAdolcIndexNonLinSysts(allEquations, adolcIndex);
+
     // collect all LinearSystem and NonlinearSystem algebraic system in modelInfo and update
     // the corresponding index (indexNonLinear, indexLinear) in SES_NONLINEAR and SES_LINEAR
     // Also collect all jacobians
@@ -515,11 +521,6 @@ algorithm
     execStat("simCode: created linear, non-linear and system jacobian parts");
 
     // map index also odeEquations and algebraicEquations
-
-    // TODO: fix this ugly hack, allEquation and odeEquation are different system
-    // what is really annoying!
-    (allEquations, adolcIndex) := setAdolcIndexLinSysts(allEquations);
-    allEquations := setAdolcIndexNonLinSysts(allEquations, adolcIndex);
     systemIndexMap := List.fold(allEquations, getSystemIndexMap, arrayCreate(uniqueEqIndex, -1));
     odeEquations := List.mapList1_1(odeEquations, setSystemIndexMap, systemIndexMap);
     algebraicEquations := List.mapList1_1(algebraicEquations, setSystemIndexMap, systemIndexMap);
@@ -1198,23 +1199,16 @@ algorithm
   for eq in inEqns loop
      syst := match(eq)
       local
-        Integer index, sysIndex;
-        Option<SimCode.JacobianMatrix> optSymJac;
-        Boolean partOfMixed;
-        list<SimCodeVar.SimVar> vars;
-        list<DAE.Exp> beqs;
-        list<tuple<Integer, Integer, SimCode.SimEqSystem>> simJac;
-        list<DAE.ElementSource> sources;
-        list<SimCode.SimEqSystem> eqs;
-        Integer nUnknowns;
-        Boolean tornSystem;
         BackendDAE.EquationAttributes eqAttr;
+        SimCode.LinearSystem lSystem;
+        Option<SimCode.LinearSystem> alternativeTearing;
 
       // no dynamic tearing
-      case (SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(index, partOfMixed, tornSystem, vars, beqs, simJac, eqs, optSymJac, sources, sysIndex, nUnknowns, _), NONE(), eqAttr))
+      case (SimCode.SES_LINEAR(lSystem=lSystem, alternativeTearing=alternativeTearing, eqAttr=eqAttr))
         equation
-           outAdolcIndex = outAdolcIndex+1;
-      then SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(index, partOfMixed, tornSystem, vars, beqs, simJac, eqs, optSymJac, sources, sysIndex, nUnknowns, outAdolcIndex-1), NONE(), eqAttr);
+          outAdolcIndex = outAdolcIndex+1;
+          lSystem.adolcIndex = outAdolcIndex-1;
+      then SimCode.SES_LINEAR(lSystem, alternativeTearing, eqAttr);
 
       else
       then eq;
