@@ -1287,6 +1287,7 @@ algorithm
                               NONE(),
                               SimCode.emptyPartitionData,
                               daeModeData,
+                              {},
                               {}
                               );
 

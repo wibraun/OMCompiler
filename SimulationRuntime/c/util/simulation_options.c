@@ -788,7 +788,7 @@ const char *JACOBIAN_METHOD[JAC_MAX] = {
   "internalNumerical",
   "coloredSymbolical",
   "numerical",
-  "symbolical"
+  "symbolical",
   "adolc",
   "adolcSparse",
 
