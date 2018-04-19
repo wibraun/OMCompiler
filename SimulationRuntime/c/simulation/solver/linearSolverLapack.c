@@ -176,8 +176,9 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
   DATA_LAPACK* solverData;
 
   int success = 1;
-
+#ifdef _OPENMP
   infoStreamPrint(LOG_LS_V, 0, "----- Thread %i starts solveLapack.\n", omp_get_thread_num());
+#endif
 
   /* We are given the number of the linear system.
    * We want to look it up among all equations. */
@@ -322,8 +323,9 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
     }
   }
   freeLapackData(&solverData);
-
+#ifdef _OPENMP
   infoStreamPrint(LOG_LS_V, 1,"----- Thread %i finishes solveLapack.\n", omp_get_thread_num());
+#endif
 
   return success;
 }
