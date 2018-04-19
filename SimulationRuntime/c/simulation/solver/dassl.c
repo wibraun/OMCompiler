@@ -996,7 +996,7 @@ int jacA_symColored(double *t, double *y, double *yprime, double *delta, double 
   SPARSE_PATTERN spp = jac->sparsePattern;
 
 // All columns can be evaluated independently from each other, I think.
-#pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i, matrixA, data, threadData)
+#pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i, matrixA, data, threadData, spp)
 {
   // Thread-local stuff
   // allocate memory for every thread (local)
