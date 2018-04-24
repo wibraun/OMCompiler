@@ -52,6 +52,7 @@ static void setAElement(int row, int col, double value, int nth, void *data, thr
 static void setAElementLis(int row, int col, double value, int nth, void *data, threadData_t *);
 static void setAElementUmfpack(int row, int col, double value, int nth, void *data, threadData_t *);
 static void setAElementKlu(int row, int col, double value, int nth, void *data, threadData_t *);
+static void setAElementKluSD(int row, int col, double value, int nth, void *solverData, threadData_t *);
 static void setBElement(int row, double value, void *data, threadData_t*);
 static void setBElementLis(int row, double value, void *data, threadData_t*);
 
@@ -142,7 +143,11 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
         allocateUmfPackData(size, size, nnz, linsys[i].solverData);
         break;
       case LSS_KLU:
+#ifdef _OPENMP
+        linsys[i].setAElement = setAElementKluSD;
+#else
         linsys[i].setAElement = setAElementKlu;
+#endif
         linsys[i].setBElement = setBElement;
         allocateKluData(size, size, nnz, linsys[i].solverData);
         break;
@@ -199,7 +204,11 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
         allocateUmfPackData(size, size, nnz, linsys[i].solverData);
         break;
       case LS_KLU:
+#ifdef _OPENMP
+        linsys[i].setAElement = setAElementKluSD;
+#else
         linsys[i].setAElement = setAElementKlu;
+#endif
         linsys[i].setBElement = setBElement;
         allocateKluData(size, size, nnz, linsys[i].solverData);
         break;
@@ -429,7 +438,7 @@ int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber, dou
   #endif
   #ifdef WITH_UMFPACK
     case LSS_KLU:
-      success = solveKlu(data, threadData, sysNumber);
+      success = solveKlu(data, threadData, sysNumber, aux_x);
       break;
     case LSS_UMFPACK:
       success = solveUmfPack(data, threadData, sysNumber);
@@ -464,7 +473,7 @@ int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber, dou
   #endif
   #ifdef WITH_UMFPACK
     case LS_KLU:
-      success = solveKlu(data, threadData, sysNumber);
+      success = solveKlu(data, threadData, sysNumber, aux_x);
       break;
     case LS_UMFPACK:
       success = solveUmfPack(data, threadData, sysNumber);
@@ -699,4 +708,18 @@ static void setAElementKlu(int row, int col, double value, int nth, void *data, 
   sData->Ai[nth] = col;
   sData->Ax[nth] = value;
 }
+static void setAElementKluSD(int row, int col, double value, int nth, void *solverData, threadData_t *threadData)
+{
+  DATA_KLU* sData = (DATA_KLU*) solverData;
+
+  if (row > 0){
+    if (sData->Ap[row] == 0){
+      sData->Ap[row] = nth;
+    }
+  }
+
+  sData->Ai[nth] = col;
+  sData->Ax[nth] = value;
+}
+
 #endif

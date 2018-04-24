@@ -228,6 +228,9 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
   //     2. Track time spent in Jacobian evaluations of each thread separately.
   //     3. Track time spent in Jacobian evaluations of a specific thread.
   //     Currently, we do not track any time in this context.
+  if (!omp_get_thread_num()) {
+    systemData->jacobianTime += tmpJacEvalTime;
+  }
 #else
   systemData->jacobianTime += tmpJacEvalTime;
 #endif
