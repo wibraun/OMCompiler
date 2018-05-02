@@ -340,6 +340,7 @@ typedef struct LINEAR_SYSTEM_DATA
   modelica_integer equationIndex;       /* index for EQUATION_INFO */
 
   void *solverData[2]; /* [1] is the totalPivot solver; [0] holds other solvers ; both are used for the default solver */
+  void** parSolverData;
   modelica_real *x;                     /* solution vector x */
   modelica_real *A;                     /* matrix A */
   modelica_real *b;                     /* vector b */

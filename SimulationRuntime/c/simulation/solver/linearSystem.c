@@ -52,7 +52,7 @@ static void setAElement(int row, int col, double value, int nth, void *data, thr
 static void setAElementLis(int row, int col, double value, int nth, void *data, threadData_t *);
 static void setAElementUmfpack(int row, int col, double value, int nth, void *data, threadData_t *);
 static void setAElementKlu(int row, int col, double value, int nth, void *data, threadData_t *);
-static void setAElementKluSD(int row, int col, double value, int nth, void *solverData, threadData_t *);
+static void setAElementKluSD(int row, int col, double value, int nth, void *solverData, threadData_t *threadData);
 static void setBElement(int row, double value, void *data, threadData_t*);
 static void setBElementLis(int row, double value, void *data, threadData_t*);
 
@@ -67,7 +67,7 @@ int check_linear_solution(DATA *data, int printFailingSystems, int sysNumber);
 int initializeLinearSystems(DATA *data, threadData_t *threadData)
 {
   TRACE_PUSH
-  int i, nnz;
+  int i, nnz, j;
   int size;
   LINEAR_SYSTEM_DATA *linsys = data->simulationInfo->linearSystemData;
 
@@ -102,10 +102,26 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
       {
         assertStreamPrint(threadData, 0 != linsys[i].analyticalJacobianColumn, "jacobian function pointer is invalid" );
       }
-      if(linsys[i].initialAnalyticalJacobian(data, threadData, jacobian))
+      if (linsys[i].initialAnalyticalJacobian(data, threadData, jacobian))
       {
         linsys[i].jacobianIndex = -1;
         throwStreamPrint(threadData, "Failed to initialize the jacobian for torn linear system %d.", (int)linsys[i].equationIndex);
+      }
+      else
+      {
+        #ifdef _OPENMP
+          //    printf("#2 OPENMP is defined\n");
+          //    printf("#2 omp_get_max_threads() = %i\n", omp_get_max_threads());
+          ANALYTIC_JACOBIAN** jacsArray = (ANALYTIC_JACOBIAN**) malloc(omp_get_max_threads()*sizeof(ANALYTIC_JACOBIAN*));
+          for(j=0;j<omp_get_max_threads();j++){
+            ANALYTIC_JACOBIAN* jac = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
+            memcpy(jac, jacobian, sizeof(ANALYTIC_JACOBIAN));
+            jacsArray[j] = jac;
+          }
+          linsys[i].jacobian = jacsArray;
+        #else
+          linsys[i].jacobian = &jacobian;
+        #endif
       }
       nnz = jacobian->sparsePattern.numberOfNoneZeros;
       linsys[i].nnz = nnz;
@@ -117,12 +133,6 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
       infoStreamPrint(LOG_STDOUT, 0, "Using sparse solver for linear system %d,\nbecause density of %.3f remains under threshold of %.3f and size of %d exceeds threshold of %d.\nThe maximum density and the minimal system size for using sparse solvers can be specified\nusing the runtime flags '<-lssMaxDensity=value>' and '<-lssMinSize=value>'.", i, nnz/(double)(size*size), linearSparseSolverMaxDensity, size, linearSparseSolverMinSize);
     }
 
-
-#ifdef _OPENMP
-    linsys[i].jacobian = (ANALYTIC_JACOBIAN**) malloc(omp_get_max_threads()*sizeof(ANALYTIC_JACOBIAN*));
-//    printf("#2 OPENMP is defined\n");
-//    printf("#2 omp_get_max_threads() = %i\n", omp_get_max_threads());
-#endif
     /* allocate more system data */
     linsys[i].nominal = (double*) malloc(size*sizeof(double));
     linsys[i].min = (double*) malloc(size*sizeof(double));
@@ -143,13 +153,18 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
         allocateUmfPackData(size, size, nnz, linsys[i].solverData);
         break;
       case LSS_KLU:
-#ifdef _OPENMP
-        linsys[i].setAElement = setAElementKluSD;
-#else
-        linsys[i].setAElement = setAElementKlu;
-#endif
         linsys[i].setBElement = setBElement;
+        linsys[i].setAElement = setAElementKlu;
+#ifndef _OPENMP
         allocateKluData(size, size, nnz, linsys[i].solverData);
+#else
+        linsys[i].setAElement = setAElementKluSD;
+        // create parSolverData
+        linsys[i].parSolverData = malloc(sizeof(void*)*omp_get_max_threads());
+        for(j=0;j<omp_get_max_threads();j++){
+          allocateKluData(size, size, nnz, &(linsys[i].parSolverData[j]));
+        }
+#endif
         break;
     #else
       case LSS_KLU:
@@ -204,13 +219,13 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
         allocateUmfPackData(size, size, nnz, linsys[i].solverData);
         break;
       case LS_KLU:
-#ifdef _OPENMP
-        linsys[i].setAElement = setAElementKluSD;
-#else
-        linsys[i].setAElement = setAElementKlu;
-#endif
         linsys[i].setBElement = setBElement;
+        linsys[i].setAElement = setAElementKlu;
+#ifndef _OPENMP
         allocateKluData(size, size, nnz, linsys[i].solverData);
+#else
+        linsys[i].setAElement = setAElementKluSD;
+#endif
         break;
     #else
       case LS_UMFPACK:
@@ -301,7 +316,7 @@ void printLinearSystemSolvingStatistics(DATA *data, int sysNumber, int logLevel)
 int freeLinearSystems(DATA *data, threadData_t *threadData)
 {
   TRACE_PUSH
-  int i;
+  int i,j;
   LINEAR_SYSTEM_DATA* linsys = data->simulationInfo->linearSystemData;
 
   infoStreamPrint(LOG_LS_V, 1, "free linear system solvers");
@@ -315,6 +330,9 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
     free(linsys[i].max);
 
 #ifdef _OPENMP
+    for(j=0;j<omp_get_max_threads();j++){
+      free(linsys[i].jacobian[j]);
+    }
     free(linsys[i].jacobian);
 //    printf("#1 OPENMP is defined\n");
 #endif
@@ -334,7 +352,14 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
         freeUmfPackData(linsys[i].solverData);
         break;
       case LSS_KLU:
+#ifndef _OPENMP
         freeKluData(linsys[i].solverData);
+#else
+        for(j=0;j<omp_get_max_threads();j++){
+          freeKluData((void*)&(linsys[i].parSolverData[j]));
+        }
+        free(linsys[i].parSolverData);
+#endif
         break;
     #else
       case LSS_UMFPACK:
@@ -366,7 +391,9 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
         freeUmfPackData(linsys[i].solverData);
         break;
       case LS_KLU:
+#ifndef _OPENMP
         freeKluData(linsys[i].solverData);
+#endif
         break;
   #else
       case LS_UMFPACK:
@@ -721,5 +748,6 @@ static void setAElementKluSD(int row, int col, double value, int nth, void *solv
   sData->Ai[nth] = col;
   sData->Ax[nth] = value;
 }
+
 
 #endif

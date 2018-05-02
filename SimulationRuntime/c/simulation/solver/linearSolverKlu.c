@@ -32,6 +32,7 @@
  */
 
 #include "omc_config.h"
+#include <omp.h>
 
 #ifdef WITH_UMFPACK
 #include <math.h>
@@ -68,7 +69,6 @@ allocateKluData(int n_row, int n_col, int nz, void** voiddata)
   data->nnz = nz;
 
   data->Ap = (int*) calloc((n_row+1),sizeof(int));
-
   data->Ai = (int*) calloc(nz,sizeof(int));
   data->Ax = (double*) calloc(nz,sizeof(double));
   data->work = (double*) calloc(n_col,sizeof(double));
@@ -126,8 +126,7 @@ int getAnalyticalJacobian(DATA* data, threadData_t *threadData, DATA_KLU* solver
 
   const int index = systemData->jacobianIndex;
 #ifdef _OPENMP
-  ANALYTIC_JACOBIAN* jacobian = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
-  ((systemData->initialAnalyticalJacobian))(data, threadData, jacobian);
+  ANALYTIC_JACOBIAN* jacobian = systemData->jacobian[omp_get_thread_num()];
 #else
   ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[systemData->jacobianIndex]);
 #endif
@@ -135,14 +134,13 @@ int getAnalyticalJacobian(DATA* data, threadData_t *threadData, DATA_KLU* solver
   int nth = 0;
   int nnz = jacobian->sparsePattern.numberOfNoneZeros;
 
-  for(i=0; i < jacobian->sizeRows; i++)
+  for(i=0; i < jacobian->sparsePattern.maxColors; i++)
   {
-    jacobian->seedVars[i] = 1;
-    /* activate seed variable for the corresponding color
+    /* activate seed variable for the corresponding color */
     for(ii=0; ii < jacobian->sizeCols; ii++)
       if(jacobian->sparsePattern.colorCols[ii]-1 == i)
         jacobian->seedVars[ii] = 1;
-    */
+
     ((systemData->analyticalJacobianColumn))(data, threadData, jacobian);
 
     for(j = 0; j < jacobian->sizeCols; j++)
@@ -153,24 +151,16 @@ int getAnalyticalJacobian(DATA* data, threadData_t *threadData, DATA_KLU* solver
         while(ii < jacobian->sparsePattern.leadindex[j+1])
         {
           l  = jacobian->sparsePattern.index[ii];
-          systemData->setAElement(i, l, -jacobian->resultVars[l], nth, (void*) solverData, threadData);
-          nth++;
+          systemData->setAElement(j, l, -jacobian->resultVars[l], ii, (void*) solverData, threadData);
           ii++;
         }
       }
     }
-    /* de-activate seed variable for the corresponding color
+    /* de-activate seed variable for the corresponding color */
     for(ii=0; ii < jacobian->sizeCols; ii++)
       if(jacobian->sparsePattern.colorCols[ii]-1 == i)
         jacobian->seedVars[ii] = 0;
-    */
-    jacobian->seedVars[i] = 0;
-
   }
-
-#ifdef _OPENMP
-  freeAnalyticalJacobian(jacobian);
-#endif
 
   return 0;
 }
@@ -199,19 +189,19 @@ solveKlu(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
 {
   void *dataAndThreadData[2] = {data, threadData};
   LINEAR_SYSTEM_DATA* systemData = &(data->simulationInfo->linearSystemData[sysNumber]);
-  DATA_KLU* solverData;
-
   int i, j, status = 0, success = 0, n = systemData->size, eqSystemNumber = systemData->equationIndex, indexes[2] = {1,eqSystemNumber};
   double tmpJacEvalTime;
+  DATA_KLU* solverData;
 
 #ifdef _OPENMP
+  solverData = systemData->parSolverData[omp_get_thread_num()];
   infoStreamPrint(LOG_LS_V, 0, "----- Thread %i starts solveKLU.\n", omp_get_thread_num());
+#else
+  solverData = systemData->solverData;
 #endif
   infoStreamPrintWithEquationIndexes(LOG_LS, 0, indexes, "Start solving Linear System %d (size %d) at time %g with Klu Solver",
    eqSystemNumber, (int) systemData->size,
    data->localData[0]->timeValue);
-
-  allocateKluData(systemData->size, systemData->size, systemData->nnz, &solverData);
 
   rt_ext_tp_tick(&(solverData->timeClock));
   if (0 == systemData->method)
@@ -342,9 +332,8 @@ solveKlu(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
         (int)systemData->equationIndex, data->localData[0]->timeValue, status);
   }
   solverData->numberSolving += 1;
-  freeKluData(&solverData);
 #ifdef _OPENMP
-  infoStreamPrint(LOG_LS_V, 1,"----- Thread %i finishes solveLapack.\n", omp_get_thread_num());
+  infoStreamPrint(LOG_LS_V, 1,"----- Thread %i finishes solveKLU.\n", omp_get_thread_num());
 #endif
   return success;
 }
