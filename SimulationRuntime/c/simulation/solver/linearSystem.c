@@ -102,26 +102,10 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
       {
         assertStreamPrint(threadData, 0 != linsys[i].analyticalJacobianColumn, "jacobian function pointer is invalid" );
       }
-      if (linsys[i].initialAnalyticalJacobian(data, threadData, jacobian))
+      if(linsys[i].initialAnalyticalJacobian(data, threadData, jacobian))
       {
         linsys[i].jacobianIndex = -1;
         throwStreamPrint(threadData, "Failed to initialize the jacobian for torn linear system %d.", (int)linsys[i].equationIndex);
-      }
-      else
-      {
-        #ifdef _OPENMP
-          //    printf("#2 OPENMP is defined\n");
-          //    printf("#2 omp_get_max_threads() = %i\n", omp_get_max_threads());
-          ANALYTIC_JACOBIAN** jacsArray = (ANALYTIC_JACOBIAN**) malloc(omp_get_max_threads()*sizeof(ANALYTIC_JACOBIAN*));
-          for(j=0;j<omp_get_max_threads();j++){
-            ANALYTIC_JACOBIAN* jac = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
-            memcpy(jac, jacobian, sizeof(ANALYTIC_JACOBIAN));
-            jacsArray[j] = jac;
-          }
-          linsys[i].jacobian = jacsArray;
-        #else
-          linsys[i].jacobian = &jacobian;
-        #endif
       }
       nnz = jacobian->sparsePattern.numberOfNoneZeros;
       linsys[i].nnz = nnz;
@@ -132,6 +116,12 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
       linsys[i].useSparseSolver = 1;
       infoStreamPrint(LOG_STDOUT, 0, "Using sparse solver for linear system %d,\nbecause density of %.3f remains under threshold of %.3f and size of %d exceeds threshold of %d.\nThe maximum density and the minimal system size for using sparse solvers can be specified\nusing the runtime flags '<-lssMaxDensity=value>' and '<-lssMinSize=value>'.", i, nnz/(double)(size*size), linearSparseSolverMaxDensity, size, linearSparseSolverMinSize);
     }
+
+#ifdef _OPENMP
+    linsys[i].jacobian = (ANALYTIC_JACOBIAN**) malloc(omp_get_max_threads()*sizeof(ANALYTIC_JACOBIAN*));
+//    printf("#2 OPENMP is defined\n");
+//    printf("#2 omp_get_max_threads() = %i\n", omp_get_max_threads());
+#endif
 
     /* allocate more system data */
     linsys[i].nominal = (double*) malloc(size*sizeof(double));
@@ -160,7 +150,7 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
 #else
         linsys[i].setAElement = setAElementKluSD;
         // create parSolverData
-        linsys[i].parSolverData = malloc(sizeof(void*)*omp_get_max_threads());
+        linsys[i].parSolverData = (void**) malloc(sizeof(void*)*omp_get_max_threads());
         for(j=0;j<omp_get_max_threads();j++){
           allocateKluData(size, size, nnz, &(linsys[i].parSolverData[j]));
         }
@@ -225,6 +215,11 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
         allocateKluData(size, size, nnz, linsys[i].solverData);
 #else
         linsys[i].setAElement = setAElementKluSD;
+        // create parSolverData
+        linsys[i].parSolverData = (void**) malloc(sizeof(void*)*omp_get_max_threads());
+        for(j=0;j<omp_get_max_threads();j++){
+          allocateKluData(size, size, nnz, &(linsys[i].parSolverData[j]));
+        }
 #endif
         break;
     #else
@@ -330,9 +325,6 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
     free(linsys[i].max);
 
 #ifdef _OPENMP
-    for(j=0;j<omp_get_max_threads();j++){
-      free(linsys[i].jacobian[j]);
-    }
     free(linsys[i].jacobian);
 //    printf("#1 OPENMP is defined\n");
 #endif
@@ -393,6 +385,11 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
       case LS_KLU:
 #ifndef _OPENMP
         freeKluData(linsys[i].solverData);
+#else
+        for(j=0;j<omp_get_max_threads();j++){
+          freeKluData((void*)&(linsys[i].parSolverData[j]));
+        }
+        free(linsys[i].parSolverData);
 #endif
         break;
   #else
@@ -425,6 +422,7 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
       free(linsys[i].solverData[1]);
       linsys[i].solverData[1] = 0;
     }
+
   }
 
   messageClose(LOG_LS_V);

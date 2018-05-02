@@ -126,7 +126,8 @@ int getAnalyticalJacobian(DATA* data, threadData_t *threadData, DATA_KLU* solver
 
   const int index = systemData->jacobianIndex;
 #ifdef _OPENMP
-  ANALYTIC_JACOBIAN* jacobian = systemData->jacobian[omp_get_thread_num()];
+  ANALYTIC_JACOBIAN* jacobian = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
+  ((systemData->initialAnalyticalJacobian))(data, threadData, jacobian);
 #else
   ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[systemData->jacobianIndex]);
 #endif
@@ -194,8 +195,8 @@ solveKlu(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
   DATA_KLU* solverData;
 
 #ifdef _OPENMP
-  solverData = systemData->parSolverData[omp_get_thread_num()];
   infoStreamPrint(LOG_LS_V, 0, "----- Thread %i starts solveKLU.\n", omp_get_thread_num());
+  allocateKluData(n, n, systemData->nnz, &solverData);
 #else
   solverData = systemData->solverData;
 #endif
@@ -206,6 +207,7 @@ solveKlu(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
   rt_ext_tp_tick(&(solverData->timeClock));
   if (0 == systemData->method)
   {
+
     /* set A matrix */
     solverData->Ap[0] = 0;
     systemData->setA(data, threadData, systemData);
@@ -256,7 +258,7 @@ solveKlu(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
     messageClose(LOG_LS_V);
 
     for (i=0; i<solverData->n_row; i++)
-      infoStreamPrint(LOG_LS_V, 0, "b[%d] = %e", i, systemData->b[i]);
+      infoStreamPrint(LOG_LS_V, 0, "b[%d] = %e", i, solverData->b[i]);
   }
   rt_ext_tp_tick(&(solverData->timeClock));
 
@@ -333,7 +335,8 @@ solveKlu(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
   }
   solverData->numberSolving += 1;
 #ifdef _OPENMP
-  infoStreamPrint(LOG_LS_V, 1,"----- Thread %i finishes solveKLU.\n", omp_get_thread_num());
+  infoStreamPrint(LOG_LS_V, 0,"----- Thread %i finishes solveKLU.\n", omp_get_thread_num());
+  freeKluData((void*)&(solverData));
 #endif
   return success;
 }
