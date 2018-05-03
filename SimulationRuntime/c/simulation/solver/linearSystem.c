@@ -153,6 +153,7 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
         linsys[i].parSolverData = (void**) malloc(sizeof(void*)*omp_get_max_threads());
         for(j=0;j<omp_get_max_threads();j++){
           allocateKluData(size, size, nnz, &(linsys[i].parSolverData[j]));
+          ((linsys[i].initialAnalyticalJacobian))(data, threadData, ((DATA_KLU*)linsys[i].parSolverData[j])->matrixA);
         }
 #endif
         break;
@@ -219,7 +220,9 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
         linsys[i].parSolverData = (void**) malloc(sizeof(void*)*omp_get_max_threads());
         for(j=0;j<omp_get_max_threads();j++){
           allocateKluData(size, size, nnz, &(linsys[i].parSolverData[j]));
+          ((linsys[i].initialAnalyticalJacobian))(data, threadData, ((DATA_KLU*)linsys[i].parSolverData[j])->matrixA);
         }
+
 #endif
         break;
     #else

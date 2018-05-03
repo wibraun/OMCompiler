@@ -74,6 +74,8 @@ allocateKluData(int n_row, int n_col, int nz, void** voiddata)
   data->work = (double*) calloc(n_col,sizeof(double));
   data->b = (double*) calloc(n_col,sizeof(double));
 
+  data->matrixA = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
+
   data->numberSolving = 0;
   klu_defaults(&(data->common));
 
@@ -98,6 +100,8 @@ freeKluData(void **voiddata)
   free(data->Ax);
   free(data->work);
   free(data->b);
+  free(data->matrixA);
+
 
   if(data->symbolic)
     klu_free_symbolic(&data->symbolic, &data->common);
@@ -126,8 +130,7 @@ int getAnalyticalJacobian(DATA* data, threadData_t *threadData, DATA_KLU* solver
 
   const int index = systemData->jacobianIndex;
 #ifdef _OPENMP
-  ANALYTIC_JACOBIAN* jacobian = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
-  ((systemData->initialAnalyticalJacobian))(data, threadData, jacobian);
+  ANALYTIC_JACOBIAN* jacobian = solverData->matrixA;
 #else
   ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[systemData->jacobianIndex]);
 #endif
@@ -196,7 +199,7 @@ solveKlu(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
 
 #ifdef _OPENMP
   infoStreamPrint(LOG_LS_V, 0, "----- Thread %i starts solveKLU.\n", omp_get_thread_num());
-  allocateKluData(n, n, systemData->nnz, &solverData);
+  solverData = systemData->parSolverData[omp_get_thread_num()];
 #else
   solverData = systemData->solverData;
 #endif
@@ -336,7 +339,6 @@ solveKlu(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
   solverData->numberSolving += 1;
 #ifdef _OPENMP
   infoStreamPrint(LOG_LS_V, 0,"----- Thread %i finishes solveKLU.\n", omp_get_thread_num());
-  freeKluData((void*)&(solverData));
 #endif
   return success;
 }
