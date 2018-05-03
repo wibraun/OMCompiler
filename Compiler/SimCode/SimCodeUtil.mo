@@ -3349,6 +3349,7 @@ algorithm
     then (equations_, uniqueEqIndex, itempvars);
 
     // Time varying jacobian with size 2 is solved via Cramer's rule
+    /*
     case (BackendDAE.FULL_JACOBIAN(SOME(jac)), BackendDAE.JAC_LINEAR()) guard Flags.getConfigBool(Flags.GEN_ADOLC_TRACE)
       equation
         if Flags.isSet(Flags.FAILTRACE) then
@@ -3363,6 +3364,7 @@ algorithm
         simJac = List.map1(jac, jacToSimjac, inVars);
       then
         (equations_, uniqueEqIndex, tempvars);
+    */
 
     // Time varying linear jacobian. Linear system of equations that needs to be solved during runtime.
     case (BackendDAE.FULL_JACOBIAN(SOME(jac)), BackendDAE.JAC_LINEAR()) equation
