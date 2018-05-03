@@ -409,7 +409,8 @@ int dassl_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo,
         rt_tick(SIM_TIMER_ADOLC_INIT);
       }
       dasslData->adolcJac = myalloc2(data->modelData->nStates, data->modelData->nStates);
-      dasslData->adolcParam = (double*) malloc((1+data->modelData->nParametersReal)*sizeof(double));
+      dasslData->adolcParam = (double*) malloc((1+data->modelData->nParametersReal +
+          data->modelData->nVariablesInteger+data->modelData->nParametersInteger)*sizeof(double));
 
       // allocate memory for linear systems
       initialize_linearSystems(data);
@@ -440,8 +441,9 @@ int dassl_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo,
         rt_tick(SIM_TIMER_ADOLC_INIT);
       }
       dasslData->adolcJac = myalloc2(data->modelData->nStates, data->modelData->nStates);
-      dasslData->adolcParam = (double*) malloc((1+data->modelData->nParametersReal)*sizeof(double));
-      memcpy(dasslData->adolcParam +1, data->simulationInfo->realParameter, sizeof(double)*data->modelData->nParametersReal);
+      dasslData->adolcParam = (double*) malloc((1+data->modelData->nParametersReal +
+          data->modelData->nVariablesInteger+data->modelData->nParametersInteger)*sizeof(double));
+
       // allocate memory for linear systems
       initialize_linearSystems(data);
       // allocate memory for non-linear systems
@@ -623,6 +625,13 @@ int dassl_step(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo)
 
   if (initialParamCopy && dasslData->useAdolc){
     memcpy(dasslData->adolcParam+1, data->simulationInfo->realParameter, sizeof(double)*data->modelData->nParametersReal);
+    /* copy integer value to parameter memory */
+    for(i=0; i<data->modelData->nVariablesInteger; i++){
+      dasslData->adolcParam[1+data->modelData->nParametersReal+i] = (double) data->localData[0]->integerVars[i];
+    }
+    for(i=0; i<data->modelData->nParametersInteger; i++){
+      dasslData->adolcParam[1+data->modelData->nParametersReal+data->modelData->nVariablesInteger+i] = (double) data->simulationInfo->integerParameter[i];
+    }
     initialParamCopy = 0;
   }
 
