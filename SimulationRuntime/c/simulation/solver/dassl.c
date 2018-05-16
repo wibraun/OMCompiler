@@ -359,6 +359,29 @@ int dassl_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo,
       break;
     case SYMJAC:
       dasslData->jacobianFunction =  jacA_sym;
+      // Memory optimization
+#ifdef _OPENMP
+      int maxTh = omp_get_max_threads();
+      dasslData->jacColumns = (ANALYTIC_JACOBIAN*) malloc(maxTh*sizeof(ANALYTIC_JACOBIAN));
+      const int index = data->callback->INDEX_JAC_A;
+      ANALYTIC_JACOBIAN* jac = &(data->simulationInfo->analyticJacobians[index]);
+      unsigned int columns = jac->sizeCols;
+      unsigned int rows = jac->sizeRows;
+      unsigned int sizeTmpVars = jac->sizeTmpVars;
+
+      // Todo: Is a parallel for loop benefitial in order to have the jacColumns initialized by the thread that will work on them later on?
+      unsigned int i;
+      for (i = 0; i < maxTh; ++i) {
+        //dasslData->jacColums[i] = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
+        //ANALYTIC_JACOBIAN* t_jac = &(dasslData->jacColums[i]);
+        dasslData->jacColumns[i].sizeCols = columns;
+        dasslData->jacColumns[i].sizeRows = rows;
+        dasslData->jacColumns[i].sizeTmpVars = sizeTmpVars;
+        dasslData->jacColumns[i].tmpVars    = (double*) calloc(sizeTmpVars, sizeof(double));
+        dasslData->jacColumns[i].resultVars = (double*) calloc(rows, sizeof(double));
+        dasslData->jacColumns[i].seedVars   = (double*) calloc(columns, sizeof(double));
+      }
+#endif
       break;
     case NUMJAC:
       dasslData->jacobianFunction =  jacA_num;
@@ -413,7 +436,7 @@ int dassl_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo,
   }
   /* ### end configuration of dassl ### */
 
-
+  cntJacEval = 0;
   messageClose(LOG_SOLVER);
   TRACE_POP
   return 0;
@@ -424,6 +447,8 @@ int dassl_deinitial(DASSL_DATA *dasslData)
 {
   TRACE_PUSH
   unsigned int i;
+
+  printf("Total Number of jac evaluations: %d.\n", cntJacEval);
 
   /* free work arrays for DASSL */
   free(dasslData->rwork);
@@ -1067,7 +1092,10 @@ int jacA_symColored(double *t, double *y, double *yprime, double *delta, double 
 int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrixA, double *cj, double *h, double *wt, double *rpar, int *ipar)
 {
   TRACE_PUSH
+  ++cntJacEval;
+
   DATA* data = (DATA*)(void*)((double**)rpar)[0];
+  DASSL_DATA* dasslData = (DASSL_DATA*)(void*)((double**)rpar)[1];
   threadData_t *threadData = (threadData_t*)(void*)((double**)rpar)[2];
 
   const int index = data->callback->INDEX_JAC_A;
@@ -1078,18 +1106,23 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   unsigned int rows = jac->sizeRows;
   unsigned int sizeTmpVars = jac->sizeTmpVars;
 
-#pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i, matrixA, data, threadData)
+  static int nureinmal = 0;
+#pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i, matrixA, data, threadData, dasslData)
 {
   // allocate memory for every thread (local)
   // Create a thread local analyticJacobians (replace SimulationInfo->analyticaJacobians)
   // This are not the Jacobians of the linear systems! (SimulationInfo->linearSystemData[idx].jacobian)
-  ANALYTIC_JACOBIAN* t_jac = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
-  t_jac->sizeCols = columns;
-  t_jac->sizeRows = rows;
-  t_jac->sizeTmpVars = sizeTmpVars;
-  t_jac->tmpVars    = (double*) calloc(t_jac->sizeTmpVars, sizeof(double));
-  t_jac->resultVars = (double*) calloc(t_jac->sizeRows, sizeof(double));
-  t_jac->seedVars   = (double*) calloc(t_jac->sizeCols, sizeof(double));
+//  ANALYTIC_JACOBIAN* t_jac = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
+//  t_jac->sizeCols = columns;
+//  t_jac->sizeRows = rows;
+//  t_jac->sizeTmpVars = sizeTmpVars;
+//  t_jac->tmpVars    = (double*) calloc(t_jac->sizeTmpVars, sizeof(double));
+//  t_jac->resultVars = (double*) calloc(t_jac->sizeRows, sizeof(double));
+//  t_jac->seedVars   = (double*) calloc(t_jac->sizeCols, sizeof(double));
+
+  // Memory optimization
+  ANALYTIC_JACOBIAN* t_jac = &(dasslData->jacColumns[omp_get_thread_num()]);
+  //printf("index= %d, t_jac->sizeCols= %d, t_jac->sizeRows = %d, t_jac->sizeTmpVars = %d \n",index, t_jac->sizeCols , t_jac->sizeRows, t_jac->sizeTmpVars);
 
   unsigned int j;
 #pragma omp for

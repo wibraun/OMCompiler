@@ -79,7 +79,14 @@ typedef struct DASSL_DATA{
   int (*jacobianFunction)(double *t, double *y, double *yprime, double *deltaD, double *pd, double *cj, double *h, double *wt,
      double *rpar, int* ipar);
   void* zeroCrossingFunction;
+
+#ifdef _OPENMP
+  ANALYTIC_JACOBIAN* jacColumns;
+#endif
+
 } DASSL_DATA;
+
+static int cntJacEval;
 
 /* main dassl function to make a step */
 int
