@@ -359,7 +359,6 @@ int dassl_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo,
       break;
     case SYMJAC:
       dasslData->jacobianFunction =  jacA_sym;
-      // Memory optimization
 #ifdef _OPENMP
       int maxTh = omp_get_max_threads();
       dasslData->jacColumns = (ANALYTIC_JACOBIAN*) malloc(maxTh*sizeof(ANALYTIC_JACOBIAN));
@@ -369,11 +368,10 @@ int dassl_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo,
       unsigned int rows = jac->sizeRows;
       unsigned int sizeTmpVars = jac->sizeTmpVars;
 
-      // Todo: Is a parallel for loop benefitial in order to have the jacColumns initialized by the thread that will work on them later on?
+      // Benchmarks indicate that it is beneficial to initialize and malloc the jacColumns using a parallel for loop.
+      // Rationale: The thread working on the data initializes the data and thus have it in probably in cache.
       unsigned int i;
       for (i = 0; i < maxTh; ++i) {
-        //dasslData->jacColums[i] = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
-        //ANALYTIC_JACOBIAN* t_jac = &(dasslData->jacColums[i]);
         dasslData->jacColumns[i].sizeCols = columns;
         dasslData->jacColumns[i].sizeRows = rows;
         dasslData->jacColumns[i].sizeTmpVars = sizeTmpVars;
@@ -466,6 +464,9 @@ int dassl_deinitial(DASSL_DATA *dasslData)
   free(dasslData->stateDer);
 
   free(dasslData);
+#ifdef _OPENMP
+  free(dasslData->jacColumns);
+#endif
 
   TRACE_POP
   return 0;
@@ -1109,18 +1110,8 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   static int nureinmal = 0;
 #pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i, matrixA, data, threadData, dasslData)
 {
-  // allocate memory for every thread (local)
-  // Create a thread local analyticJacobians (replace SimulationInfo->analyticaJacobians)
+  // Use a thread local analyticJacobians (replace SimulationInfo->analyticaJacobians)
   // This are not the Jacobians of the linear systems! (SimulationInfo->linearSystemData[idx].jacobian)
-//  ANALYTIC_JACOBIAN* t_jac = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
-//  t_jac->sizeCols = columns;
-//  t_jac->sizeRows = rows;
-//  t_jac->sizeTmpVars = sizeTmpVars;
-//  t_jac->tmpVars    = (double*) calloc(t_jac->sizeTmpVars, sizeof(double));
-//  t_jac->resultVars = (double*) calloc(t_jac->sizeRows, sizeof(double));
-//  t_jac->seedVars   = (double*) calloc(t_jac->sizeCols, sizeof(double));
-
-  // Memory optimization
   ANALYTIC_JACOBIAN* t_jac = &(dasslData->jacColumns[omp_get_thread_num()]);
   //printf("index= %d, t_jac->sizeCols= %d, t_jac->sizeRows = %d, t_jac->sizeTmpVars = %d \n",index, t_jac->sizeCols , t_jac->sizeRows, t_jac->sizeTmpVars);
 
@@ -1129,7 +1120,6 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   for(i=0; i < columns; i++)
   {
     t_jac->seedVars[i] = 1.0;
-
     data->callback->functionJacA_column(data, threadData, t_jac);
 
     for(j = 0; j < rows; j++)
@@ -1137,11 +1127,6 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
 
     t_jac->seedVars[i] = 0.0;
   } // for loop
-  // Memory optimization
-/*  free(t_jac->tmpVars);
-  free(t_jac->resultVars);
-  free(t_jac->seedVars);
-  free(t_jac);*/
 } // omp parallel
 
   TRACE_POP
