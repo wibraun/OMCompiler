@@ -434,7 +434,6 @@ int dassl_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo,
   }
   /* ### end configuration of dassl ### */
 
-  cntJacEval = 0;
   messageClose(LOG_SOLVER);
   TRACE_POP
   return 0;
@@ -445,8 +444,6 @@ int dassl_deinitial(DASSL_DATA *dasslData)
 {
   TRACE_PUSH
   unsigned int i;
-
-  printf("Total Number of jac evaluations: %d.\n", cntJacEval);
 
   /* free work arrays for DASSL */
   free(dasslData->rwork);
@@ -1093,7 +1090,6 @@ int jacA_symColored(double *t, double *y, double *yprime, double *delta, double 
 int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrixA, double *cj, double *h, double *wt, double *rpar, int *ipar)
 {
   TRACE_PUSH
-  ++cntJacEval;
 
   DATA* data = (DATA*)(void*)((double**)rpar)[0];
   DASSL_DATA* dasslData = (DASSL_DATA*)(void*)((double**)rpar)[1];
@@ -1107,7 +1103,6 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   unsigned int rows = jac->sizeRows;
   unsigned int sizeTmpVars = jac->sizeTmpVars;
 
-  static int nureinmal = 0;
 #pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i, matrixA, data, threadData, dasslData)
 {
   // Use a thread local analyticJacobians (replace SimulationInfo->analyticaJacobians)

@@ -86,8 +86,6 @@ typedef struct DASSL_DATA{
 
 } DASSL_DATA;
 
-static int cntJacEval;
-
 /* main dassl function to make a step */
 int
 dassl_step(DATA* simData, threadData_t *threadData, SOLVER_INFO* solverInfo);
