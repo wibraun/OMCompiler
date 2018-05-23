@@ -359,6 +359,27 @@ int dassl_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo,
       break;
     case SYMJAC:
       dasslData->jacobianFunction =  jacA_sym;
+#ifdef _OPENMP
+      int maxTh = omp_get_max_threads();
+      dasslData->jacColumns = (ANALYTIC_JACOBIAN*) malloc(maxTh*sizeof(ANALYTIC_JACOBIAN));
+      const int index = data->callback->INDEX_JAC_A;
+      ANALYTIC_JACOBIAN* jac = &(data->simulationInfo->analyticJacobians[index]);
+      unsigned int columns = jac->sizeCols;
+      unsigned int rows = jac->sizeRows;
+      unsigned int sizeTmpVars = jac->sizeTmpVars;
+
+      // Benchmarks indicate that it is beneficial to initialize and malloc the jacColumns using a parallel for loop.
+      // Rationale: The thread working on the data initializes the data and thus have it in probably in cache.
+      unsigned int i;
+      for (i = 0; i < maxTh; ++i) {
+        dasslData->jacColumns[i].sizeCols = columns;
+        dasslData->jacColumns[i].sizeRows = rows;
+        dasslData->jacColumns[i].sizeTmpVars = sizeTmpVars;
+        dasslData->jacColumns[i].tmpVars    = (double*) calloc(sizeTmpVars, sizeof(double));
+        dasslData->jacColumns[i].resultVars = (double*) calloc(rows, sizeof(double));
+        dasslData->jacColumns[i].seedVars   = (double*) calloc(columns, sizeof(double));
+      }
+#endif
       break;
     case NUMJAC:
       dasslData->jacobianFunction =  jacA_num;
@@ -413,7 +434,6 @@ int dassl_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo,
   }
   /* ### end configuration of dassl ### */
 
-
   messageClose(LOG_SOLVER);
   TRACE_POP
   return 0;
@@ -441,6 +461,9 @@ int dassl_deinitial(DASSL_DATA *dasslData)
   free(dasslData->stateDer);
 
   free(dasslData);
+#ifdef _OPENMP
+  free(dasslData->jacColumns);
+#endif
 
   TRACE_POP
   return 0;
@@ -1067,7 +1090,9 @@ int jacA_symColored(double *t, double *y, double *yprime, double *delta, double 
 int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrixA, double *cj, double *h, double *wt, double *rpar, int *ipar)
 {
   TRACE_PUSH
+
   DATA* data = (DATA*)(void*)((double**)rpar)[0];
+  DASSL_DATA* dasslData = (DASSL_DATA*)(void*)((double**)rpar)[1];
   threadData_t *threadData = (threadData_t*)(void*)((double**)rpar)[2];
 
   const int index = data->callback->INDEX_JAC_A;
@@ -1078,25 +1103,18 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   unsigned int rows = jac->sizeRows;
   unsigned int sizeTmpVars = jac->sizeTmpVars;
 
-#pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i, matrixA, data, threadData)
+#pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i, matrixA, data, threadData, dasslData)
 {
-  // allocate memory for every thread (local)
-  // Create a thread local analyticJacobians (replace SimulationInfo->analyticaJacobians)
+  // Use a thread local analyticJacobians (replace SimulationInfo->analyticaJacobians)
   // This are not the Jacobians of the linear systems! (SimulationInfo->linearSystemData[idx].jacobian)
-  ANALYTIC_JACOBIAN* t_jac = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
-  t_jac->sizeCols = columns;
-  t_jac->sizeRows = rows;
-  t_jac->sizeTmpVars = sizeTmpVars;
-  t_jac->tmpVars    = (double*) calloc(t_jac->sizeTmpVars, sizeof(double));
-  t_jac->resultVars = (double*) calloc(t_jac->sizeRows, sizeof(double));
-  t_jac->seedVars   = (double*) calloc(t_jac->sizeCols, sizeof(double));
+  ANALYTIC_JACOBIAN* t_jac = &(dasslData->jacColumns[omp_get_thread_num()]);
+  //printf("index= %d, t_jac->sizeCols= %d, t_jac->sizeRows = %d, t_jac->sizeTmpVars = %d \n",index, t_jac->sizeCols , t_jac->sizeRows, t_jac->sizeTmpVars);
 
   unsigned int j;
 #pragma omp for
   for(i=0; i < columns; i++)
   {
     t_jac->seedVars[i] = 1.0;
-
     data->callback->functionJacA_column(data, threadData, t_jac);
 
     for(j = 0; j < rows; j++)
@@ -1104,10 +1122,6 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
 
     t_jac->seedVars[i] = 0.0;
   } // for loop
-  free(t_jac->tmpVars);
-  free(t_jac->resultVars);
-  free(t_jac->seedVars);
-  free(t_jac);
 } // omp parallel
 
   TRACE_POP
