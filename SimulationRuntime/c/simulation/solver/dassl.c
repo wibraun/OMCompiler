@@ -1096,13 +1096,11 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   threadData_t *threadData = (threadData_t*)(void*)((double**)rpar)[2];
 
   const int index = data->callback->INDEX_JAC_A;
-
-  unsigned int i;
   ANALYTIC_JACOBIAN* jac = &(data->simulationInfo->analyticJacobians[index]);
   unsigned int columns = jac->sizeCols;
   unsigned int rows = jac->sizeRows;
   unsigned int sizeTmpVars = jac->sizeTmpVars;
-
+  unsigned int i;
 #pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i, matrixA, data, threadData, dasslData)
 {
   // Use a thread local analyticJacobians (replace SimulationInfo->analyticaJacobians)
