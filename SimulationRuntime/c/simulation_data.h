@@ -441,6 +441,9 @@ typedef struct DAEMODE_DATA
   /* function to get algebraic DAE nominal values*/
   int (*getAlgebraicDAEVarNominals)(struct DATA*, threadData_t*, double*);
 
+  /* index of the algebraic DAE variable in original order */
+   int *algIndexes;
+
 } DAEMODE_DATA;
 
 typedef struct INLINE_DATA

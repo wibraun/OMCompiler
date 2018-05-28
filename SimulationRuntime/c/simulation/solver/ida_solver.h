@@ -102,6 +102,10 @@ typedef struct IDA_SOLVER
   N_Vector* ySp;
   N_Vector* ySResult;
 
+#ifdef _OPENMP
+  ANALYTIC_JACOBIAN* jacColumns;
+#endif
+
 }IDA_SOLVER;
 
 /* initial main ida Data */
@@ -115,6 +119,10 @@ ida_solver_deinitial(IDA_SOLVER *idaData);
 /* main ida function to make a step */
 int
 ida_solver_step(DATA* simData, threadData_t *threadData, SOLVER_INFO* solverInfo);
+
+/* event handing reinitialization function  */
+int
+ida_event_update(DATA* data, threadData_t *threadData);
 
 #endif
 

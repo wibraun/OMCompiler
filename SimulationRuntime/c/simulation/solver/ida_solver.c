@@ -33,6 +33,7 @@
 
 #include <string.h>
 #include <setjmp.h>
+#include <omp.h>
 
 #include "omc_config.h"
 #include "openmodelica.h"
@@ -51,6 +52,8 @@
 #include "simulation/solver/epsilon.h"
 #include "simulation/solver/omc_math.h"
 #include "simulation/solver/ida_solver.h"
+#include "simulation/solver/dassl.h"
+#include "simulation/solver/dae_mode.h"
 
 #ifdef WITH_SUNDIALS
 
@@ -71,12 +74,12 @@
 #include <idas/idas_spbcgs.h>
 #include <idas/idas_sptfqmr.h>
 
-static int callDenseNumJac(long int Neq, double tt, double cj,
+static int callDenseJacobian(long int Neq, double tt, double cj,
     N_Vector yy, N_Vector yp, N_Vector rr,
     DlsMat Jac, void *user_data,
     N_Vector tmp1, N_Vector tmp2, N_Vector tmp3);
 
-static int jacobianSparseNum(realtype tt, realtype cj,
+static int callSparseJacobian(realtype tt, realtype cj,
     N_Vector yy, N_Vector yp, N_Vector rr, SlsMat Jac, void *user_data,
     N_Vector tmp1, N_Vector tmp2, N_Vector tmp3);
 
@@ -90,6 +93,11 @@ static int idaReScaleData(IDA_SOLVER *idaData);
 static int idaScaleVector(N_Vector vec, double* factors, unsigned int size);
 static int idaReScaleVector(N_Vector vec, double* factors, unsigned int size);
 
+static IDA_SOLVER *idaDataGlobal;
+static int initializedSolver = 0;
+int ida_event_update(DATA* data, threadData_t *threadData);
+
+static void allocateThreadLocalJacobians(DATA* data, IDA_SOLVER *idaData);
 
 int checkIDAflag(int flag)
 {
@@ -152,19 +160,14 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
   idaData->residualFunction = residualFunctionIDA;
   idaData->N = (long int)data->modelData->nStates;
 
+
   /* change parameter for DAE mode */
-  if (omc_flag[FLAG_DAE_MODE])
+  if (compiledInDAEMode)
   {
-    if (compiledInDAEMode)
-    {
-      idaData->daeMode = 1;
-      idaData->N = data->modelData->nStates + data->simulationInfo->daeModeData->nAlgebraicDAEVars;
-    }
-    else
-    {
-      warningStreamPrint(LOG_STDOUT, 0, "-daeMode flag is used, the model is not compiled in DAE mode. See compiler flag: +daeMode. Continue as usual.");
-    }
+    idaData->daeMode = 1;
+    idaData->N = (long int) data->modelData->nStates + data->simulationInfo->daeModeData->nAlgebraicDAEVars;
   }
+  infoStreamPrint(LOG_SOLVER, 1, "## IDA ## Initializing solver of size %ld %s.", idaData->N, idaData->daeMode?"in DAE mode":"");
 
   /* initialize states and der(states) */
   if (idaData->daeMode)
@@ -174,8 +177,8 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
 
     memcpy(idaData->states, data->localData[0]->realVars, sizeof(double)*data->modelData->nStates);
     // and  also algebraic vars
-    data->simulationInfo->daeModeData->getAlgebraicDAEVars(data, threadData, idaData->states + data->modelData->nStates);
-    memcpy(idaData->statesDer, data->localData[1]->realVars + data->modelData->nStates, sizeof(double)*data->modelData->nStates);
+    getAlgebraicDAEVars(data, idaData->states + data->modelData->nStates);
+    memcpy(idaData->statesDer, data->localData[0]->realVars + data->modelData->nStates, sizeof(double)*data->modelData->nStates);
 
     idaData->y = N_VMake_Serial(idaData->N, idaData->states);
     idaData->yp = N_VMake_Serial(idaData->N, idaData->statesDer);
@@ -230,7 +233,7 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
   /* daeMode: set nominal values for algebraic variables */
   if (idaData->daeMode)
   {
-    data->simulationInfo->daeModeData->getAlgebraicDAEVarNominals(data, threadData, tmp + data->modelData->nStates);
+    getAlgebraicDAEVarNominals(data, tmp + data->modelData->nStates);
   }
   /* multiply by tolerance to obtain a relative tolerace */
   for(i=0; i < idaData->N; ++i)
@@ -262,7 +265,7 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
     /* daeMode: set nominal values for algebraic variables */
     if (idaData->daeMode)
     {
-     data->simulationInfo->daeModeData->getAlgebraicDAEVarNominals(data, threadData, idaData->yScale + data->modelData->nStates);
+     getAlgebraicDAEVarNominals(data, idaData->yScale + data->modelData->nStates);
      for(i=data->modelData->nStates; i < idaData->N; ++i)
      {
        idaData->ypScale[i] = 1.0;
@@ -298,7 +301,7 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
     flag = IDASetMaxOrd(idaData->ida_mem, maxOrder);
     if (checkIDAflag(flag)){
       throwStreamPrint(threadData, "##IDA## Failed to set max integration order!");
-	  }
+    }
   }
   infoStreamPrint(LOG_SOLVER, 0, "maximum integration order %d", maxOrder);
 
@@ -399,7 +402,7 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
   }
 
 
-  /* if FLAG_JACOBIAN is set, choose dassl jacobian calculation method */
+  /* if FLAG_JACOBIAN is set, choose jacobian calculation method */
   if (omc_flag[FLAG_JACOBIAN])
   {
     for(i=1; i< JAC_MAX;i++)
@@ -408,6 +411,11 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
         idaData->jacobianMethod = (int)i;
         break;
       }
+    }
+    if(idaData->daeMode && ( idaData->jacobianMethod == COLOREDSYMJAC || idaData->jacobianMethod == SYMJAC ))
+    {
+      warningStreamPrint(LOG_STDOUT, 1, "Symbolic Jacobians are currently not supported by DAE Mode. Switch back to numerical Jacobian!");
+      idaData->jacobianMethod = COLOREDNUMJAC;
     }
     if(idaData->jacobianMethod == JAC_UNKNOWN)
     {
@@ -426,24 +434,16 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
   }
   else
   {
-    if (idaData->linearSolverMethod == IDA_LS_KLU)
-    {
-      idaData->jacobianMethod = KLUSPARSE;
-    }
-    else
-    {
-      idaData->jacobianMethod = COLOREDNUMJAC;
-    }
+    idaData->jacobianMethod = COLOREDNUMJAC;
   }
 
   /* selects the calculation method of the jacobian */
   /* in daeMode sparse pattern is already initialized in DAEMODE_DATA */
   if(!idaData->daeMode && (idaData->jacobianMethod == COLOREDNUMJAC ||
       idaData->jacobianMethod == COLOREDSYMJAC ||
-      idaData->jacobianMethod == KLUSPARSE ||
       idaData->jacobianMethod == SYMJAC))
   {
-    ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[data->callback->INDEX_JAC_A]);
+	ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[data->callback->INDEX_JAC_A]);
     if (data->callback->initialAnalyticJacobianA(data, threadData, jacobian))
     {
       infoStreamPrint(LOG_STDOUT, 0, "Jacobian or SparsePattern is not generated or failed to initialize! Switch back to normal.");
@@ -463,6 +463,7 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
     {
       idaData->NNZ = data->simulationInfo->daeModeData->sparsePattern->numberOfNoneZeros;
       flag = IDAKLU(idaData->ida_mem, idaData->N, idaData->NNZ);
+      idaData->jacobianMethod = COLOREDNUMJAC; /* In DAE mode only numerical matrix is supported */
     }
     else
     {
@@ -476,11 +477,17 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
     }
 
     switch (idaData->jacobianMethod){
-    case KLUSPARSE:
-      flag = IDASlsSetSparseJacFn(idaData->ida_mem, jacobianSparseNum);
+    case SYMJAC:
+    case NUMJAC:
+    case COLOREDSYMJAC:
+    case COLOREDNUMJAC:
+      flag = IDASlsSetSparseJacFn(idaData->ida_mem, callSparseJacobian);
+#ifdef _OPENMP
+      allocateThreadLocalJacobians(data, idaData);
+#endif
       break;
     default:
-      throwStreamPrint(threadData,"For the klu solver jacobian calculation method has to be %s", JACOBIAN_METHOD[KLUSPARSE]);
+      throwStreamPrint(threadData,"For the klu solver jacobian calculation method has to be %s or %s", JACOBIAN_METHOD[COLOREDSYMJAC], JACOBIAN_METHOD[COLOREDNUMJAC]);
       break;
     }
   }
@@ -489,12 +496,10 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
     switch (idaData->jacobianMethod){
     case SYMJAC:
     case COLOREDSYMJAC:
-      infoStreamPrint(LOG_STDOUT, 0, "The symbolic jacobian is not implemented, yet! Switch back to internal.");
-      break;
     case COLOREDNUMJAC:
     case NUMJAC:
       /* set jacobian function */
-      flag = IDADlsSetDenseJacFn(idaData->ida_mem, callDenseNumJac);
+      flag = IDADlsSetDenseJacFn(idaData->ida_mem, callDenseJacobian);
       break;
     case INTERNALNUMJAC:
       break;
@@ -553,22 +558,21 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
   /* configure algebraic variables as such */
   if (idaData->daeMode)
   {
-    if (!omc_flag[FLAG_NO_SUPPRESS_ALG])
+    if (omc_flag[FLAG_NO_SUPPRESS_ALG])
     {
       flag = IDASetSuppressAlg(idaData->ida_mem, TRUE);
       if (checkIDAflag(flag)){
         throwStreamPrint(threadData, "##IDA## Suppress algebraic variables in the local error test failed");
       }
+    }
+    for(i=0; i<idaData->N; ++i)
+    {
+      tmp[i] = (i<data->modelData->nStates)? 1.0: 0.0;
+    }
 
-      for(i=0; i<idaData->N; ++i)
-      {
-        tmp[i] = (i<data->modelData->nStates)? 1.0: 0.0;
-      }
-
-      flag = IDASetId(idaData->ida_mem, N_VMake_Serial(idaData->N,tmp));
-      if (checkIDAflag(flag)){
-        throwStreamPrint(threadData, "##IDA## Mark algebraic variables as such failed!");
-      }
+    flag = IDASetId(idaData->ida_mem, N_VMake_Serial(idaData->N,tmp));
+    if (checkIDAflag(flag)){
+      throwStreamPrint(threadData, "##IDA## Mark algebraic variables as such failed!");
     }
   }
 
@@ -643,6 +647,12 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
       N_VSetArrayPointer_Serial((data->simulationInfo->sensitivityMatrix + i*idaData->N), idaData->ySResult[i]);
     }
   }
+  if (compiledInDAEMode){
+    idaDataGlobal = idaData;
+    initializedSolver = 1;
+    data->callback->functionDAE = ida_event_update;
+  }
+  messageClose(LOG_SOLVER);
 
   free(tmp);
   TRACE_POP
@@ -685,6 +695,109 @@ ida_solver_deinitial(IDA_SOLVER *idaData){
   return 0;
 }
 
+
+/* Allocate thread local Jacobians in case of OpenMP-parallel Jacobian computation (symbolical only).*/
+static void allocateThreadLocalJacobians(DATA* data, IDA_SOLVER *idaData)
+{
+  int maxTh = omp_get_max_threads();
+  idaData->jacColumns = (ANALYTIC_JACOBIAN*) malloc(maxTh*sizeof(ANALYTIC_JACOBIAN));
+  const int index = data->callback->INDEX_JAC_A;
+  ANALYTIC_JACOBIAN* jac = &(data->simulationInfo->analyticJacobians[index]);
+  unsigned int columns = jac->sizeCols;
+  unsigned int rows = jac->sizeRows;
+  unsigned int sizeTmpVars = jac->sizeTmpVars;
+
+  // Benchmarks indicate that it is beneficial to initialize and malloc the jacColumns using a parallel for loop.
+  // Rationale: The thread working on the data initializes the data and thus have it in probably in cache.
+  unsigned int i;
+  for (i = 0; i < maxTh; ++i) {
+    idaData->jacColumns[i].sizeCols = columns;
+    idaData->jacColumns[i].sizeRows = rows;
+    idaData->jacColumns[i].sizeTmpVars = sizeTmpVars;
+    idaData->jacColumns[i].tmpVars    = (double*) calloc(sizeTmpVars, sizeof(double));
+    idaData->jacColumns[i].resultVars = (double*) calloc(rows, sizeof(double));
+    idaData->jacColumns[i].seedVars   = (double*) calloc(columns, sizeof(double));
+  }
+}
+
+
+int
+ida_event_update(DATA* data, threadData_t *threadData)
+{
+  IDA_SOLVER *idaData = idaDataGlobal;
+  int flag;
+  long nonLinIters;
+  double init_h;
+  if (compiledInDAEMode){
+    if (initializedSolver){
+
+      data->simulationInfo->needToIterate = 0;
+
+      memcpy(idaData->states, data->localData[0]->realVars, sizeof(double)*data->modelData->nStates);
+      getAlgebraicDAEVars(data, idaData->states + data->modelData->nStates);
+      memcpy(idaData->statesDer, data->localData[0]->realVars + data->modelData->nStates, sizeof(double)*data->modelData->nStates);
+
+      /* update inner algebraic get new values from data */
+      evaluateDAEResiduals_wrapperEventUpdate(data, threadData);
+      getAlgebraicDAEVars(data, idaData->states + data->modelData->nStates);
+
+      infoStreamPrint(LOG_SOLVER, 0, "##IDA## do event update at %.15g", data->localData[0]->timeValue);
+      flag = IDAReInit(idaData->ida_mem,
+          data->localData[0]->timeValue,
+          idaData->y,
+          idaData->yp);
+
+      /* get initial step to provide a direction of the solution */
+      IDAGetActualInitStep(idaData->ida_mem, &init_h);
+      /* provide a feasible step-size if it's too small */
+      if (init_h < DBL_EPSILON){
+        init_h = DBL_EPSILON;
+        IDASetInitStep(idaData->ida_mem, init_h);
+        infoStreamPrint(LOG_SOLVER, 0, "##IDA## corrected step-size at %.15g", init_h);
+      }
+
+      /* increase limits of the non-linear solver */
+      IDASetMaxNumStepsIC(idaData->ida_mem, 2*idaData->N*10);
+      IDASetMaxNumJacsIC(idaData->ida_mem, 2*idaData->N*10);
+      IDASetMaxNumItersIC(idaData->ida_mem, 2*idaData->N*10);
+      /* Calc Consistent y_algebraic and y_prime with current y */
+      flag = IDACalcIC(idaData->ida_mem, IDA_YA_YDP_INIT, data->localData[0]->timeValue+init_h);
+
+      /* debug */
+      IDAGetNumNonlinSolvIters(idaData->ida_mem, &nonLinIters);
+      infoStreamPrint(LOG_SOLVER, 0, "##IDA## IDACalcIC run status %d.\nIterations : %ld\n", flag, nonLinIters);
+
+      /* try again without line search if first try fails */
+      if (checkIDAflag(flag)){
+        infoStreamPrint(LOG_SOLVER, 0, "##IDA## first event iteration failed. Start next try without line search!");
+        IDASetLineSearchOffIC(idaData->ida_mem, TRUE);
+        flag = IDACalcIC(idaData->ida_mem, IDA_YA_YDP_INIT, data->localData[0]->timeValue+data->simulationInfo->tolerance);
+        IDAGetNumNonlinSolvIters(idaData->ida_mem, &nonLinIters);
+        infoStreamPrint(LOG_SOLVER, 0, "##IDA## IDACalcIC run status %d.\nIterations : %ld\n", flag, nonLinIters);
+        if (checkIDAflag(flag)){
+          throwStreamPrint(threadData, "##IDA## discrete update failed flag %d!", flag);
+        }
+      }
+      /* obtain consistent values of y_algebraic and y_prime */
+      IDAGetConsistentIC(idaData->ida_mem, idaData->y, idaData->yp);
+
+      /* update inner algebraic variables */
+      evaluateDAEResiduals_wrapperEventUpdate(data, threadData);
+
+      memcpy(data->localData[0]->realVars, idaData->states, sizeof(double)*data->modelData->nStates);
+      // and  also algebraic vars
+      setAlgebraicDAEVars(data, idaData->states + data->modelData->nStates);
+      memcpy(data->localData[0]->realVars + data->modelData->nStates, idaData->statesDer, sizeof(double)*data->modelData->nStates);
+
+      /* reset initial step size again to default */
+      IDASetInitStep(idaData->ida_mem, 0.0);
+    }
+  }
+  else{
+    data->callback->functionDAE(data, threadData);
+  }
+}
+
 /* main ida function to make a step */
 int
 ida_solver_step(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo)
@@ -697,6 +810,7 @@ ida_solver_step(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo)
   long int tmp;
   static unsigned int stepsOutputCounter = 1;
   int stepsMode;
+  int restartAfterLSFail = 0;
 
   IDA_SOLVER *idaData = (IDA_SOLVER*) solverInfo->solverData;
 
@@ -727,8 +841,8 @@ ida_solver_step(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo)
     {
       memcpy(idaData->states, data->localData[0]->realVars, sizeof(double)*data->modelData->nStates);
       /* and  also algebraic vars */
-      data->simulationInfo->daeModeData->getAlgebraicDAEVars(data, threadData, idaData->states + data->modelData->nStates);
-      memcpy(idaData->statesDer, data->localData[1]->realVars + data->modelData->nStates, sizeof(double)*data->modelData->nStates);
+      getAlgebraicDAEVars(data, idaData->states + data->modelData->nStates);
+      memcpy(idaData->statesDer, data->localData[0]->realVars + data->modelData->nStates, sizeof(double)*data->modelData->nStates);
     }
 
     /* calculate matrix for residual scaling */
@@ -774,7 +888,6 @@ ida_solver_step(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo)
         throwStreamPrint(threadData, "##IDA## set IDASensInit failed!");
       }
     }
-
     idaData->setInitialSolution = 1;
   }
 
@@ -812,7 +925,7 @@ ida_solver_step(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo)
   /* Calculate steps until TOUT is reached */
   if (idaData->internalSteps)
   {
-    /* If dasslsteps is selected, the dassl run to stopTime or next sample event */
+    /* If internalSteps are selected, let IDA run to stopTime or next sample event */
     if (data->simulationInfo->nextSampleEvent < data->simulationInfo->stopTime)
     {
       tout = data->simulationInfo->nextSampleEvent;
@@ -880,6 +993,15 @@ ida_solver_step(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo)
       {
         warningStreamPrint(LOG_SOLVER, 0, "##IDA## has done too much work with small steps at time = %.15g", solverInfo->currentTime);
       }
+      else if (flag == IDA_LSETUP_FAIL && !restartAfterLSFail )
+      {
+        flag = IDAReInit(idaData->ida_mem,
+            solverInfo->currentTime,
+            idaData->y,
+            idaData->yp);
+        restartAfterLSFail = 1;
+        warningStreamPrint(LOG_SOLVER, 0, "##IDA## linear solver failed try once again = %.15g", solverInfo->currentTime);
+      }
       else
       {
         infoStreamPrint(LOG_STDOUT, 0, "##IDA## %d error occurred at time = %.15g", flag, solverInfo->currentTime);
@@ -912,7 +1034,7 @@ ida_solver_step(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo)
         }
       } else {
         break;
-			}
+      }
     }
 
   } while(!finished);
@@ -933,8 +1055,9 @@ ida_solver_step(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo)
   {
     memcpy(data->localData[0]->realVars, idaData->states, sizeof(double)*data->modelData->nStates);
     // and  also algebraic vars
-    data->simulationInfo->daeModeData->setAlgebraicDAEVars(data, threadData, idaData->states + data->modelData->nStates);
+    setAlgebraicDAEVars(data, idaData->states + data->modelData->nStates);
     memcpy(data->localData[0]->realVars + data->modelData->nStates, idaData->statesDer, sizeof(double)*data->modelData->nStates);
+    sData->timeValue = solverInfo->currentTime;
   }
 
   /* sensitivity mode */
@@ -1050,7 +1173,6 @@ int residualFunctionIDA(double time, N_Vector yy, N_Vector yp, N_Vector res, voi
   {
     setContext(data, &time, CONTEXT_ODE);
   }
-  timeBackup = data->localData[0]->timeValue;
   data->localData[0]->timeValue = time;
 
   saveJumpState = threadData->currentErrorStage;
@@ -1074,7 +1196,7 @@ int residualFunctionIDA(double time, N_Vector yy, N_Vector yp, N_Vector res, voi
     */
     memcpy(data->localData[0]->realVars, states, sizeof(double)*data->modelData->nStates);
     memcpy(data->localData[0]->realVars + data->modelData->nStates, statesDer, sizeof(double)*data->modelData->nStates);
-    data->simulationInfo->daeModeData->setAlgebraicDAEVars(data, threadData, states + data->modelData->nStates);
+    setAlgebraicDAEVars(data, states + data->modelData->nStates);
   }
 
   /* debug */
@@ -1094,7 +1216,7 @@ int residualFunctionIDA(double time, N_Vector yy, N_Vector yp, N_Vector res, voi
   if (idaData->daeMode)
   {
     /* eval residual vars */
-    data->simulationInfo->daeModeData->evaluateDAEResiduals(data, threadData);
+    data->simulationInfo->daeModeData->evaluateDAEResiduals(data, threadData); //, EVAL_DYNAMIC);
     /* get residual variables */
     for(i=0; i < idaData->N; i++)
     {
@@ -1134,8 +1256,6 @@ int residualFunctionIDA(double time, N_Vector yy, N_Vector yp, N_Vector res, voi
 
   threadData->currentErrorStage = saveJumpState;
 
-  data->localData[0]->timeValue = timeBackup;
-
   if (data->simulationInfo->currentContext == CONTEXT_ODE){
     unsetContext(data);
   }
@@ -1151,8 +1271,9 @@ int rootsFunctionIDA(double time, N_Vector yy, N_Vector yp, double *gout, void* 
   IDA_SOLVER* idaData = (IDA_SOLVER*)userData;
   DATA* data = (DATA*)(((IDA_USERDATA*)idaData->simData)->data);
   threadData_t* threadData = (threadData_t*)(((IDA_USERDATA*)((IDA_SOLVER*)userData)->simData)->threadData);
+  double *states = N_VGetArrayPointer(yy);
+  double *statesDer = N_VGetArrayPointer(yp);
 
-  double timeBackup;
   int saveJumpState;
 
   infoStreamPrint(LOG_SOLVER_V, 1, "### eval rootsFunctionIDA ###");
@@ -1171,21 +1292,22 @@ int rootsFunctionIDA(double time, N_Vector yy, N_Vector yp, double *gout, void* 
   saveJumpState = threadData->currentErrorStage;
   threadData->currentErrorStage = ERROR_EVENTSEARCH;
 
-  timeBackup = data->localData[0]->timeValue;
-  data->localData[0]->timeValue = time;
-
   if (idaData->daeMode)
   {
-    memcpy(data->localData[0]->realVars, idaData->states, sizeof(double)*data->modelData->nStates);
-    data->simulationInfo->daeModeData->setAlgebraicDAEVars(data, threadData, idaData->states + data->modelData->nStates);
-    memcpy(data->localData[0]->realVars + data->modelData->nStates, idaData->statesDer, sizeof(double)*data->modelData->nStates);
+    memcpy(data->localData[0]->realVars, states, sizeof(double)*data->modelData->nStates);
+    setAlgebraicDAEVars(data, states + data->modelData->nStates);
+    memcpy(data->localData[0]->realVars + data->modelData->nStates, statesDer, sizeof(double)*data->modelData->nStates);
   }
+
+  data->localData[0]->timeValue = time;
 
   /* read input vars */
   externalInputUpdate(data);
   data->callback->input_function(data, threadData);
   /* eval needed equations*/
-  if (idaData->daeMode && compiledInDAEMode == 1){}
+  if (idaData->daeMode){
+   data->simulationInfo->daeModeData->evaluateDAEResiduals(data, threadData); //, EVAL_ZEROCROSS);
+  }
   else
   {
     data->callback->function_ZeroCrossingsEquations(data, threadData);
@@ -1194,7 +1316,6 @@ int rootsFunctionIDA(double time, N_Vector yy, N_Vector yp, double *gout, void* 
   data->callback->function_ZeroCrossings(data, threadData, gout);
 
   threadData->currentErrorStage = saveJumpState;
-  data->localData[0]->timeValue = timeBackup;
 
   /* scale data again */
   if (omc_flag[FLAG_IDA_SCALING])
@@ -1218,7 +1339,7 @@ int rootsFunctionIDA(double time, N_Vector yy, N_Vector yp, double *gout, void* 
  *  into a dense DlsMat matrix
  */
 static
-int jacOwnNumColoredIDA(double tt, N_Vector yy, N_Vector yp, N_Vector rr, DlsMat Jac, double cj, void *userData)
+int jacColoredNumericalDense(double tt, N_Vector yy, N_Vector yp, N_Vector rr, DlsMat Jac, double cj, void *userData)
 {
   TRACE_PUSH
   IDA_SOLVER* idaData = (IDA_SOLVER*)userData;
@@ -1315,71 +1436,71 @@ int jacOwnNumColoredIDA(double tt, N_Vector yy, N_Vector yp, N_Vector rr, DlsMat
 }
 
 /*
- *  function calculates a jacobian matrix by
- *  numerical method finite differences without coloring
- *  into a dense DlsMat matrix
+ *  function calculates the Jacobian matrix symbolical
+ *  with considering also the coloring and pass it in a
+ *  dense DlsMat matrix.
  */
 static
-int jacOwnNumIDA(double tt, N_Vector yy, N_Vector yp, N_Vector rr, DlsMat Jac, double cj, void *userData)
+int jacColoredSymbolicalDense(double tt, N_Vector yy, N_Vector yp, N_Vector rr, DlsMat Jac, double cj, void *userData)
 {
   TRACE_PUSH
   IDA_SOLVER* idaData = (IDA_SOLVER*)userData;
   DATA* data = (DATA*)(((IDA_USERDATA*)idaData->simData)->data);
+  threadData_t* threadData = (threadData_t*)(((IDA_USERDATA*)idaData->simData)->threadData);
   void* ida_mem = idaData->ida_mem;
+  const int index = data->callback->INDEX_JAC_A;
+  long int N = idaData->N;
+  unsigned int i;
+  ANALYTIC_JACOBIAN* jacData = &(data->simulationInfo->analyticJacobians[index]);
+  SPARSE_PATTERN* sparsePattern = &(jacData->sparsePattern);
 
   /* prepare variables */
   double *states = N_VGetArrayPointer(yy);
   double *yprime = N_VGetArrayPointer(yp);
-  double *delta  = N_VGetArrayPointer(rr);
-  double *newdelta = N_VGetArrayPointer(idaData->newdelta);
-  double *errwgt = N_VGetArrayPointer(idaData->errwgt);
-
-  double ysave, ypsave;
-
-  double delta_h = numericalDifferentiationDeltaXsolver;
-  double delta_hh;
-  double delta_hhh;
-  double deltaInv;
-  long int i,j;
-
-  double currentStep;
-
-  /* set values */
-  IDAGetCurrentStep(ida_mem, &currentStep);
-  if (!idaData->disableScaling){
-    IDAGetErrWeights(ida_mem, idaData->errwgt);
-  }
 
   setContext(data, &tt, CONTEXT_JACOBIAN);
+#pragma omp parallel default(none) firstprivate(N) shared(i, sparsePattern, idaData, data, threadData, Jac)
+{
+  // Use a thread local analyticJacobians (replace SimulationInfo->analyticaJacobians)
+  // This are not the Jacobians of the linear systems! (SimulationInfo->linearSystemData[idx].jacobian)
+  ANALYTIC_JACOBIAN* t_jac = &(idaData->jacColumns[omp_get_thread_num()]);
 
-  for(i = 0; i < idaData->N; i++)
+  unsigned ii, j, nth;
+#pragma omp for
+  for(i = 0; i < sparsePattern->maxColors; i++)
   {
-    delta_hhh = currentStep * yprime[i];
-    delta_hh = delta_h * fmax(fmax(fabs(states[i]),fabs(delta_hhh)),fabs(1./errwgt[i]));
-    delta_hh = (delta_hhh >= 0 ? delta_hh : -delta_hh);
-    delta_hh = (states[i] + delta_hh) - states[i];
-    deltaInv = 1. / delta_hh;
-    ysave = states[i];
-    states[i] += delta_hh;
-    if (idaData->daeMode){
-      ypsave = yprime[i];
-      yprime[i] += cj * delta_hh;
+    for(ii=0; ii < N; ii++)
+    {
+      if(sparsePattern->colorCols[ii]-1 == i)
+      {
+        t_jac->seedVars[ii] = 1;
+      }
     }
 
-    (*idaData->residualFunction)(tt, yy, yp, idaData->newdelta, userData);
-
+    data->callback->functionJacA_column(data, threadData, t_jac);
     increaseJacContext(data);
 
-    for(j = 0; j < idaData->N; j++)
+    for(ii = 0; ii < N; ii++)
     {
-      DENSE_ELEM(Jac, j, i) = (newdelta[j] - delta[j]) * deltaInv;
+      if(sparsePattern->colorCols[ii]-1 == i)
+      {
+        nth = sparsePattern->leadindex[ii];
+        while(nth < sparsePattern->leadindex[ii+1])
+        {
+          j  =  sparsePattern->index[nth];
+          infoStreamPrint(LOG_JAC, 0, "### symbolical jacobian  at [%d,%d] = %f ###", j, ii, t_jac->resultVars[j]);
+          DENSE_ELEM(Jac, j, ii) = t_jac->resultVars[j];
+          nth++;
+        };
+      }
+    }
 
+    for(ii=0; ii < idaData->N; ii++)
+    {
+      t_jac->seedVars[ii] = 0;
     }
-    states[i] = ysave;
-    if (idaData->daeMode){
-      yprime[i] = ypsave;
-    }
-  }
+  } // for column
+} // omp parallel
   unsetContext(data);
 
   TRACE_POP
@@ -1387,9 +1508,9 @@ int jacOwnNumIDA(double tt, N_Vector yy, N_Vector yp, N_Vector rr, DlsMat Jac, d
 }
 
 /*
- * provides a numerical Jacobian
+ * wrapper function to call dense Jacobian
  */
-static int callDenseNumJac(long int Neq, double tt, double cj,
+static int callDenseJacobian(long int Neq, double tt, double cj,
     N_Vector yy, N_Vector yp, N_Vector rr,
     DlsMat Jac, void *user_data,
     N_Vector tmp1, N_Vector tmp2, N_Vector tmp3)
@@ -1402,13 +1523,17 @@ static int callDenseNumJac(long int Neq, double tt, double cj,
   /* profiling */
   rt_tick(SIM_TIMER_JACOBIAN);
 
-  if (idaData->jacobianMethod == COLOREDNUMJAC)
+  if (idaData->jacobianMethod == COLOREDNUMJAC || idaData->jacobianMethod == NUMJAC)
   {
-    retVal = jacOwnNumColoredIDA(tt, yy, yp, rr, Jac, cj, user_data);
+    retVal = jacColoredNumericalDense(tt, yy, yp, rr, Jac, cj, user_data);
   }
-  else if (idaData->jacobianMethod == NUMJAC)
+  else if (idaData->jacobianMethod == COLOREDSYMJAC || idaData->jacobianMethod == SYMJAC)
   {
-    retVal = jacOwnNumIDA(tt, yy, yp, rr, Jac, cj, user_data);
+    retVal = jacColoredSymbolicalDense(tt, yy, yp, rr, Jac, cj, user_data);
+  }
+  else
+  {
+    throwStreamPrint(threadData, "##IDA## Something goes wrong while obtain jacobian matrix!");
   }
 
   /* profiling */
@@ -1464,7 +1589,7 @@ static void finishSparseColPtr(SlsMat mat, int nnz)
  *  into a sparse SlsMat matrix
  */
 static
-int jacobianSparseNumIDA(double tt, N_Vector yy, N_Vector yp, N_Vector rr, SlsMat Jac, double cj, void *userData)
+int jacoColoredNumericalSparse(double tt, N_Vector yy, N_Vector yp, N_Vector rr, SlsMat Jac, double cj, void *userData)
 {
   TRACE_PUSH
   IDA_SOLVER* idaData = (IDA_SOLVER*)userData;
@@ -1595,15 +1720,95 @@ int jacobianSparseNumIDA(double tt, N_Vector yy, N_Vector yp, N_Vector rr, SlsMa
   return 0;
 }
 
-/*
- * Wrapper function for jacobianSparseNumIDA
+/* \fn jacColoredSymbolicalSparse(double tt, N_Vector yy, N_Vector yp, N_Vector rr, SlsMat Jac, double cj, void *userData)
+ *
+ *
+ * This function calculates symbolically the jacobian matrix and exploiting the coloring.
  */
-static int jacobianSparseNum(double tt, double cj,
+int
+jacColoredSymbolicalSparse(double tt, N_Vector yy, N_Vector yp, N_Vector rr, SlsMat Jac, double cj, void *userData)
+{
+  TRACE_PUSH
+  IDA_SOLVER* idaData = (IDA_SOLVER*)userData;
+  DATA* data = (DATA*)(((IDA_USERDATA*)idaData->simData)->data);
+  threadData_t* threadData = (threadData_t*)(((IDA_USERDATA*)idaData->simData)->threadData);
+  void* ida_mem = idaData->ida_mem;
+  const int index = data->callback->INDEX_JAC_A;
+  unsigned int i;
+  int N = idaData->N;
+
+  /* prepare variables */
+  double *states = N_VGetArrayPointer(yy);
+  double *yprime = N_VGetArrayPointer(yp);
+
+  ANALYTIC_JACOBIAN* jacData = &(data->simulationInfo->analyticJacobians[index]);
+  SPARSE_PATTERN* sparsePattern = &(jacData->sparsePattern);
+  int maxColors = sparsePattern->maxColors;
+
+  /* it's needed to clear the matrix */
+  SlsSetToZero(Jac);
+
+  setContext(data, &tt, CONTEXT_JACOBIAN);
+
+#pragma omp parallel default(none) firstprivate(N) \
+                                   shared(i, sparsePattern, idaData, data, threadData, Jac, maxColors)
+{
+  // Use a thread local analyticJacobians (replace SimulationInfo->analyticaJacobians)
+  // This are not the Jacobians of the linear systems! (SimulationInfo->linearSystemData[idx].jacobian)
+  ANALYTIC_JACOBIAN* t_jac = &(idaData->jacColumns[omp_get_thread_num()]);
+
+  unsigned ii, j, nth;
+#pragma omp for
+  for(i = 0; i < maxColors; i++)
+  {
+    for(ii=0; ii < N; ii++)
+    {
+      if(sparsePattern->colorCols[ii]-1 == i)
+      {
+        t_jac->seedVars[ii] = 1;
+      }
+    }
+
+    data->callback->functionJacA_column(data, threadData, t_jac);
+    increaseJacContext(data);
+
+    for(ii = 0; ii < N; ii++)
+    {
+      if(sparsePattern->colorCols[ii]-1 == i)
+      {
+        nth = sparsePattern->leadindex[ii];
+        while(nth < sparsePattern->leadindex[ii+1])
+        {
+          j  =  sparsePattern->index[nth];
+          setJacElementKluSparse(j, ii, t_jac->resultVars[j], nth, Jac);
+          nth++;
+        };
+      }
+    }
+
+    for(ii=0; ii < idaData->N; ii++)
+      t_jac->seedVars[ii] = 0;
+
+  } // for loop
+} // omp parallel
+
+  finishSparseColPtr(Jac, sparsePattern->numberOfNoneZeros);
+  unsetContext(data);
+
+  TRACE_POP
+  return 0;
+}
+
+/*
+ * Wrapper function to call numerical or symbolical jacobian matrix
+ */
+static int callSparseJacobian(double tt, double cj,
     N_Vector yy, N_Vector yp, N_Vector rr,
     SlsMat Jac, void *user_data,
     N_Vector tmp1, N_Vector tmp2, N_Vector tmp3)
 {
   TRACE_PUSH
+  int retVal;
 
   IDA_SOLVER* idaData = (IDA_SOLVER*)user_data;
   DATA* data = (DATA*)(((IDA_USERDATA*)idaData->simData)->data);
@@ -1612,11 +1817,13 @@ static int jacobianSparseNum(double tt, double cj,
   /* profiling */
   rt_tick(SIM_TIMER_JACOBIAN);
 
-  if(jacobianSparseNumIDA(tt, yy, yp, rr, Jac, cj, user_data))
+  if (idaData->jacobianMethod == COLOREDSYMJAC || idaData->jacobianMethod == SYMJAC)
   {
-    throwStreamPrint(threadData, "Error, can not get Matrix A ");
-    TRACE_POP
-    return 1;
+    retVal = jacColoredSymbolicalSparse(tt, yy, yp, rr, Jac, cj, user_data);
+  }
+  else if (idaData->jacobianMethod == COLOREDNUMJAC || idaData->jacobianMethod == NUMJAC)
+  {
+    retVal = jacoColoredNumericalSparse(tt, yy, yp, rr, Jac, cj, user_data);
   }
 
   /* profiling */
@@ -1642,7 +1849,7 @@ static int jacobianSparseNum(double tt, double cj,
   }
 
   TRACE_POP
-  return 0;
+  return retVal;
 }
 
 static
@@ -1677,13 +1884,13 @@ int getScalingFactors(DATA* data, IDA_SOLVER *idaData, SlsMat inScaleMatrix)
     if (idaData->linearSolverMethod == IDA_LS_KLU)
     {
       scaleMatrix = NewSparseMat(idaData->N, idaData->N, idaData->NNZ);
-      jacobianSparseNum(data->localData[0]->timeValue, 1.0, idaData->y, idaData->yp, rres,
+      callSparseJacobian(data->localData[0]->timeValue, 1.0, idaData->y, idaData->yp, rres,
                         scaleMatrix, idaData, tmp1, tmp2, tmp3);
     }
     else
     {
       DlsMat denseMatrix = NewDenseMat(idaData->N, idaData->N);
-      callDenseNumJac(idaData->N, data->localData[0]->timeValue, 1.0, idaData->y, idaData->yp, rres,
+      callDenseJacobian(idaData->N, data->localData[0]->timeValue, 1.0, idaData->y, idaData->yp, rres,
                       denseMatrix, idaData, tmp1, tmp2, tmp3);
       scaleMatrix = SlsConvertDls(denseMatrix);
     }
