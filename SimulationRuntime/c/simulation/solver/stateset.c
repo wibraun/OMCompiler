@@ -337,43 +337,26 @@ void printStateSelectionInfo(DATA *data, STATE_SET_DATA *set)
   messageClose(LOG_DSS);
 }
 
-/*! \fn stateSelection
- *
- *  function to select the actual states
- *
- *  \param [ref] [data]
- *  \param [in]  [reportError]
- *  \param [in]  [switchStates] flag for switch states, function does switch only if this switchStates = 1
- *  \return ???
- *
- *  \author Frenkel TUD
- */
-int stateSelection(DATA *data, threadData_t *threadData, char reportError, int switchStates)
+int stateSelectionSet(DATA *data, threadData_t *threadData, char reportError, int switchStates, long setIndex, int globalres)
 {
-  TRACE_PUSH
-  long i=0;
-  long j=0;
-  int globalres=0;
-  long k=0;
-  long l=0;
-
-  /* go through all the state sets */
-  for(i=0; i<data->modelData->nStateSets; i++)
-  {
+    long j=0;
+    long k=0;
+    long l=0;
+    long m=0;
     int res=0;
-    STATE_SET_DATA *set = &(data->simulationInfo->stateSetData[i]);
+    STATE_SET_DATA *set = &(data->simulationInfo->stateSetData[setIndex]);
     modelica_integer* oldColPivot = (modelica_integer*) malloc(set->nCandidates * sizeof(modelica_integer));
     modelica_integer* oldRowPivot = (modelica_integer*) malloc(set->nDummyStates * sizeof(modelica_integer));
 
     /* debug */
     if(ACTIVE_STREAM(LOG_DSS))
     {
-      infoStreamPrint(LOG_DSS, 1, "StateSelection Set %ld at time = %f", i, data->localData[0]->timeValue);
+      infoStreamPrint(LOG_DSS, 1, "StateSelection Set %ld at time = %f", setIndex, data->localData[0]->timeValue);
       printStateSelectionInfo(data, set);
       messageClose(LOG_DSS);
     }
     /* generate jacobian, stored in set->J */
-    getAnalyticalJacobianSet(data, threadData, i);
+    getAnalyticalJacobianSet(data, threadData, setIndex);
 
     /* call pivoting function to select the states */
     memcpy(oldColPivot, set->colPivot, set->nCandidates*sizeof(modelica_integer));
@@ -384,17 +367,17 @@ int stateSelection(DATA *data, threadData_t *threadData, char reportError, int s
       char *buffer = (char*)malloc(sizeof(char)*data->simulationInfo->analyticJacobians[set->jacobianIndex].sizeCols*10);
 
       warningStreamPrint(LOG_DSS, 1, "jacobian %dx%d [id: %ld]", data->simulationInfo->analyticJacobians[set->jacobianIndex].sizeRows, data->simulationInfo->analyticJacobians[set->jacobianIndex].sizeCols, set->jacobianIndex);
-      for(i=0; i < data->simulationInfo->analyticJacobians[set->jacobianIndex].sizeRows; i++)
+      for(m=0; m < data->simulationInfo->analyticJacobians[set->jacobianIndex].sizeRows; m++)
       {
         buffer[0] = 0;
         for(j=0; j < data->simulationInfo->analyticJacobians[set->jacobianIndex].sizeCols; j++)
-          sprintf(buffer, "%s%.5e ", buffer, set->J[i*data->simulationInfo->analyticJacobians[set->jacobianIndex].sizeCols+j]);
+          sprintf(buffer, "%s%.5e ", buffer, set->J[m*data->simulationInfo->analyticJacobians[set->jacobianIndex].sizeCols+j]);
         warningStreamPrint(LOG_DSS, 0, "%s", buffer);
       }
       free(buffer);
 
-      for(i=0; i<set->nCandidates; i++)
-        warningStreamPrint(LOG_DSS, 0, "%s", set->statescandidates[i]->name);
+      for(m=0; m<set->nCandidates; m++)
+        warningStreamPrint(LOG_DSS, 0, "%s", set->statescandidates[m]->name);
       messageClose(LOG_DSS);
 
       throwStreamPrint(threadData, "Error, singular Jacobian for dynamic state selection at time %f\nUse -lv LOG_DSS_JAC to get the Jacobian", data->localData[0]->timeValue);
@@ -412,6 +395,30 @@ int stateSelection(DATA *data, threadData_t *threadData, char reportError, int s
 
     free(oldColPivot);
     free(oldRowPivot);
+    return globalres;
+}
+
+/*! \fn stateSelection
+ *
+ *  function to select the actual states
+ *
+ *  \param [ref] [data]
+ *  \param [in]  [reportError]
+ *  \param [in]  [switchStates] flag for switch states, function does switch only if this switchStates = 1
+ *  \return ???
+ *
+ *  \author Frenkel TUD
+ */
+int stateSelection(DATA *data, threadData_t *threadData, char reportError, int switchStates)
+{
+  TRACE_PUSH
+  long i=0;
+  int globalres=0;
+
+  /* go through all the state sets */
+  for(i=0; i<data->modelData->nStateSets; i++)
+  { //TODO:KAB Auslagern in stateSelectionSet
+    globalres = stateSelectionSet(data, threadData, reportError, switchStates, i, globalres);
   }
 
   TRACE_POP

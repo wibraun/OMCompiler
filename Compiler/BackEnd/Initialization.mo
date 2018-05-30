@@ -2077,11 +2077,36 @@ algorithm
           (vars, fixVars, eqns, _, _) := BackendVariable.traverseBackendDAEVars(eq.orderedVars,
             collectInitialVars, (vars, fixVars, eqns, hs, allPrimaryParams));
           (eqns, reEqns) := BackendEquation.traverseEquationArray(eq.orderedEqs, collectInitialEqns, (eqns, reEqns));
+          (vars, eqns) := collectInitialStateSets(eq.stateSets, vars, eqns);
         then
           ();
     end match;
   end for;
 end collectInitialVarsEqnsSystem;
+
+protected function collectInitialStateSets
+  input BackendDAE.StateSets stateSets;
+  input output BackendDAE.Variables vars;
+  input output BackendDAE.EquationArray eqns;
+
+  protected
+  BackendDAE.StateSet stateSet;
+  BackendDAE.Equation eqn;
+  DAE.Exp lhs, rhs;
+algorithm
+  BackendDump.dumpVariables(vars, "INITIAL VARS BEFORE");
+  BackendDump.dumpEquationArray(eqns, "INITIAL EQUATIONS BEFORE");
+  for stateSet in stateSets loop
+    vars := BackendVariable.addVars(stateSet.varA, vars); //TODO CREF -> EXP
+    lhs := DAE.CREF(componentRef=stateSet.crA,ty=DAE.T_ARRAY(ty=DAE.T_INTEGER_DEFAULT, dims={DAE.DIM_INTEGER(listLength(stateSet.varA))}));
+    rhs := DAE.CALL(path=Absyn.IDENT(name="$stateSelectionSet"),expLst={},attr=DAE.callAttrBuiltinOther);
+    //TODO:KAB EXPLIST FROM JACOBIAN (WILLI stateSet.Jacobian.dependencies), lhs as flattened array for matching?
+    eqn := BackendDAE.ARRAY_EQUATION(dimSize={listLength(stateSet.varA)}, left=lhs, right=rhs,source=DAE.emptyElementSource,attr=BackendDAE.EQ_ATTR_DEFAULT_INITIAL);
+    eqns := ExpandableArray.add(eqn,eqns);
+  end for;
+  BackendDump.dumpVariables(vars, "INITIAL VARS AFTER");
+  BackendDump.dumpEquationArray(eqns, "INITIAL EQUATIONS AFTER");
+end collectInitialStateSets;
 
 protected function collectInitialVars "author: lochel
   This function collects all the vars for the initial system.
