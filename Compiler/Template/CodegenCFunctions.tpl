@@ -5927,9 +5927,8 @@ simple_alloc_1d_base_array(&<%tvar%>, <%nElts%>, <%tvardata%>);
   case CALL(path=IDENT(name="$getPart"), expLst={e1}) then
     daeExp(e1, context, &preExp, &varDecls, &auxFunction)
 
-  case CALL(path=IDENT(name="$stateSelectionSet"), expLst={}) then
+  case CALL(path=IDENT(name="$stateSelectionSet")) then
     "stateSelectionSet(data, threadData, reportError, switchStates, setIndex, globalres)"
-  // TODO:KAB case CALL(unserTollerName)
 
   case CALL(path=IDENT(name="sample"), expLst={ICONST(integer=index), _, _}) then
     'data->simulationInfo->samples[<%intSub(index, 1)%>]'

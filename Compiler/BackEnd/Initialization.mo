@@ -2096,12 +2096,17 @@ protected function collectInitialStateSets
 algorithm
   BackendDump.dumpVariables(vars, "INITIAL VARS BEFORE");
   BackendDump.dumpEquationArray(eqns, "INITIAL EQUATIONS BEFORE");
+
   for stateSet in stateSets loop
     vars := BackendVariable.addVars(stateSet.varA, vars); //TODO CREF -> EXP
-    lhs := DAE.CREF(componentRef=stateSet.crA,ty=DAE.T_ARRAY(ty=DAE.T_INTEGER_DEFAULT, dims={DAE.DIM_INTEGER(listLength(stateSet.varA))}));
+    //lhs := DAE.CREF(componentRef=stateSet.crA,ty=DAE.T_ARRAY(ty=DAE.T_INTEGER_DEFAULT, dims={DAE.DIM_INTEGER(listLength(stateSet.varA))}));
+    lhs := DAE.CREF(componentRef=stateSet.crA,ty=DAE.T_INTEGER_DEFAULT);
+    ExpressionDump.dumpExp(lhs);
     rhs := DAE.CALL(path=Absyn.IDENT(name="$stateSelectionSet"),expLst={},attr=DAE.callAttrBuiltinOther);
+
     //TODO:KAB EXPLIST FROM JACOBIAN (WILLI stateSet.Jacobian.dependencies), lhs as flattened array for matching?
-    eqn := BackendDAE.ARRAY_EQUATION(dimSize={listLength(stateSet.varA)}, left=lhs, right=rhs,source=DAE.emptyElementSource,attr=BackendDAE.EQ_ATTR_DEFAULT_INITIAL);
+    //eqn := BackendDAE.ARRAY_EQUATION(dimSize={listLength(stateSet.varA)}, left=lhs, right=rhs,source=DAE.emptyElementSource,attr=BackendDAE.EQ_ATTR_DEFAULT_INITIAL);
+    eqn := BackendEquation.generateEquation(lhs=lhs, rhs=rhs,source=DAE.emptyElementSource,inEqAttr=BackendDAE.EQ_ATTR_DEFAULT_INITIAL);
     eqns := ExpandableArray.add(eqn,eqns);
   end for;
   BackendDump.dumpVariables(vars, "INITIAL VARS AFTER");
