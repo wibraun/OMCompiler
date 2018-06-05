@@ -1154,7 +1154,7 @@ constant ConfigFlag CPP_FLAGS = CONFIG_FLAG(65, "cppFlags",
   Util.gettext("Sets extra flags for compilation with the C++ compiler (e.g. +cppFlags=-O3,-Wall)"));
 
 constant ConfigFlag REMOVE_SIMPLE_EQUATIONS = CONFIG_FLAG(66, "removeSimpleEquations",
-  NONE(), EXTERNAL(), STRING_FLAG("new"),
+  NONE(), EXTERNAL(), STRING_FLAG("default"),
   SOME(STRING_DESC_OPTION({
     ("none", Util.gettext("Disables module")),
     ("default", Util.gettext("Performs alias elimination and removes constant variables. Default case uses in preOpt phase the fastAcausal and in postOpt phase the causal implementation.")),
