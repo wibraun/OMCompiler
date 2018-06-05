@@ -316,7 +316,7 @@ public constant EvaluationStages defaultEvalStages = EVALUATION_STAGES(false,fal
 
 public uniontype EquationAttributes
   record EQUATION_ATTRIBUTES
-    Boolean differentiated "true if the equation was differentiated, and should not differentiated again to avoid equal equations";
+    Boolean differentiated "true if the equation was differentiated, and should not be differentiated again to avoid equal equations";
     EquationKind kind;
     EvaluationStages evalStages;
   end EQUATION_ATTRIBUTES;

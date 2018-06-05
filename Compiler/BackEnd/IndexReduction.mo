@@ -4065,6 +4065,7 @@ algorithm
   realtp := if intGt(setsize,1) then DAE.T_ARRAY(DAE.T_REAL_DEFAULT,{DAE.DIM_INTEGER(setsize),DAE.DIM_INTEGER(nCandidates)})
                                 else DAE.T_ARRAY(DAE.T_REAL_DEFAULT,{DAE.DIM_INTEGER(nCandidates)});
   ocrA := ComponentReference.joinCrefs(set,ComponentReference.makeCrefIdent("A",tp,{}));
+  print("GENERATED CREF: " + ComponentReference.printComponentRefStr(ocrA) + " --- TYPE: " + Types.printTypeStr(tp) +  "\n");
   oAVars := BackendVariable.generateArrayVar(ocrA,BackendDAE.VARIABLE(),tp,NONE());
   oAVars := List.map1(oAVars,BackendVariable.setVarFixed,true);
   // add start value A[i,j] = if i==j then 1 else 0 via initial equations
