@@ -2096,8 +2096,8 @@ protected function collectInitialStateSets
   list<DAE.Exp> expLst = {};
   BackendDAE.Var var;
 algorithm
-  //BackendDump.dumpVariables(vars, "INITIAL VARS BEFORE");
-  //BackendDump.dumpEquationArray(eqns, "INITIAL EQUATIONS BEFORE");
+  BackendDump.dumpVariables(vars, "INITIAL VARS BEFORE");
+  BackendDump.dumpEquationArray(eqns, "INITIAL EQUATIONS BEFORE");
 
   for stateSet in stateSets loop
     vars := BackendVariable.addVars(stateSet.varA, vars); //TODO CREF -> EXP
@@ -2119,9 +2119,10 @@ algorithm
     //lhs := DAE.CREF(componentRef=stateSet.crA,ty=DAE.T_INTEGER_DEFAULT);
     ExpressionDump.dumpExp(lhs);
     expLst:={};
-    for var in stateSet.statescandidates loop
-       expLst := DAE.CREF(componentRef=var.varName, ty=DAE.T_REAL_DEFAULT)::expLst;
-    end for;
+
+    expLst := DAE.CREF(componentRef=DAE.CREF_IDENT("x",DAE.T_REAL_DEFAULT, {}), ty=DAE.T_REAL_DEFAULT)::expLst;
+    expLst := DAE.CREF(componentRef=DAE.CREF_IDENT("y",DAE.T_REAL_DEFAULT, {}), ty=DAE.T_REAL_DEFAULT)::expLst;
+    expLst := DAE.ICONST(integer=stateSet.index-1)::expLst;
 
     rhs := DAE.CALL(path=Absyn.IDENT(name="$stateSelectionSet"),expLst=expLst,attr=DAE.callAttrBuiltinOther);
 

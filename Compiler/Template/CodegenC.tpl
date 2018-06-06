@@ -5158,11 +5158,6 @@ case eqn as SES_ARRAY_CALL_ASSIGN(lhs=lhs as CREF(__)) then
     <%preExp%>
     copy_real_array_data(<%expPart%>, &<%lhsstr%>);
     >>
-  case "real /* assuming real for unknown type! */" then
-    <<
-    <%preExp%>
-    copy_real_array_data(<%expPart%>, &<%lhsstr%>);
-    >>
   case "string" then
     <<
     <%preExp%>
