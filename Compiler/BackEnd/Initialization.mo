@@ -2101,7 +2101,7 @@ algorithm
 
   for stateSet in stateSets loop
     vars := BackendVariable.addVars(stateSet.varA, vars); //TODO CREF -> EXP
-    lhs := DAE.CREF(componentRef=stateSet.crA,ty=DAE.T_ARRAY(ty=DAE.T_INTEGER_DEFAULT, dims={DAE.DIM_INTEGER(listLength(stateSet.varA))}));
+    lhs := Expression.crefToExp(stateSet.crA);
     /*_:= match stateSet.crA
       local
         DAE.Type ty;
