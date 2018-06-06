@@ -5477,7 +5477,7 @@ algorithm
       DAE.Type ty,basety;
       list<tuple<DAE.Exp, DAE.Exp>> exptl;
 
-    // A special case for built-in fucntion stateSelectionSet
+    // A special case for built-in function stateSelectionSet
     case (_, (BackendDAE.ARRAY_EQUATION(right=rhse as DAE.CALL(path=Absyn.IDENT(name="$stateSelectionSet")), source=source, attr=eqAttr))::_, _, _, _, _)
     equation
       equation_ = SimCode.SES_ALGORITHM(iuniqueEqIndex, {DAE.STMT_NORETCALL(rhse, source)}, eqAttr);
