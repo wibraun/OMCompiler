@@ -12,7 +12,7 @@
 #include "model_help.h"
 
 #include "linearSystem.h"
-#include "nicslu.h"
+#include "nicslu/nicslu.h"
 
 //INDEX DER MATRIX CSR oder CSC Mode!!!
 
@@ -22,11 +22,11 @@
 
 int allocateNicsluData(unsigned int n, unsigned int nnz,void** voiddata)
 {
-	/*Datenstruktur für NICSLU erzeugen*/
+	/*Datenstruktur fï¿½r NICSLU erzeugen*/
 	DATA_NICSLU* data = (DATA_NICSLU*)malloc(sizeof(DATA_NISLU));
 	assertStreamPrint(NULL, 0 != data, "Could not allocate data for linear solver Nicslu.");
 
-	/*Speicher für SNicsLU reservieren*/
+	/*Speicher fï¿½r SNicsLU reservieren*/
 	data->nicslu= (SNicsLU *)malloc(sizeof(SNicsLU));
 	/*Initialisieren der Datenstruktur siehe Demos.c*/
 	NicsLU_Initialize(data->nicslu);
@@ -34,7 +34,7 @@ int allocateNicsluData(unsigned int n, unsigned int nnz,void** voiddata)
 	data->n = n;
 	data->nnz = nnz;
 
-	/*Benötigte Werte für weiteren Verlauf*/
+	/*Benï¿½tigte Werte fï¿½r weiteren Verlauf*/
 	data->ax = (double*)calloc(nnz, sizeof(double));
 	data->ai = (unsigned int*)calloc(nnz, sizeof(unsigned int));
 	data->ap = (unsigned int*)calloc((n + 1), sizeof(unsigned int));
@@ -88,7 +88,7 @@ int freeNicsluData(void **voiddata)
 */
 
 
-//Hier keine Veränderung vorgenommen
+//Hier keine Verï¿½nderung vorgenommen
 static
 int getAnalyticalJacobian(DATA* data, threadData_t *threadData, int sysNumber)
 {
@@ -128,7 +128,7 @@ int getAnalyticalJacobian(DATA* data, threadData_t *threadData, int sysNumber)
 }
 
 /*! \fn residual_wrapper for the residual function
-*			Keine Veränderung vorgenommen
+*			Keine Verï¿½nderung vorgenommen
 */
 static int residual_wrapper(double* x, double* f, void** data, int sysNumber)
 {
@@ -281,7 +281,7 @@ solveNicslu(DATA *data, threadData_t *threadData, int sysNumber)
 	return success;
 }
 
-//Ausgabe von Matrix; vorläufig auskommentiert
+//Ausgabe von Matrix; vorlï¿½ufig auskommentiert
 
 /*
 static

@@ -4,7 +4,7 @@
 #define _LINEARSOLVERNICSLU_H_
 
 #include "simulation_data.h"
-#include "nicslu.h"
+#include "nicslu/nicslu.h"
 
 typedef struct DATA_NICSLU
 {
