@@ -2117,7 +2117,6 @@ algorithm
       else 0;
     end match;*/
     //lhs := DAE.CREF(componentRef=stateSet.crA,ty=DAE.T_INTEGER_DEFAULT);
-    ExpressionDump.dumpExp(lhs);
     expLst:={};
 
     expLst := DAE.CREF(componentRef=DAE.CREF_IDENT("x",DAE.T_REAL_DEFAULT, {}), ty=DAE.T_REAL_DEFAULT)::expLst;
