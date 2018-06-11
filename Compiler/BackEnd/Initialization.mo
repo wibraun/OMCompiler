@@ -2119,6 +2119,7 @@ algorithm
     //lhs := DAE.CREF(componentRef=stateSet.crA,ty=DAE.T_INTEGER_DEFAULT);
     expLst:={};
 
+    // KAB Change to jacobian
     expLst := DAE.CREF(componentRef=DAE.CREF_IDENT("x",DAE.T_REAL_DEFAULT, {}), ty=DAE.T_REAL_DEFAULT)::expLst;
     expLst := DAE.CREF(componentRef=DAE.CREF_IDENT("y",DAE.T_REAL_DEFAULT, {}), ty=DAE.T_REAL_DEFAULT)::expLst;
     expLst := DAE.ICONST(integer=stateSet.index-1)::expLst;
