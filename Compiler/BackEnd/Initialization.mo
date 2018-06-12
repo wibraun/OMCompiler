@@ -2096,8 +2096,8 @@ protected function collectInitialStateSets
   list<DAE.Exp> expLst = {};
   BackendDAE.Var var;
 algorithm
-  BackendDump.dumpVariables(vars, "INITIAL VARS BEFORE");
-  BackendDump.dumpEquationArray(eqns, "INITIAL EQUATIONS BEFORE");
+  //BackendDump.dumpVariables(vars, "INITIAL VARS BEFORE");
+  //BackendDump.dumpEquationArray(eqns, "INITIAL EQUATIONS BEFORE");
 
   for stateSet in stateSets loop
     vars := BackendVariable.addVars(stateSet.varA, vars); //TODO CREF -> EXP
@@ -2131,8 +2131,8 @@ algorithm
     //eqn := BackendEquation.generateEquation(lhs=lhs, rhs=rhs,source=DAE.emptyElementSource,inEqAttr=BackendDAE.EQ_ATTR_DEFAULT_INITIAL);
     eqns := ExpandableArray.add(eqn,eqns);
   end for;
-  BackendDump.dumpVariables(vars, "INITIAL VARS AFTER");
-  BackendDump.dumpEquationArray(eqns, "INITIAL EQUATIONS AFTER");
+  //BackendDump.dumpVariables(vars, "INITIAL VARS AFTER");
+  //BackendDump.dumpEquationArray(eqns, "INITIAL EQUATIONS AFTER");
 end collectInitialStateSets;
 
 protected function collectInitialVars "author: lochel
