@@ -2086,8 +2086,10 @@ end collectInitialVarsEqnsSystem;
 
 protected function collectInitialStateSets
   input BackendDAE.StateSets stateSets;
-  input output BackendDAE.Variables vars;
-  input output BackendDAE.EquationArray eqns;
+  input BackendDAE.Variables iVars;
+  input BackendDAE.EquationArray iEqns;
+  output BackendDAE.Variables oVars;
+  output BackendDAE.EquationArray oEqns;
 
   protected
   BackendDAE.StateSet stateSet;
@@ -2098,9 +2100,9 @@ protected function collectInitialStateSets
 algorithm
   //BackendDump.dumpVariables(vars, "INITIAL VARS BEFORE");
   //BackendDump.dumpEquationArray(eqns, "INITIAL EQUATIONS BEFORE");
-
+  (oVars, oEqns) := (iVars, iEqns);
   for stateSet in stateSets loop
-    vars := BackendVariable.addVars(stateSet.varA, vars); //TODO CREF -> EXP
+    oVars := BackendVariable.addVars(stateSet.varA, oVars); //TODO CREF -> EXP
     lhs := Expression.crefToExp(stateSet.crA);
     /*_:= match stateSet.crA
       local
@@ -2129,7 +2131,7 @@ algorithm
     //TODO:KAB EXPLIST FROM JACOBIAN (WILLI stateSet.Jacobian.dependencies), lhs as flattened array for matching?
     eqn := BackendDAE.ARRAY_EQUATION(dimSize={listLength(stateSet.varA)}, left=lhs, right=rhs,source=DAE.emptyElementSource,attr=BackendDAE.EQ_ATTR_DEFAULT_INITIAL);
     //eqn := BackendEquation.generateEquation(lhs=lhs, rhs=rhs,source=DAE.emptyElementSource,inEqAttr=BackendDAE.EQ_ATTR_DEFAULT_INITIAL);
-    eqns := ExpandableArray.add(eqn,eqns);
+    oEqns := ExpandableArray.add(eqn,oEqns);
   end for;
   //BackendDump.dumpVariables(vars, "INITIAL VARS AFTER");
   //BackendDump.dumpEquationArray(eqns, "INITIAL EQUATIONS AFTER");
