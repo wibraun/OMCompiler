@@ -4049,12 +4049,6 @@ algorithm
     mapEqnIncRow := rowindxs::mapEqnIncRow;
   end for;
   outIncidenceArray := List.listArrayReverse(inIncidenceArray);
-  BackendDump.printVariables(vars);
-  print("\n");
-  BackendDump.printEquationArray(eqArr);
-  print("\n");
-  BackendDump.dumpAdjacencyMatrixEnhanced(outIncidenceArray);
-  print("######################\n\n\n\n");
   omapEqnIncRow := List.listArrayReverse(mapEqnIncRow);
   omapIncRowEqn := List.listArrayReverse(imapIncRowEqn);
 end adjacencyMatrixDispatchEnhancedScalar;

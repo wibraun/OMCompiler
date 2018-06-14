@@ -420,7 +420,6 @@ int stateSelection(DATA *data, threadData_t *threadData, char reportError, int s
   /* go through all the state sets */
   for(i=0; i<data->modelData->nStateSets; i++)
   {
-    printf("%ld State sets.\n", data->modelData->nStateSets);
     globalres = stateSelectionSet(data, threadData, reportError, switchStates, i, globalres);
   }
 
