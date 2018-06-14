@@ -337,33 +337,6 @@ void printStateSelectionInfo(DATA *data, STATE_SET_DATA *set)
   messageClose(LOG_DSS);
 }
 
-void printStateSelectionInfo2(DATA *data, STATE_SET_DATA *set)
-{
-  long k, l;
-
-  printf("Select %ld states from %ld candidates.\n", set->nStates, set->nCandidates);
-  for(k=0; k < set->nCandidates; k++)
-  {
-    printf("[%ld] candidate %s\n", k+1, set->statescandidates[k]->name);
-  }
-
-  printf("Selected states\n");
-  {
-    unsigned int aid = set->A->id - data->modelData->integerVarsData[0].info.id;
-    modelica_integer *Adump = &(data->localData[0]->integerVars[aid]);
-    for(k=0; k < set->nStates; k++)
-    {
-      for(l=0; l < set->nCandidates; l++)
-      {
-        if (Adump[k*set->nCandidates+l] == 1)
-        {
-          printf("[%ld] %s \n", l+1, set->statescandidates[l]->name);
-        }
-      }
-    }
-  }
-}
-
 int stateSelectionSet(DATA *data, threadData_t *threadData, char reportError, int switchStates, long setIndex, int globalres)
 {
     long j=0;
@@ -375,8 +348,6 @@ int stateSelectionSet(DATA *data, threadData_t *threadData, char reportError, in
     modelica_integer* oldColPivot = (modelica_integer*) malloc(set->nCandidates * sizeof(modelica_integer));
     modelica_integer* oldRowPivot = (modelica_integer*) malloc(set->nDummyStates * sizeof(modelica_integer));
 
-    printf("StateSelection Set %ld at time = %f\n", setIndex, data->localData[0]->timeValue);
-    printStateSelectionInfo2(data,set);
     /* debug */
     if(ACTIVE_STREAM(LOG_DSS))
     {
