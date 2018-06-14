@@ -57,9 +57,8 @@ typedef struct DATA_NICSLU
 
 } DATA_NICSLU;
 
-int allocateNicsluData(unsigned int n unsigned int nz, void **data);
+int allocateNicsluData(unsigned int n, unsigned int nz, void **data);
 int freeNicsluData(void **data);
 int solveNicslu(DATA *data, threadData_t *threadData, int sysNumber);
 
-#endif
 #endif

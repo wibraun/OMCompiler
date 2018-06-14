@@ -42,7 +42,7 @@
 #include "linearSolverLapack.h"
 #if !defined(OMC_MINIMAL_RUNTIME)
 #include "linearSolverKlu.h"
-#include "linearSolverNicslu"
+#include "linearSolverNicslu.h"
 #include "linearSolverLis.h"
 #include "linearSolverUmfpack.h"
 #endif
@@ -720,11 +720,11 @@ static void setAElementKlu(int row, int col, double value, int nth, void *data, 
 static void setAElementNicslu(int row, int col, double value, int nth, void *data, threadData_t *threadData)
 {
   LINEAR_SYSTEM_DATA* linSys = (LINEAR_SYSTEM_DATA*) data;
-  DATA_NICSLZ* sData = (DATA_NICSLU*) linSys->solverData[0];
+  DATA_NICSLU* sData = (DATA_NICSLU*) linSys->solverData[0];
 
   if (row > 0){
-    if (sData->Ap[row] == 0){
-      sData->Ap[row] = nth;
+    if (sData->ap[row] == 0){
+      sData->ap[row] = nth;
     }
   }
 
