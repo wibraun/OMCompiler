@@ -45,6 +45,7 @@
 #include "model_help.h"
 
 #include "linearSystem.h"
+#include "linearSolverNicslu.h"
 #include "nicslu/nicslu.h"
 
 
@@ -73,7 +74,7 @@ allocateNicsluData(unsigned int n, unsigned int nz, void** voiddata)
 
   data->x = (double*)calloc(n+n, sizeof(double));
 
-  data->work = (double*) calloc(n_col,sizeof(double));
+  data->work = (double*) calloc(n,sizeof(double));
 
   data->numberSolving = 0;
 
@@ -99,7 +100,6 @@ freeNicsluData(void **voiddata)
   free(data->ax);
   free(data->ap);
   free(data->x);
-  free(data->b);
 
   TRACE_POP
   return 0;
@@ -194,7 +194,7 @@ solveNicslu(DATA *data, threadData_t *threadData, int sysNumber)
       /* set A matrix */
       solverData->ap[0] = 0;
       systemData->setA(data, threadData, systemData);
-      solverData->Ap[solverData->n] = solverData->nnz;
+      solverData->ap[solverData->n] = solverData->nnz;
     }
 
     /* set b vector */
@@ -213,7 +213,7 @@ solveNicslu(DATA *data, threadData_t *threadData, int sysNumber)
     }
 
     /* calculate vector b (rhs) */
-    memcpy(solverData->work, systemData->x, sizeof(double)*solverData->n_row);
+    memcpy(solverData->work, systemData->x, sizeof(double)*solverData->n);
     residual_wrapper(solverData->work, systemData->b, dataAndThreadData, sysNumber);
   }
   NicsLU_CreateMatrix(solverData->nicslu,solverData->n,solverData->nnz,solverData->ax,solverData->ai,solverData->ap);
@@ -356,4 +356,3 @@ void printMatrixCSR(int* Ap, int* Ai, double* Ax, int n)
   free(buffer);
 }
 
-#endif

@@ -42,8 +42,8 @@
 typedef struct DATA_NICSLU
 {
   SNicsLU *nicslu;
-  int *ap;
-  int *ai;
+  unsigned int *ap;
+  unsigned int *ai;
   double *ax;
   unsigned int n;
   unsigned int nnz;
