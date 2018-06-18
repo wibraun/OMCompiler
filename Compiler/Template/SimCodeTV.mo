@@ -924,6 +924,13 @@ package MathOperation
     end OPERATION;
   end Operation;
 
+  uniontype LinSysPattern
+    record LINSYSPATTERN
+      Integer adolcIndex;
+      list<Integer> pattern;
+    end LINSYSPATTERN;
+  end LinSysPattern;
+
   uniontype OperationData
     record OPERATIONDATA
       list<Operation> operations;
@@ -932,6 +939,7 @@ package MathOperation
       list<Integer> dependents;
       String name;
       Integer numRealParameters;
+      list<LinSysPattern> linSysPat;
     end OPERATIONDATA;
   end OperationData;
 
