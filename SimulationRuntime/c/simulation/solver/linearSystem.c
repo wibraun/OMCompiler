@@ -145,11 +145,6 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
         allocateKluData(size, size, nnz, linsys[i].solverData);
         break;
     #else
-      case LSS_NICSLU
-        linsys[i].setAElement = setAElementNicslu;
-        linsys[i].setBElement = setBElement;
-        allocateNicsluData(size, nnz, linsys[i].solverData);
-        break;
       case LSS_KLU:
       case LSS_UMFPACK:
         throwStreamPrint(threadData, "OMC is compiled without UMFPACK, if you want use klu or umfpack please compile OMC with UMFPACK.");
@@ -175,6 +170,11 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
           break;
         }
     #endif
+      case LSS_NICSLU:
+        linsys[i].setAElement = setAElementNicslu;
+        linsys[i].setBElement = setBElement;
+        allocateNicsluData(size, nnz, linsys[i].solverData);
+        break;
       default:
         throwStreamPrint(threadData, "unrecognized sparse linear solver (%d)", data->simulationInfo->lssMethod);
       }
@@ -208,15 +208,15 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
         allocateKluData(size, size, nnz, linsys[i].solverData);
         break;
     #else
-      case LS_NICSLU:
-          linsys[i].setAElement = setAElementKlu;
-          linsys[i].setBElement = setBElement;
-          allocateNicsluData(size, nnz, linsys[i].solverData);
-          break;
       case LS_UMFPACK:
         throwStreamPrint(threadData, "OMC is compiled without UMFPACK, if you want use umfpack please compile OMC with UMFPACK.");
         break;
     #endif
+      case LSS_NICSLU:
+        linsys[i].setAElement = setAElementNicslu;
+        linsys[i].setBElement = setBElement;
+        allocateNicsluData(size, nnz, linsys[i].solverData);
+        break;
 
       case LS_TOTALPIVOT:
         linsys[i].A = (double*) malloc(size*size*sizeof(double));
@@ -324,7 +324,9 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
         freeLisData(linsys[i].solverData);
         break;
     #endif
-
+      case LSS_NICSLU:
+        freeNicsluData(linsys[i].solverData);
+        break;
     #ifdef WITH_UMFPACK
       case LSS_UMFPACK:
         freeUmfPackData(linsys[i].solverData);
@@ -333,9 +335,7 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
         freeKluData(linsys[i].solverData);
         break;
     #else
-      case LSS_NICSLU:
-        freeNicsluData(linsys[i].solverData);
-        break;
+
       case LSS_UMFPACK:
         throwStreamPrint(threadData, "OMC is compiled without UMFPACK, if you want use umfpack please compile OMC with UMFPACK.");
         break;
@@ -360,6 +360,10 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
         break;
   #endif
 
+      case LS_NICSLU:
+        freeNicsluData(linsys[i].solverData);
+        break;
+
   #ifdef WITH_UMFPACK
       case LS_UMFPACK:
         freeUmfPackData(linsys[i].solverData);
@@ -368,9 +372,6 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
         freeKluData(linsys[i].solverData);
         break;
   #else
-      case LS_NICSLU
-        freeNicsluData(linsys[i].solverData);
-        break;
       case LS_UMFPACK:
         throwStreamPrint(threadData, "OMC is compiled without UMFPACK, if you want use umfpack please compile OMC with UMFPACK.");
         break;
@@ -454,13 +455,13 @@ int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber)
       }
       break;
   #else
-    case LSS_NICSLU:
-      success = solveNicslu(data, threadData, sysNumber);
     case LSS_KLU:
     case LSS_UMFPACK:
       throwStreamPrint(threadData, "OMC is compiled without UMFPACK, if you want use umfpack please compile OMC with UMFPACK.");
       break;
   #endif
+    case LSS_NICSLU:
+      success = solveNicslu(data, threadData, sysNumber);
     default:
       throwStreamPrint(threadData, "unrecognized sparse linear solver (%d)", data->simulationInfo->lssMethod);
     }
@@ -491,12 +492,12 @@ int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber)
       }
       break;
   #else
-    case LS_NICSLU:
-      success = solveNicslu(data, threadData, sysNumber);
     case LS_UMFPACK:
       throwStreamPrint(threadData, "OMC is compiled without UMFPACK, if you want use umfpack please compile OMC with UMFPACK.");
       break;
   #endif
+    case LS_NICSLU:
+      success = solveNicslu(data, threadData, sysNumber);
 
     case LS_TOTALPIVOT:
       success = solveTotalPivot(data, threadData, sysNumber);
