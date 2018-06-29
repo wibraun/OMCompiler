@@ -3791,7 +3791,7 @@ algorithm
         nCandidates = listLength(statevars);
 
         // create symbolic jacobian for simulation
-        (SOME(jacobianMatrix), uniqueEqIndex, tempvars) = createSymbolicSimulationJacobian(jacobian, iuniqueEqIndex, listAppend(itempvars,simCodeAVars));
+        (SOME(jacobianMatrix), uniqueEqIndex, tempvars) = createSymbolicSimulationJacobian(jacobian, iuniqueEqIndex, itempvars);
 
         // next set
         (simequations, uniqueEqIndex, tempvars, numStateSets) = createStateSetsSets(sets, iVars, iEqns, comps, SimCode.SES_STATESET(iuniqueEqIndex, nCandidates, rang, crset, crstates, crA, jacobianMatrix)::iEquations, uniqueEqIndex, tempvars, iNumStateSets+1);
