@@ -2880,7 +2880,6 @@ algorithm
     case (DAE.CREF(componentRef=cr), (vars, pa, visitedPaths, ofunctionTree)) equation
       (varslst, p) = BackendVariable.getVar(cr, vars);
       (_, p2) = BackendVariable.getVar(ComponentReference.crefPrefixStart(cr), vars);
-            print(ComponentReference.printComponentRefStr(cr) + "\n");
 
       pa = incidenceRowExp1(varslst, p, pa, 0);
       pa = incidenceRowExp1(varslst, p2, pa, 0);
