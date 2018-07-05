@@ -427,13 +427,9 @@ algorithm
         (exp, ty, var) := typeExp(range, intBitOr(origin, ExpOrigin.ITERATION_RANGE), info, replaceConstants = false);
 
         // If the iteration range is structural, it must be a parameter expression.
-        if structural then
-          if var > Variability.PARAMETER then
-            Error.addSourceMessageAndFail(Error.NON_PARAMETER_ITERATOR_RANGE,
-              {Expression.toString(exp)}, info);
-          else
-            exp := Ceval.evalExp(exp, Ceval.EvalTarget.RANGE(info));
-          end if;
+        if structural and var > Variability.PARAMETER then
+          Error.addSourceMessageAndFail(Error.NON_PARAMETER_ITERATOR_RANGE,
+            {Expression.toString(exp)}, info);
         end if;
 
         // The iteration range must be a vector expression.
@@ -935,22 +931,12 @@ algorithm
       ComponentRef cref;
       Integer next_origin;
 
-    case Expression.INTEGER() then (exp, Type.INTEGER(), Variability.CONSTANT);
-    case Expression.REAL() then (exp, Type.REAL(), Variability.CONSTANT);
-    case Expression.STRING() then (exp, Type.STRING(), Variability.CONSTANT);
-    case Expression.BOOLEAN() then (exp, Type.BOOLEAN(), Variability.CONSTANT);
-    case Expression.ENUM_LITERAL() then (exp, exp.ty, Variability.CONSTANT);
-
-    case Expression.CREF()
-      algorithm
-        (cref, ty, variability) := typeCref(exp.cref, origin, info);
-        e1 := Expression.CREF(ty, cref);
-
-        if replaceConstants and variability <= Variability.STRUCTURAL_PARAMETER then
-          e1 := Ceval.evalExp(e1, Ceval.EvalTarget.GENERIC(info));
-        end if;
-      then
-        (e1, ty, variability);
+    case Expression.INTEGER()      then (exp, Type.INTEGER(), Variability.CONSTANT);
+    case Expression.REAL()         then (exp, Type.REAL(),    Variability.CONSTANT);
+    case Expression.STRING()       then (exp, Type.STRING(),  Variability.CONSTANT);
+    case Expression.BOOLEAN()      then (exp, Type.BOOLEAN(), Variability.CONSTANT);
+    case Expression.ENUM_LITERAL() then (exp, exp.ty,         Variability.CONSTANT);
+    case Expression.CREF()         then typeCrefExp(exp.cref, origin, info, replaceConstants);
 
     case Expression.TYPENAME()
       algorithm
@@ -962,11 +948,11 @@ algorithm
       then
         (exp, exp.ty, Variability.CONSTANT);
 
-    case Expression.ARRAY() then typeArray(exp.elements, origin, info);
+    case Expression.ARRAY()  then typeArray(exp.elements, origin, info);
     case Expression.MATRIX() then typeMatrix(exp.elements, origin, info);
-    case Expression.RANGE() then typeRange(exp, origin, info);
-    case Expression.TUPLE() then typeTuple(exp.elements, origin, info);
-    case Expression.SIZE() then typeSize(exp, origin, info);
+    case Expression.RANGE()  then typeRange(exp, origin, info);
+    case Expression.TUPLE()  then typeTuple(exp.elements, origin, info);
+    case Expression.SIZE()   then typeSize(exp, origin, info);
 
     case Expression.END()
       algorithm
@@ -1036,7 +1022,7 @@ algorithm
         // equation/algorithm, select the first output.
         if Type.isTuple(ty) and not ExpOrigin.isSingleExpression(origin) then
           ty := Type.firstTupleType(ty);
-          e1 := Expression.TUPLE_ELEMENT(e1, 1, ty);
+          e1 := Expression.tupleElement(e1, ty, 1);
         end if;
       then
         (e1, ty, var1);
@@ -1248,12 +1234,42 @@ algorithm
   end if;
 end nthDimensionBoundsChecked;
 
+function typeCrefExp
+  input ComponentRef cref;
+  input ExpOrigin.Type origin;
+  input SourceInfo info;
+  input Boolean replaceConstants;
+  output Expression exp;
+  output Type ty;
+  output Variability variability;
+protected
+  ComponentRef cr;
+  Variability node_var, subs_var;
+  Boolean eval;
+algorithm
+  (cr, ty, node_var, subs_var) := typeCref(cref, origin, info);
+  exp := Expression.CREF(ty, cr);
+
+  if replaceConstants and node_var <= Variability.STRUCTURAL_PARAMETER and
+     not ComponentRef.isIterator(cr) then
+    (exp, eval) := Ceval.evalComponentBinding(ComponentRef.node(cr), exp,
+      Ceval.EvalTarget.IGNORE_ERRORS());
+
+    if eval then
+      exp := Expression.applySubscripts(ComponentRef.getSubscripts(cr), exp);
+    end if;
+  end if;
+
+  variability := Prefixes.variabilityMax(node_var, subs_var);
+end typeCrefExp;
+
 function typeCref
   input output ComponentRef cref;
   input ExpOrigin.Type origin;
   input SourceInfo info;
         output Type ty;
-        output Variability variability;
+        output Variability nodeVariability;
+        output Variability subsVariability;
 protected
   Variability subs_var;
 algorithm
@@ -1266,9 +1282,9 @@ algorithm
     fail();
   end if;
 
-  (cref, subs_var) := typeCref2(cref, origin, info);
+  (cref, subsVariability) := typeCref2(cref, origin, info);
   ty := ComponentRef.getSubscriptedType(cref);
-  variability := Prefixes.variabilityMax(ComponentRef.nodeVariability(cref), subs_var);
+  nodeVariability := ComponentRef.nodeVariability(cref);
 end typeCref;
 
 function typeCref2
@@ -1607,12 +1623,6 @@ algorithm
     ostep_ty := NONE();
   end if;
 
-  if variability <= Variability.STRUCTURAL_PARAMETER then
-    start_exp := Ceval.evalExp(start_exp, Ceval.EvalTarget.IGNORE_ERRORS());
-    ostep_exp := Ceval.evalExpOpt(ostep_exp, Ceval.EvalTarget.IGNORE_ERRORS());
-    stop_exp := Ceval.evalExp(stop_exp, Ceval.EvalTarget.IGNORE_ERRORS());
-  end if;
-
   rangeType := TypeCheck.getRangeType(start_exp, ostep_exp, stop_exp, rangeType, info);
   rangeExp := Expression.RANGE(rangeType, start_exp, ostep_exp, stop_exp);
 end typeRange;
@@ -1691,7 +1701,8 @@ algorithm
           fail();
         end if;
 
-        if variability <= Variability.STRUCTURAL_PARAMETER then
+        if variability <= Variability.STRUCTURAL_PARAMETER and
+           not Expression.containsIterator(index, origin) then
           // Evaluate the index if it's a constant.
           index := Ceval.evalExp(index, Ceval.EvalTarget.IGNORE_ERRORS());
 
@@ -2191,12 +2202,11 @@ algorithm
       Expression cond, e1, e2, e3;
       Type ty, ty1, ty2;
       list<Equation> eqs1, body;
-      list<tuple<Expression, list<Equation>>> tybrs;
+      list<Equation.Branch> tybrs;
       InstNode iterator;
       MatchKind mk;
       Variability var, bvar;
       Integer next_origin;
-      Equation tyeq;
       SourceInfo info;
 
     case Equation.EQUALITY()
@@ -2212,15 +2222,8 @@ algorithm
              Type.toString(ty1) + " = " + Type.toString(ty2)}, info);
           fail();
         end if;
-
-        // Array equations containing function calls should not be scalarized.
-        if Type.isArray(ty) and (Expression.hasArrayCall(e1) or Expression.hasArrayCall(e2)) then
-          tyeq := Equation.ARRAY_EQUALITY(e1, e2, ty, eq.source);
-        else
-          tyeq := Equation.EQUALITY(e1, e2, ty, eq.source);
-        end if;
       then
-        tyeq;
+        Equation.EQUALITY(e1, e2, ty, eq.source);
 
     case Equation.CONNECT()
       then typeConnect(eq.lhs, eq.rhs, origin, eq.source);
@@ -2249,11 +2252,14 @@ algorithm
         next_origin := intBitOr(origin, ExpOrigin.WHEN);
 
         tybrs := list(
-          match br case(cond, body)
-            algorithm
-              e1 := typeCondition(cond, next_origin, eq.source, Error.WHEN_CONDITION_TYPE_ERROR, allowVector = true);
-              eqs1 := list(typeEquation(beq, next_origin) for beq in body);
-            then (e1, eqs1);
+          match br
+            case Equation.Branch.BRANCH(condition = cond, body = body)
+              algorithm
+                (e1, var) := typeCondition(cond, next_origin, eq.source,
+                  Error.WHEN_CONDITION_TYPE_ERROR, allowVector = true);
+                eqs1 := list(typeEquation(beq, next_origin) for beq in body);
+              then
+                Equation.makeBranch(e1, eqs1, var);
           end match
         for br in eq.branches);
       then
@@ -2440,7 +2446,7 @@ algorithm
         (e2, ty2) := typeExp(st.rhs, intBitOr(origin, ExpOrigin.RHS), info);
 
         // TODO: Should probably only be allowUnknown = true if in a function.
-        (e2,_, mk) := TypeCheck.matchTypes(ty2, ty1, e2, allowUnknown = true);
+        (e2, ty3, mk) := TypeCheck.matchTypes(ty2, ty1, e2, allowUnknown = true);
 
         if TypeCheck.isIncompatibleMatch(mk) then
           Error.addSourceMessage(Error.ASSIGN_TYPE_MISMATCH_ERROR,
@@ -2449,7 +2455,7 @@ algorithm
           fail();
         end if;
       then
-        Statement.ASSIGNMENT(e1, e2, st.source);
+        Statement.ASSIGNMENT(e1, e2, ty3, st.source);
 
     case Statement.FOR()
       algorithm
@@ -2564,7 +2570,7 @@ algorithm
 end typeCondition;
 
 function typeIfEquation
-  input list<tuple<Expression, list<Equation>>> branches;
+  input list<Equation.Branch> branches;
   input ExpOrigin.Type origin;
   input DAE.ElementSource source;
   output Equation ifEq;
@@ -2572,11 +2578,11 @@ protected
   Expression cond;
   list<Equation> eql;
   Variability accum_var = Variability.CONSTANT, var;
-  list<tuple<Expression, list<Equation>>> bl = {};
+  list<Equation.Branch> bl = {};
   Integer next_origin = origin;
 algorithm
   for b in branches loop
-    (cond, eql) := b;
+    Equation.Branch.BRANCH(condition = cond, body = eql) := b;
     (cond, var) := typeCondition(cond, next_origin, source, Error.IF_CONDITION_TYPE_ERROR);
     accum_var := Prefixes.variabilityMax(accum_var, var);
 
@@ -2593,13 +2599,30 @@ algorithm
 
     if not Expression.isFalse(cond) then
       eql := list(typeEquation(e, next_origin) for e in eql);
-      bl := (cond, eql) :: bl;
+      bl := Equation.makeBranch(cond, eql, var) :: bl;
 
       if Expression.isTrue(cond) then
         break;
       end if;
     end if;
   end for;
+
+  // If all conditions are parameter expressions, mark all of them as structural.
+  // (If accum_var < Variability.PARAMETER then they're already all structural.)
+  if accum_var == Variability.PARAMETER then
+    bl := list(
+      match b
+        // Only non-structural parameters needs to be changed.
+        case Equation.Branch.BRANCH(conditionVar = Variability.PARAMETER)
+          algorithm
+            b.conditionVar := Variability.STRUCTURAL_PARAMETER;
+          then
+            b;
+
+        else b;
+      end match
+    for b in bl);
+  end if;
 
   // TODO: If accum_var <= PARAMETER, then each branch must have the same number
   //       of equations.

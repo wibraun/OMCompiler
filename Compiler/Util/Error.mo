@@ -348,10 +348,11 @@ public constant Message NON_PARAMETER_ITERATOR_RANGE = MESSAGE(109, TRANSLATION(
   Util.gettext("The iteration range %s is not a constant or parameter expression."));
 public constant Message IMPLICIT_ITERATOR_NOT_FOUND_IN_LOOP_BODY = MESSAGE(110, TRANSLATION(), ERROR(),
   Util.gettext("Identifier %s of implicit for iterator must be present as array subscript in the loop body."));
-public constant Message LOOKUP_VIA_COMP_NON_FUNCALL = MESSAGE(111, TRANSLATION(), ERROR(),
-  Util.gettext("Illegal access of class '%s' in component '%s' when looking for non-function call name '%s'."));
+
+// UNUSED ID 111
+
 public constant Message LOOKUP_CLASS_VIA_COMP_COMP = MESSAGE(112, TRANSLATION(), ERROR(),
-  Util.gettext("Illegal access of class '%s' via component '%s' when looking for '%s'."));
+  Util.gettext("Illegal access of class '%s' via a component when looking for '%s'."));
 public constant Message SUBSCRIPTED_FUNCTION_CALL = MESSAGE(113, TRANSLATION(), ERROR(),
   Util.gettext("Function call %s contains subscripts."));
 public constant Message IF_EQUATION_UNBALANCED = MESSAGE(114, TRANSLATION(), ERROR(),
@@ -799,6 +800,18 @@ public constant Message UNASSIGNED_FUNCTION_OUTPUT = MESSAGE(335, TRANSLATION(),
   Util.gettext("Output parameter %s was not assigned a value"));
 public constant Message INVALID_WHEN_STATEMENT_CONTEXT = MESSAGE(336, TRANSLATION(), ERROR(),
   Util.gettext("A when-statement may not be used inside a function or a while, if, or for-clause."));
+public constant Message MISSING_FUNCTION_DERIVATIVE_NAME = MESSAGE(337, TRANSLATION(), WARNING(),
+  Util.gettext("Derivative annotation for function ‘%s‘ does not specify a derivative function."));
+public constant Message INVALID_FUNCTION_DERIVATIVE_ATTR = MESSAGE(338, TRANSLATION(), WARNING(),
+  Util.gettext("‘%s‘ is not a valid function derivative attribute."));
+public constant Message INVALID_FUNCTION_DERIVATIVE_INPUT = MESSAGE(339, TRANSLATION(), ERROR(),
+  Util.gettext("‘%s‘ is not an input of function ‘%s‘."));
+public constant Message OPERATOR_OVERLOADING_ONE_OUTPUT_ERROR = MESSAGE(340, TRANSLATION(), ERROR(),
+  Util.gettext("Operator %s must have exactly one output."));
+public constant Message OPERATOR_OVERLOADING_INVALID_OUTPUT_TYPE = MESSAGE(341, TRANSLATION(), ERROR(),
+  Util.gettext("Output ‘%s‘ in operator %s must be of type %s, got type %s."));
+public constant Message OPERATOR_NOT_ENCAPSULATED = MESSAGE(342, TRANSLATION(), ERROR(),
+  Util.gettext("Operator %s is not encapsulated."));
 public constant Message INITIALIZATION_NOT_FULLY_SPECIFIED = MESSAGE(496, TRANSLATION(), WARNING(),
   Util.gettext("The initial conditions are not fully specified. %s."));
 public constant Message INITIALIZATION_OVER_SPECIFIED = MESSAGE(497, TRANSLATION(), WARNING(),
@@ -1084,10 +1097,6 @@ public constant Message SUSAN_ERROR = MESSAGE(7000, TRANSLATION(), ERROR(),
   Util.notrans("%s"));
 public constant Message TEMPLATE_ERROR = MESSAGE(7001, TRANSLATION(), ERROR(),
   Util.gettext("Template error: %s."));
-public constant Message OPERATOR_OVERLOADING_WARNING = MESSAGE(7002, TRANSLATION(), WARNING(),
-  Util.gettext("Operator Overloading: %s."));
-public constant Message OPERATOR_OVERLOADING_ERROR = MESSAGE(7003, TRANSLATION(), ERROR(),
-  Util.gettext("Operator Overloading: %s."));
 public constant Message PARMODELICA_WARNING = MESSAGE(7004, TRANSLATION(), WARNING(),
   Util.notrans("ParModelica: %s."));
 public constant Message PARMODELICA_ERROR = MESSAGE(7005, TRANSLATION(), ERROR(),
@@ -1125,6 +1134,10 @@ public constant Message UNABLE_TO_UNZIP_FILE = MESSAGE(7020, SCRIPTING(), ERROR(
   Util.gettext("Unable to unzip the file: %s."));
 public constant Message EXPECTED_ENCRYPTED_PACKAGE = MESSAGE(7021, SCRIPTING(), ERROR(),
   Util.gettext("Expected encrypted package with .mol extension got: %s."));
+public constant Message SAVE_ENCRYPTED_CLASS_ERROR = MESSAGE(7022, SCRIPTING(), ERROR(),
+  Util.gettext("Cannot save the encrypted class. Encrypted classes are read-only."));
+public constant Message ACCESS_ENCRYPTED_PROTECTED_CONTENTS = MESSAGE(7023, SCRIPTING(), ERROR(),
+  Util.gettext("Cannot access encrypted and protected class contents."));
 
 protected
 

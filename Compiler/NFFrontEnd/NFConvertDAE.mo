@@ -453,19 +453,14 @@ algorithm
       list<DAE.Dimension> dims;
       list<DAE.Element> body;
 
-    case Equation.EQUALITY() guard Type.isComplex(eq.ty)
-      algorithm
-        e1 := Expression.toDAE(eq.lhs);
-        e2 := Expression.toDAE(eq.rhs);
-      then
-        DAE.Element.COMPLEX_EQUATION(e1, e2, eq.source) :: elements;
-
     case Equation.EQUALITY()
       algorithm
         e1 := Expression.toDAE(eq.lhs);
         e2 := Expression.toDAE(eq.rhs);
       then
-        DAE.Element.EQUATION(e1, e2, eq.source) :: elements;
+        (if Type.isComplex(eq.ty) then
+           DAE.Element.COMPLEX_EQUATION(e1, e2, eq.source) else
+           DAE.Element.EQUATION(e1, e2, eq.source)) :: elements;
 
     case Equation.CREF_EQUALITY()
       algorithm
@@ -521,18 +516,24 @@ algorithm
 end convertEquation;
 
 function convertIfEquation
-  input list<tuple<Expression, list<Equation>>> ifBranches;
+  input list<Equation.Branch> ifBranches;
   input DAE.ElementSource source;
   input Boolean isInitial;
   output DAE.Element ifEquation;
 protected
-  list<Expression> conds;
-  list<list<Equation>> branches;
+  list<Expression> conds = {};
+  list<list<Equation>> branches = {};
   list<DAE.Exp> dconds;
   list<list<DAE.Element>> dbranches;
   list<DAE.Element> else_branch;
 algorithm
-  (conds, branches) := List.unzipReverse(ifBranches);
+  for branch in ifBranches loop
+    (conds, branches) := match branch
+      case Equation.Branch.BRANCH()
+        then (branch.condition :: conds, branch.body :: branches);
+    end match;
+  end for;
+
   dbranches := if isInitial then
     list(convertInitialEquations(b) for b in branches) else
     list(convertEquations(b) for b in branches);
@@ -552,7 +553,7 @@ algorithm
 end convertIfEquation;
 
 function convertWhenEquation
-  input list<tuple<Expression, list<Equation>>> whenBranches;
+  input list<Equation.Branch> whenBranches;
   input DAE.ElementSource source;
   output DAE.Element whenEquation;
 protected
@@ -561,9 +562,14 @@ protected
   Option<DAE.Element> when_eq = NONE();
 algorithm
   for b in listReverse(whenBranches) loop
-    cond := Expression.toDAE(Util.tuple21(b));
-    els := convertEquations(Util.tuple22(b));
-    when_eq := SOME(DAE.Element.WHEN_EQUATION(cond, els, when_eq, source));
+    when_eq := match b
+      case Equation.Branch.BRANCH()
+        algorithm
+          cond := Expression.toDAE(b.condition);
+          els := convertEquations(b.body);
+        then
+          SOME(DAE.Element.WHEN_EQUATION(cond, els, when_eq, source));
+    end match;
   end for;
 
   SOME(whenEquation) := when_eq;
@@ -594,7 +600,9 @@ algorithm
         e1 := Expression.toDAE(eq.lhs);
         e2 := Expression.toDAE(eq.rhs);
       then
-        DAE.Element.INITIALEQUATION(e1, e2, eq.source) :: elements;
+        (if Type.isComplex(eq.ty) then
+           DAE.Element.INITIAL_COMPLEX_EQUATION(e1, e2, eq.source) else
+           DAE.Element.INITIALEQUATION(e1, e2, eq.source)) :: elements;
 
     case Equation.ARRAY_EQUALITY()
       algorithm
@@ -727,8 +735,7 @@ protected
   DAE.Exp dlhs, drhs;
   list<Expression> expl;
 algorithm
-  Statement.ASSIGNMENT(lhs, rhs, src) := stmt;
-  ty := Expression.typeOf(lhs);
+  Statement.ASSIGNMENT(lhs, rhs, ty, src) := stmt;
 
   if Type.isTuple(ty) then
     Expression.TUPLE(elements = expl) := lhs;
@@ -740,7 +747,6 @@ algorithm
       // (lhs) := call(...) => lhs := TSUB[call(...), 1]
       case {lhs}
         algorithm
-          ty := Expression.typeOf(lhs);
           dty := Type.toDAE(ty);
           dlhs := Expression.toDAE(lhs);
           drhs := DAE.Exp.TSUB(Expression.toDAE(rhs), 1, dty);
@@ -925,7 +931,7 @@ algorithm
           else DAE.FunctionDefinition.FUNCTION_DEF(listReverse(elems));
         end match;
       then
-        Function.toDAE(func, {def});
+        Function.toDAE(func, def);
 
     case Class.INSTANCED_CLASS(restriction = Restriction.RECORD_CONSTRUCTOR())
       then DAE.Function.RECORD_CONSTRUCTOR(Function.name(func),

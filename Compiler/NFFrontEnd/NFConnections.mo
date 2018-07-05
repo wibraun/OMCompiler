@@ -80,6 +80,9 @@ public
     DAE.ElementSource source;
     list<Equation> eql = {};
     list<Connector> cl1, cl2;
+    Expression e1, e2;
+    Type ty1, ty2;
+    Boolean b1, b2;
   algorithm
     // Collect all flow variables.
     for var in flatModel.variables loop
@@ -95,12 +98,12 @@ public
     // Collect all connects.
     for eq in flatModel.equations loop
       eql := match eq
-        case Equation.CONNECT(lhs = Expression.CREF(cref = lhs),
-                              rhs = Expression.CREF(cref = rhs), source = source)
+        case Equation.CONNECT(lhs = Expression.CREF(ty = ty1, cref = lhs),
+                              rhs = Expression.CREF(ty = ty2, cref = rhs), source = source)
           algorithm
             if not (ComponentRef.isDeleted(lhs) or ComponentRef.isDeleted(rhs)) then
-              cl1 := Connector.fromExp(ExpandExp.expand(eq.lhs), source);
-              cl2 := Connector.fromExp(ExpandExp.expand(eq.rhs), source);
+              cl1 := makeConnectors(lhs, ty1, source);
+              cl2 := makeConnectors(rhs, ty2, source);
 
               for c1 in cl1 loop
                 c2 :: cl2 := cl2;
@@ -118,6 +121,29 @@ public
       flatModel.equations := listReverseInPlace(eql);
     end if;
   end collect;
+
+  function makeConnectors
+    input ComponentRef cref;
+    input Type ty;
+    input DAE.ElementSource source;
+    output list<Connector> connectors;
+  protected
+    Expression cref_exp;
+    Boolean expanded;
+  algorithm
+    cref_exp := Expression.CREF(ty, ComponentRef.simplifySubscripts(cref));
+    (cref_exp, expanded) := ExpandExp.expand(cref_exp);
+
+    if expanded then
+      connectors := Connector.fromExp(cref_exp, source);
+    else
+      // Connectors should only have structural parameter subscripts, so it
+      // should always be possible to expand them.
+      Error.assertion(false, getInstanceName() + " failed to expand connector `" +
+        ComponentRef.toString(cref) + "\n", ElementSource.getInfo(source));
+    end if;
+  end makeConnectors;
+
 
   annotation(__OpenModelica_Interface="frontend");
 end NFConnections;

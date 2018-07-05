@@ -72,7 +72,7 @@ case sc as SIMCODE(modelInfo=modelInfo as MODELINFO(__)) then
   let()= textFile(recordsFile(fileNamePrefix, recordDecls), '<%fileNamePrefixTmpDir%>_records.c')
   let()= textFile(simulationHeaderFile(simCode), '<%fileNamePrefixTmpDir%>_model.h')
 
-  let _ = generateSimulationFiles(simCode,guid,fileNamePrefixTmpDir)
+  let _ = generateSimulationFiles(simCode,guid,fileNamePrefixTmpDir,FMUVersion)
 
   let()= textFile(simulationInitFunction(simCode,guid), '<%fileNamePrefixTmpDir%>_init_fmu.c')
   let()= textFile(fmumodel_identifierFile(simCode,guid,FMUVersion), '<%fileNamePrefixTmpDir%>_FMU.c')
@@ -92,7 +92,7 @@ case sc as SIMCODE(modelInfo=modelInfo as MODELINFO(__)) then
   "" // Return empty result since result written to files directly
 end translateModel;
 
-/* public */ template generateSimulationFiles(SimCode simCode, String guid, String modelNamePrefix)
+/* public */ template generateSimulationFiles(SimCode simCode, String guid, String modelNamePrefix, String fmuVersion)
  "Generates code in different C files for the simulation target.
   To make the compilation faster we split the simulation files into several
   used in Compiler/Template/CodegenFMU.tpl"
@@ -172,7 +172,7 @@ end translateModel;
      // main file
      let()=tmpTickResetIndex(0, 0)
      let()=tmpTickResetIndex(0, 1)
-     let()= textFileConvertLines(simulationFile(simCode,guid,true), '<%modelNamePrefix%>.c')
+     let()= textFileConvertLines(simulationFile(simCode,guid,fmuVersion), '<%modelNamePrefix%>.c')
      ""
   end match
 end generateSimulationFiles;
@@ -1140,20 +1140,21 @@ match platform
   >>
   else
   <<
-  <%fileNamePrefix%>_FMU: $(MAINOBJ) <%fileNamePrefix%>_functions.h <%fileNamePrefix%>_literals.h $(OFILES) $(RUNTIMEFILES)
+  <%fileNamePrefix%>_FMU: nozip
+  <%\t%>cd .. && rm -f ../<%fileNamePrefix%>.fmu && zip -r ../<%fmuTargetName%>.fmu *
+  nozip: $(MAINOBJ) <%fileNamePrefix%>_functions.h <%fileNamePrefix%>_literals.h $(OFILES) $(RUNTIMEFILES)
   <%\t%>mkdir -p ../binaries/$(FMIPLATFORM)
   ifeq (@LIBTYPE_DYNAMIC@,1)
   <%\t%>$(LD) -o <%modelNamePrefix%>$(DLLEXT) $(MAINOBJ) $(OFILES) $(RUNTIMEFILES) <%dirExtra%> <%libsPos1%> <%libsPos2%> $(LDFLAGS)
-  <%\t%>cp <%fileNamePrefix%>$(DLLEXT) <%fileNamePrefix%>_FMU.libs config.log ../binaries/$(FMIPLATFORM)/
+  <%\t%>cp <%fileNamePrefix%>$(DLLEXT) <%fileNamePrefix%>_FMU.libs ../binaries/$(FMIPLATFORM)/
   endif
-  <%\t%>head -n20 Makefile > ../binaries/$(FMIPLATFORM)/config.summary
+  <%\t%>head -n20 Makefile > ../resources/$(FMIPLATFORM).summary
   ifeq (@LIBTYPE_STATIC@,1)
   <%\t%>rm -f <%modelNamePrefix%>.a
   <%\t%>$(AR) -rsu <%modelNamePrefix%>.a $(MAINOBJ) $(OFILES) $(RUNTIMEFILES)
-  <%\t%>cp <%fileNamePrefix%>.a <%fileNamePrefix%>_FMU.libs config.log ../binaries/$(FMIPLATFORM)/
+  <%\t%>cp <%fileNamePrefix%>.a <%fileNamePrefix%>_FMU.libs ../binaries/$(FMIPLATFORM)/
   endif
   <%\t%>$(MAKE) distclean
-  <%\t%>cd .. && rm -f ../<%fileNamePrefix%>.fmu && zip -r ../<%fmuTargetName%>.fmu *
   distclean: clean
   <%\t%>rm -f Makefile config.status config.log
   clean:

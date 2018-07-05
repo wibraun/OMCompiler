@@ -97,6 +97,7 @@ import FlatModel = NFFlatModel;
 import ElementSource;
 import SimplifyModel = NFSimplifyModel;
 import Record = NFRecord;
+import OperatorOverloading = NFOperatorOverloading;
 
 public
 function instClassInProgram
@@ -1814,7 +1815,7 @@ algorithm
 
     case Class.EXPANDED_DERIVED(dims = dims)
       algorithm
-        sections := instExpressions(cls.baseClass, cls.baseClass, sections);
+        sections := instExpressions(cls.baseClass, scope, sections);
 
         dim_scope := InstNode.parent(node);
         info := InstNode.info(node);
@@ -1822,6 +1823,10 @@ algorithm
         for i in 1:arrayLength(dims) loop
           dims[i] := instDimension(dims[i], dim_scope, info);
         end for;
+
+        if Restriction.isRecord(cls.restriction) then
+          instRecordConstructor(node);
+        end if;
       then
         ();
 
@@ -1869,7 +1874,8 @@ protected
   InstNode cls_node;
   list<String> fields;
 algorithm
-  cls_node := InstNode.classScope(InstNode.getDerivedNode(node));
+  cls_node := if SCode.isOperatorRecord(InstNode.definition(node))
+    then InstNode.classScope(node) else InstNode.classScope(InstNode.getDerivedNode(node));
   fields := list(InstNode.name(c) for c guard not InstNode.isEmpty(c) in
     ClassTree.getComponents(Class.classTree(cls)));
   ty := ComplexType.RECORD(cls_node, fields);
@@ -1885,25 +1891,39 @@ algorithm
 
     case Type.COMPLEX(complexTy = ComplexType.RECORD(node))
       algorithm
-        cache := InstNode.getFuncCache(node);
-
-        () := match cache
-          case CachedData.FUNCTION() then ();
-          else
-            algorithm
-              InstNode.cacheInitFunc(node);
-              Record.instConstructors(
-                InstNode.scopePath(node, includeRoot = true), node, InstNode.info(node));
-            then
-              ();
-
-        end match;
+        instRecordConstructor(node);
       then
         ();
 
     else ();
   end match;
 end instComplexType;
+
+function instRecordConstructor
+  input InstNode node;
+protected
+  CachedData cache;
+algorithm
+  cache := InstNode.getFuncCache(node);
+
+  () := match cache
+    case CachedData.FUNCTION() then ();
+    else
+      algorithm
+        InstNode.cacheInitFunc(node);
+
+        if SCode.isOperatorRecord(InstNode.definition(node)) then
+          OperatorOverloading.instConstructor(
+            InstNode.scopePath(node, includeRoot = true), node, InstNode.info(node));
+        else
+          Record.instDefaultConstructor(
+            InstNode.scopePath(node, includeRoot = true), node, InstNode.info(node));
+        end if;
+      then
+        ();
+
+  end match;
+end instRecordConstructor;
 
 function instBuiltinAttribute
   input output Modifier attribute;
@@ -2457,7 +2477,7 @@ algorithm
       Option<Expression> oexp;
       list<Expression> expl;
       list<Equation> eql;
-      list<tuple<Expression, list<Equation>>> branches;
+      list<Equation.Branch> branches;
       SourceInfo info;
       InstNode for_scope, iter;
       ComponentRef lhs_cr, rhs_cr;
@@ -2509,14 +2529,14 @@ algorithm
         for branch in scodeEq.thenBranch loop
           eql := instEEquations(branch, scope, next_origin);
           exp1 :: expl := expl;
-          branches := (exp1, eql) :: branches;
+          branches := Equation.makeBranch(exp1, eql) :: branches;
         end for;
 
         // Instantiate the else-branch, if there is one, and make it a branch
         // with condition true (so we only need a simple list of branches).
         if not listEmpty(scodeEq.elseBranch) then
           eql := instEEquations(scodeEq.elseBranch, scope, next_origin);
-          branches := (Expression.BOOLEAN(true), eql) :: branches;
+          branches := Equation.makeBranch(Expression.BOOLEAN(true), eql) :: branches;
         end if;
       then
         Equation.IF(listReverse(branches), makeSource(scodeEq.comment, info));
@@ -2532,12 +2552,12 @@ algorithm
         next_origin := intBitOr(origin, ExpOrigin.WHEN);
         exp1 := instExp(scodeEq.condition, scope, info);
         eql := instEEquations(scodeEq.eEquationLst, scope, next_origin);
-        branches := {(exp1, eql)};
+        branches := {Equation.makeBranch(exp1, eql)};
 
         for branch in scodeEq.elseBranches loop
           exp1 := instExp(Util.tuple21(branch), scope, info);
           eql := instEEquations(Util.tuple22(branch), scope, next_origin);
-          branches := (exp1, eql) :: branches;
+          branches := Equation.makeBranch(exp1, eql) :: branches;
         end for;
       then
         Equation.WHEN(branches, makeSource(scodeEq.comment, info));
@@ -2640,7 +2660,7 @@ algorithm
         exp1 := instExp(scodeStmt.assignComponent, scope, info);
         exp2 := instExp(scodeStmt.value, scope, info);
       then
-        Statement.ASSIGNMENT(exp1, exp2, makeSource(scodeStmt.comment, info));
+        Statement.ASSIGNMENT(exp1, exp2, Type.UNKNOWN(), makeSource(scodeStmt.comment, info));
 
     case SCode.Statement.ALG_FOR(info = info)
       algorithm
@@ -2886,6 +2906,10 @@ algorithm
           markStructuralParamsDim(dim);
         end for;
 
+        if Binding.isBound(c.binding) then
+          markStructuralParamsExpSize(Binding.getUntypedExp(c.binding));
+        end if;
+
         updateImplicitVariability(c.classInst);
       then
         ();
@@ -2951,6 +2975,31 @@ algorithm
   end match;
 end markStructuralParamsExp_traverser;
 
+function markStructuralParamsExpSize
+  input Expression exp;
+algorithm
+  Expression.apply(exp, markStructuralParamsExpSize_traverser);
+end markStructuralParamsExpSize;
+
+function markStructuralParamsExpSize_traverser
+  input Expression exp;
+algorithm
+  () := match exp
+    local
+      list<tuple<InstNode, Expression>> iters;
+
+    case Expression.CALL(call = Call.UNTYPED_MAP_CALL(iters = iters))
+      algorithm
+        for iter in iters loop
+          markStructuralParamsExp(Util.tuple22(iter));
+        end for;
+      then
+        ();
+
+    else ();
+  end match;
+end markStructuralParamsExpSize_traverser;
+
 function updateImplicitVariabilityEql
   input list<Equation> eql;
   input Boolean inWhen = false;
@@ -2996,15 +3045,19 @@ algorithm
         all_params := true;
 
         for branch in eq.branches loop
-          (exp, eql) := branch;
+          () := match branch
+            case Equation.Branch.BRANCH()
+              algorithm
+                if all_params and Expression.variability(branch.condition) == Variability.PARAMETER then
+                  markStructuralParamsExp(branch.condition);
+                else
+                  all_params := false;
+                end if;
 
-          if all_params and Expression.variability(exp) == Variability.PARAMETER then
-            markStructuralParamsExp(exp);
-          else
-            all_params := false;
-          end if;
-
-          updateImplicitVariabilityEql(eql);
+                updateImplicitVariabilityEql(branch.body);
+              then
+                ();
+          end match;
         end for;
       then
         ();
@@ -3012,8 +3065,13 @@ algorithm
     case Equation.WHEN()
       algorithm
         for branch in eq.branches loop
-          (_, eql) := branch;
-          updateImplicitVariabilityEql(eql, inWhen = true);
+          () := match branch
+            case Equation.Branch.BRANCH()
+              algorithm
+                updateImplicitVariabilityEql(branch.body, inWhen = true);
+              then
+                ();
+          end match;
         end for;
       then
         ();

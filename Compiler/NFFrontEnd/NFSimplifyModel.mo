@@ -50,6 +50,8 @@ protected
 import MetaModelica.Dangerous.*;
 import ExecStat.execStat;
 import SimplifyExp = NFSimplifyExp;
+import NFPrefixes.Variability;
+import Ceval = NFCeval;
 
 public
 function simplify
@@ -59,6 +61,8 @@ algorithm
   flatModel.variables := list(simplifyVariable(v) for v in flatModel.variables);
   flatModel.equations := simplifyEquations(flatModel.equations);
   flatModel.initialEquations := simplifyEquations(flatModel.initialEquations);
+  flatModel.algorithms := list(simplifyAlgorithm(a) for a in flatModel.algorithms);
+  flatModel.initialAlgorithms := list(simplifyAlgorithm(a) for a in flatModel.initialAlgorithms);
 
   functions := FunctionTree.map(functions, simplifyFunction);
 
@@ -129,17 +133,28 @@ algorithm
 
     case Equation.ARRAY_EQUALITY()
       algorithm
-        eq.rhs := removeEmptyFunctionArguments(SimplifyExp.simplify(eq.rhs));
+        if not Type.isEmptyArray(eq.ty) then
+          eq.rhs := removeEmptyFunctionArguments(SimplifyExp.simplify(eq.rhs));
+          equations := eq :: equations;
+        end if;
       then
-        eq :: equations;
+        equations;
 
     case Equation.IF()
-      then simplifyIfBranches(eq.branches, eq.source, Equation.makeIf, simplifyEquations, equations);
+      then simplifyIfEqBranches(eq.branches, eq.source, equations);
 
     case Equation.WHEN()
       algorithm
-        eq.branches := list((SimplifyExp.simplify(Util.tuple21(b)),
-                             simplifyEquations(Util.tuple22(b))) for b in eq.branches);
+        eq.branches := list(
+          match b
+            case Equation.Branch.BRANCH()
+              algorithm
+                b.condition := SimplifyExp.simplify(b.condition);
+                b.body := simplifyEquations(b.body);
+              then
+                b;
+          end match
+        for b in eq.branches);
       then
         eq :: equations;
 
@@ -147,7 +162,7 @@ algorithm
       algorithm
         eq.condition := SimplifyExp.simplify(eq.condition);
       then
-        if Expression.isFalse(eq.condition) then equations else eq :: equations;
+        if Expression.isTrue(eq.condition) then equations else eq :: equations;
 
     case Equation.REINIT()
       algorithm
@@ -169,6 +184,12 @@ algorithm
     else eq :: equations;
   end match;
 end simplifyEquation;
+
+function simplifyAlgorithm
+  input output Algorithm alg;
+algorithm
+  alg.statements := simplifyStatements(alg.statements);
+end simplifyAlgorithm;
 
 function simplifyStatements
   input list<Statement> stmts;
@@ -196,10 +217,24 @@ algorithm
       then
         stmt :: statements;
 
-    case Statement.FOR()
+    case Statement.FOR(range = SOME(e))
       algorithm
-        stmt.range := SimplifyExp.simplifyOpt(stmt.range);
-        stmt.body := simplifyStatements(stmt.body);
+        if not Type.isEmptyArray(Expression.typeOf(e)) then
+          stmt.range := SimplifyExp.simplifyOpt(stmt.range);
+          stmt.body := simplifyStatements(stmt.body);
+          statements := stmt :: statements;
+        end if;
+      then
+        statements;
+
+    case Statement.IF()
+      then simplifyIfStmtBranches(stmt.branches, stmt.source, Statement.makeIf, simplifyStatements, statements);
+
+    case Statement.WHEN()
+      algorithm
+        stmt.branches := list(
+          (SimplifyExp.simplify(Util.tuple21(b)), simplifyStatements(Util.tuple22(b)))
+          for b in stmt.branches);
       then
         stmt :: statements;
 
@@ -213,9 +248,6 @@ algorithm
         end if;
       then
         statements;
-
-    case Statement.IF()
-      then simplifyIfBranches(stmt.branches, stmt.source, Statement.makeIf, simplifyStatements, statements);
 
     else stmt :: statements;
   end match;
@@ -265,7 +297,55 @@ algorithm
   outExp := Expression.mapShallow(exp, function removeEmptyFunctionArguments(isArg = is_arg));
 end removeEmptyFunctionArguments;
 
-function simplifyIfBranches<ElemT>
+function simplifyIfEqBranches
+  input list<Equation.Branch> branches;
+  input DAE.ElementSource src;
+  input output list<Equation> elements;
+protected
+  Expression cond;
+  list<Equation> body;
+  Variability var;
+  list<Equation.Branch> accum = {};
+algorithm
+  for branch in branches loop
+    accum := match branch
+      case Equation.Branch.BRANCH(cond, var, body)
+        algorithm
+          if var <= Variability.STRUCTURAL_PARAMETER then
+            cond := Ceval.evalExp(cond);
+          else
+            cond := SimplifyExp.simplify(cond);
+          end if;
+
+          // A branch with condition true will always be selected when encountered.
+          if Expression.isTrue(cond) then
+            if listEmpty(accum) then
+              // If it's the first branch, remove the if and keep only the branch body.
+              elements := listAppend(simplifyEquations(body), elements);
+              return;
+            else
+              // Otherwise just discard the rest of the branches.
+              accum := Equation.makeBranch(cond, simplifyEquations(body)) :: accum;
+              elements := Equation.makeIf(listReverseInPlace(accum), src) :: elements;
+              return;
+            end if;
+          elseif not Expression.isFalse(cond) then
+            // Keep branches that are neither literal true or false.
+            accum := Equation.makeBranch(cond, simplifyEquations(body)) :: accum;
+          end if;
+        then
+          accum;
+
+      else branch :: accum;
+    end match;
+  end for;
+
+  if not listEmpty(accum) then
+    elements := Equation.makeIf(listReverseInPlace(accum), src) :: elements;
+  end if;
+end simplifyIfEqBranches;
+
+function simplifyIfStmtBranches<ElemT>
   input list<tuple<Expression, list<ElemT>>> branches;
   input DAE.ElementSource src;
   input MakeFunc makeFunc;
@@ -310,7 +390,7 @@ algorithm
   if not listEmpty(accum) then
     elements := makeFunc(listReverseInPlace(accum), src) :: elements;
   end if;
-end simplifyIfBranches;
+end simplifyIfStmtBranches;
 
 function simplifyFunction
   input Absyn.Path name;

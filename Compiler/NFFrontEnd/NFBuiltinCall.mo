@@ -58,6 +58,9 @@ protected
   import TypeCheck = NFTypeCheck;
   import Typing = NFTyping;
   import Util;
+  import ExpandExp = NFExpandExp;
+  import Operator = NFOperator;
+  import NFComponent.Component;
 
 public
   function needSpecialHandling
@@ -118,12 +121,12 @@ public
       case "ones" then typeZerosOnesCall("ones", call, origin, info);
       case "potentialRoot" then typePotentialRootCall(call, origin, info);
       case "pre" then typePreCall(call, origin, info);
-      case "product" then typeSumProductCall(call, origin, info);
+      case "product" then typeProductCall(call, origin, info);
       case "root" then typeRootCall(call, origin, info);
       case "rooted" then typeRootedCall(call, origin, info);
       case "scalar" then typeScalarCall(call, origin, info);
       case "smooth" then typeSmoothCall(call, origin, info);
-      case "sum" then typeSumProductCall(call, origin, info);
+      case "sum" then typeSumCall(call, origin, info);
       case "symmetric" then typeSymmetricCall(call, origin, info);
       case "terminal" then typeDiscreteCall(call, origin, info);
       case "transpose" then typeTransposeCall(call, origin, info);
@@ -383,9 +386,9 @@ protected
 
     fn_ref := Function.instFunctionRef(fn_ref, InstNode.info(recopnode));
     candidates := Function.typeRefCache(fn_ref);
-    for fn in candidates loop
-      TypeCheck.checkValidOperatorOverload("'String'", fn, recopnode);
-    end for;
+    //for fn in candidates loop
+    //  TypeCheck.checkValidOperatorOverload("'String'", fn, recopnode);
+    //end for;
 
     matchedFunctions := Function.matchFunctionsSilent(candidates, args, namedArgs, info);
     exactMatches := MatchedFunction.getExactMatches(matchedFunctions);
@@ -680,23 +683,67 @@ protected
     // fix return type.
   end typeMinMaxCall;
 
-  function typeSumProductCall
+  function typeSumCall
     input Call call;
     input ExpOrigin.Type origin;
     input SourceInfo info;
     output Expression callExp;
     output Type ty;
-    output Variability var;
+    output Variability variability;
   protected
-    Call argtycall;
+    ComponentRef fn_ref;
+    list<Expression> args;
+    list<NamedArg> named_args;
+    Expression arg;
+    Function fn;
+    Boolean expanded;
+    Operator op;
   algorithm
-    // TODO: Rewrite this whole thing.
-    argtycall := Call.typeMatchNormalCall(call, origin, info);
-    argtycall := Call.unboxArgs(argtycall);
-    ty := Call.typeOf(argtycall);
-    var := Call.variability(argtycall);
-    callExp := Expression.CALL(argtycall);
-  end typeSumProductCall;
+    Call.UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) := call;
+    assertNoNamedParams("sum", named_args, info);
+
+    if listLength(args) <> 1 then
+      Error.addSourceMessageAndFail(Error.NO_MATCHING_FUNCTION_FOUND_NFINST,
+        {Call.toString(call), "sum(Any[:, ...]) => Any"}, info);
+    end if;
+
+    (arg, ty, variability) := Typing.typeExp(listHead(args), origin, info);
+    ty := Type.arrayElementType(ty);
+
+    {fn} := Function.typeRefCache(fn_ref);
+    callExp := Expression.CALL(Call.makeTypedCall(fn, {arg}, variability, ty));
+  end typeSumCall;
+
+  function typeProductCall
+    input Call call;
+    input ExpOrigin.Type origin;
+    input SourceInfo info;
+    output Expression callExp;
+    output Type ty;
+    output Variability variability;
+  protected
+    ComponentRef fn_ref;
+    list<Expression> args;
+    list<NamedArg> named_args;
+    Expression arg;
+    Function fn;
+    Boolean expanded;
+    Operator op;
+  algorithm
+    Call.UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) := call;
+    assertNoNamedParams("product", named_args, info);
+
+    if listLength(args) <> 1 then
+      Error.addSourceMessageAndFail(Error.NO_MATCHING_FUNCTION_FOUND_NFINST,
+        {Call.toString(call), "product(Any[:, ...]) => Any"}, info);
+    end if;
+
+    (arg, ty, variability) := Typing.typeExp(listHead(args), origin, info);
+    ty := Type.arrayElementType(ty);
+
+    {fn} := Function.typeRefCache(fn_ref);
+    callExp := Expression.CALL(Call.makeTypedCall(fn, {arg}, variability, ty));
+  end typeProductCall;
 
   function typeSmoothCall
     input Call call;
@@ -802,17 +849,21 @@ protected
     Type arg_ty;
     Function fn;
     list<Dimension> dims;
+    Boolean evaluated;
   algorithm
     ty_args := {fillArg};
     dims := {};
+    evaluated := true;
 
     // Type the dimension arguments.
     for arg in dimensionArgs loop
       (arg, arg_ty, arg_var) := Typing.typeExp(arg, origin, info);
 
-      if arg_var <= Variability.STRUCTURAL_PARAMETER then
+      if arg_var <= Variability.STRUCTURAL_PARAMETER and not Expression.containsIterator(arg, origin) then
         arg := Ceval.evalExp(arg);
         arg_ty := Expression.typeOf(arg);
+      else
+        evaluated := false;
       end if;
 
       // Each dimension argument must be an Integer expression.
@@ -833,7 +884,7 @@ protected
     {fn} := Function.typeRefCache(fnRef);
     ty := Type.liftArrayLeftList(fillType, dims);
 
-    if variability <= Variability.STRUCTURAL_PARAMETER and intBitAnd(origin, ExpOrigin.FUNCTION) == 0 then
+    if evaluated and intBitAnd(origin, ExpOrigin.FUNCTION) == 0 then
       callExp := Ceval.evalBuiltinFill(ty_args);
     else
       callExp := Expression.CALL(Call.makeTypedCall(NFBuiltinFuncs.FILL_FUNC, ty_args, variability, ty));
@@ -879,8 +930,8 @@ protected
     list<Expression> args;
     list<NamedArg> named_args;
     Expression arg;
-    Variability var;
     Function fn;
+    Boolean expanded;
   algorithm
     Call.UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) := call;
     assertNoNamedParams("scalar", named_args, info);
@@ -900,9 +951,22 @@ protected
       end if;
     end for;
 
+    (arg, expanded) := ExpandExp.expand(arg);
     ty := Type.arrayElementType(ty);
-    {fn} := Function.typeRefCache(fn_ref);
-    callExp := Expression.CALL(Call.makeTypedCall(fn, {arg}, variability, ty));
+
+    if expanded then
+      args := Expression.arrayScalarElements(arg);
+
+      if listLength(args) <> 1 then
+        Error.assertion(false, getInstanceName() + " failed to expand scalar(" +
+          Expression.toString(arg) + ") correctly", info);
+      end if;
+
+      callExp := listHead(args);
+    else
+      {fn} := Function.typeRefCache(fn_ref);
+      callExp := Expression.CALL(Call.makeTypedCall(fn, {arg}, variability, ty));
+    end if;
   end typeScalarCall;
 
   function typeVectorCall
@@ -1154,6 +1218,7 @@ protected
     list<NamedArg> named_args;
     Expression arg;
     Function fn;
+    InstNode node;
   algorithm
     Call.UNTYPED_CALL(ref = fn_ref, arguments = args, named_args = named_args) := call;
     assertNoNamedParams("cardinality", named_args, info);
@@ -1175,7 +1240,9 @@ protected
         {"First", ComponentRef.toString(fn_ref), "<REMOVE ME>"}, info);
     end if;
 
-    if not Type.isConnector(ty) then
+    node := ComponentRef.node(Expression.toCref(arg));
+
+    if not (Type.isScalar(ty) and InstNode.isComponent(node) and Component.isConnector(InstNode.component(node))) then
       Error.addSourceMessageAndFail(Error.ARG_TYPE_MISMATCH,
         {"1", ComponentRef.toString(fn_ref), "",
          Expression.toString(arg), Type.toString(ty), "connector"}, info);

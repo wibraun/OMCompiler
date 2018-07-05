@@ -61,6 +61,7 @@ public
   import NFClassTree.ClassTree;
   import NFClass.Class;
   import NFComponentRef.Origin;
+  import NFTyping.ExpOrigin;
 
   record INTEGER
     Integer value;
@@ -198,6 +199,7 @@ public
   end MUTABLE;
 
   record EMPTY
+    Type ty;
   end EMPTY;
 
   function isCref
@@ -567,6 +569,7 @@ public
       case TUPLE_ELEMENT()   then exp.ty;
       case BOX()             then Type.METABOXED(typeOf(exp.exp));
       case MUTABLE()         then typeOf(Mutable.access(exp.exp));
+      case EMPTY()           then exp.ty;
       else Type.UNKNOWN();
     end match;
   end typeOf;
@@ -2816,6 +2819,18 @@ public
     end match;
   end isIterator;
 
+  function containsIterator
+    input Expression exp;
+    input ExpOrigin.Type origin;
+    output Boolean iter;
+  algorithm
+    if intBitAnd(origin, ExpOrigin.FOR) > 0 then
+      iter := contains(exp, isIterator);
+    else
+      iter := false;
+    end if;
+  end containsIterator;
+
   function isZero
     input Expression exp;
     output Boolean isZero;
@@ -2828,6 +2843,20 @@ public
       else false;
     end match;
   end isZero;
+
+  function isPositive
+    input Expression exp;
+    output Boolean positive;
+  algorithm
+    positive := match exp
+      case INTEGER() then exp.value > 0;
+      case REAL() then exp.value > 0;
+      case BOOLEAN() then true;
+      case ENUM_LITERAL() then true;
+      case CAST() then isPositive(exp.exp);
+      case UNARY() then not isPositive(exp.exp);
+    end match;
+  end isPositive;
 
   function isScalarLiteral
     input Expression exp;
@@ -2855,6 +2884,9 @@ public
       case ENUM_LITERAL() then true;
       case ARRAY() then List.all(exp.elements, isLiteral);
       case RECORD() then List.all(exp.elements, isLiteral);
+      case RANGE() then isLiteral(exp.start) and
+                        isLiteral(exp.stop) and
+                        Util.applyOptionOrDefault(exp.step, isLiteral, true);
       else false;
     end match;
   end isLiteral;
@@ -2878,6 +2910,17 @@ public
       else false;
     end match;
   end isRecord;
+
+  function isRecordOrRecordArray
+    input Expression exp;
+    output Boolean isRecord;
+  algorithm
+    isRecord := match exp
+      case RECORD() then true;
+      case ARRAY() then List.all(exp.elements, isRecordOrRecordArray);
+      else false;
+    end match;
+  end isRecordOrRecordArray;
 
   function fillType
     input Type ty;
@@ -3289,6 +3332,29 @@ public
       else exp;
     end match;
   end toScalar;
+
+  function tupleElement
+    input Expression exp;
+    input Type ty;
+    input Integer index;
+    output Expression tupleElem;
+  algorithm
+    tupleElem := match exp
+      local
+        Type ety;
+
+      case Expression.TUPLE() then listGet(exp.elements, index);
+
+      case Expression.ARRAY()
+        algorithm
+          ety := Type.unliftArray(ty);
+          exp.elements := list(tupleElement(e, ety, index) for e in exp.elements);
+        then
+          exp;
+
+      else Expression.TUPLE_ELEMENT(exp, index, ty);
+    end match;
+  end tupleElement;
 
 annotation(__OpenModelica_Interface="frontend");
 end NFExpression;

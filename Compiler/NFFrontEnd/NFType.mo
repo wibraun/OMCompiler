@@ -436,6 +436,7 @@ public
   algorithm
     outTy := match ty
       case TUPLE() then listHead(ty.types);
+      case ARRAY() then Type.ARRAY(firstTupleType(ty.elementType), ty.dimensions);
       else ty;
     end match;
   end firstTupleType;
@@ -724,7 +725,7 @@ public
         then List.isEqualOnTrue(ty1.types, ty2.types, isEqual);
 
       case (TUPLE(), TUPLE()) then false;
-
+      case (COMPLEX(), COMPLEX()) then InstNode.isSame(ty1.cls, ty2.cls);
       else true;
     end match;
   end isEqual;
@@ -743,6 +744,17 @@ public
       else false;
     end match;
   end isDiscrete;
+
+  function lookupRecordFieldType
+    input String name;
+    input Type recordType;
+    output Type fieldType;
+  algorithm
+    fieldType := match recordType
+      case Type.COMPLEX()
+        then InstNode.getType(Class.lookupElement(name, InstNode.getClass(recordType.cls)));
+    end match;
+  end lookupRecordFieldType;
 
   annotation(__OpenModelica_Interface="frontend");
 end NFType;

@@ -702,7 +702,7 @@ algorithm
       Option<list<tuple<Integer, Integer, BackendDAE.Equation>>> jac;
       Values.Value ret_val,simValue,value,v,cvar,cvar2,v1,v2,v3;
       Absyn.ComponentRef cr,cr_1;
-      Integer size,resI,i,i1,i2,i3,n,curveStyle,numberOfIntervals, status;
+      Integer size,resI,i,i1,i2,i3,n,curveStyle,numberOfIntervals, status, access;
       Option<Integer> fmiContext, fmiInstance, fmiModelVariablesInstance; /* void* implementation: DO NOT UNBOX THE POINTER AS THAT MIGHT CHANGE IT. Just treat this as an opaque type. */
       Integer fmiLogLevel, direction;
       list<Integer> is;
@@ -755,7 +755,6 @@ algorithm
       list<tuple<Diff, list<SimpleModelicaParser.ParseTree>>> treeDiffs;
       SourceInfo info;
       SymbolTable forkedSymbolTable;
-
 
     case (cache,_,"runScriptParallel",{Values.ARRAY(valueLst=vals),Values.INTEGER(i),Values.BOOL(true)},_)
       equation
@@ -1700,6 +1699,16 @@ algorithm
         simValue = createSimulationResultFailure(res, simOptionsAsString(vals));
      then (cache,simValue);
 
+    // handle encryption
+    case (cache,_,"instantiateModel",_,_)
+      equation
+        // if AST contains encrypted class show nothing
+        p = SymbolTable.getAbsyn();
+        true = Interactive.astContainsEncryptedClass(p);
+        Error.addMessage(Error.ACCESS_ENCRYPTED_PROTECTED_CONTENTS, {});
+      then
+        (cache,Values.STRING(""));
+
     case (cache,env,"instantiateModel",{Values.CODE(Absyn.C_TYPENAME(className))},_)
       equation
         ExecStat.execStatReset();
@@ -1858,24 +1867,37 @@ algorithm
     case (cache,_,"saveModel",{Values.STRING(filename),Values.CODE(Absyn.C_TYPENAME(classpath))},_)
       algorithm
         b := false;
-        absynClass := Interactive.getPathedClassInProgram(classpath, SymbolTable.getAbsyn());
-        str := Dump.unparseStr(Absyn.PROGRAM({absynClass},Absyn.TOP()),true);
-        try
-          System.writeFile(filename, str);
-          b := true;
+        Values.ENUM_LITERAL(index=access) := Interactive.checkAccessAnnotationAndEncryption(classpath, SymbolTable.getAbsyn());
+        if (access >= 9) then // i.e., The class is not encrypted.
+          absynClass := Interactive.getPathedClassInProgram(classpath, SymbolTable.getAbsyn());
+          str := Dump.unparseStr(Absyn.PROGRAM({absynClass},Absyn.TOP()),true);
+          try
+            System.writeFile(filename, str);
+            b := true;
+          else
+            Error.addMessage(Error.WRITING_FILE_ERROR, {filename});
+          end try;
         else
-          Error.addMessage(Error.WRITING_FILE_ERROR, {filename});
-        end try;
+          Error.addMessage(Error.SAVE_ENCRYPTED_CLASS_ERROR, {});
+          b := false;
+        end if;
       then
-        (cache,Values.BOOL(true));
+        (cache,Values.BOOL(b));
 
     case (cache,_,"save",{Values.CODE(Absyn.C_TYPENAME(className))},_)
       equation
-        (newp,filename) = Interactive.getContainedClassAndFile(className, SymbolTable.getAbsyn());
-        str = Dump.unparseStr(newp);
-        System.writeFile(filename, str);
+        Values.ENUM_LITERAL(index=access) = Interactive.checkAccessAnnotationAndEncryption(className, SymbolTable.getAbsyn());
+        if (access >= 9) then // i.e., The class is not encrypted.
+          (newp,filename) = Interactive.getContainedClassAndFile(className, SymbolTable.getAbsyn());
+          str = Dump.unparseStr(newp);
+          System.writeFile(filename, str);
+          b = true;
+        else
+          Error.addMessage(Error.SAVE_ENCRYPTED_CLASS_ERROR, {});
+          b = false;
+        end if;
       then
-        (cache,Values.BOOL(true));
+        (cache,Values.BOOL(b));
 
     case (cache,_,"save",{Values.CODE(Absyn.C_TYPENAME(_))},_)
     then (cache,Values.BOOL(false));
@@ -1897,9 +1919,16 @@ algorithm
     case (cache,_,"saveTotalModel",{Values.STRING(filename),Values.CODE(Absyn.C_TYPENAME(classpath)),
                                     Values.BOOL(b1), Values.BOOL(b2)},_)
       equation
-        saveTotalModel(filename, classpath, b1, b2);
+        Values.ENUM_LITERAL(index=access) = Interactive.checkAccessAnnotationAndEncryption(classpath, SymbolTable.getAbsyn());
+        if (access >= 9) then // i.e., Access.documentation
+          saveTotalModel(filename, classpath, b1, b2);
+          b = true;
+        else
+          Error.addMessage(Error.SAVE_ENCRYPTED_CLASS_ERROR, {});
+          b = false;
+        end if;
       then
-        (cache, Values.BOOL(true));
+        (cache, Values.BOOL(b));
 
     case (cache,_,"saveTotalModel",{Values.STRING(_),Values.CODE(Absyn.C_TYPENAME(_)),
                                     Values.BOOL(_), Values.BOOL(_)},_)
@@ -1907,7 +1936,13 @@ algorithm
 
     case (cache,_,"getDocumentationAnnotation",{Values.CODE(Absyn.C_TYPENAME(classpath))},_)
       equation
-        ((str1,str2,str3)) = Interactive.getNamedAnnotation(classpath, SymbolTable.getAbsyn(), Absyn.IDENT("Documentation"), SOME(("","","")),Interactive.getDocumentationAnnotationString);
+        Values.ENUM_LITERAL(index=access) = Interactive.checkAccessAnnotationAndEncryption(classpath, SymbolTable.getAbsyn());
+        if (access >= 3) then // i.e., Access.documentation
+          ((str1,str2,str3)) = Interactive.getNamedAnnotation(classpath, SymbolTable.getAbsyn(), Absyn.IDENT("Documentation"), SOME(("","","")),Interactive.getDocumentationAnnotationString);
+        else
+          Error.addMessage(Error.ACCESS_ENCRYPTED_PROTECTED_CONTENTS, {});
+          ((str1,str2,str3)) = ("", "", "");
+        end if;
       then
         (cache,ValuesUtil.makeArray({Values.STRING(str1),Values.STRING(str2),Values.STRING(str3)}));
 
@@ -2578,7 +2613,13 @@ algorithm
     case (cache,_,"getConnectionCount",{Values.CODE(Absyn.C_TYPENAME(path))},_)
       equation
         absynClass = Interactive.getPathedClassInProgram(path, SymbolTable.getAbsyn());
-        n = listLength(Interactive.getConnections(absynClass));
+        Values.ENUM_LITERAL(index=access) = Interactive.checkAccessAnnotationAndEncryption(path, SymbolTable.getAbsyn());
+        if (access >= 4) then // i.e., Access.diagram
+          n = listLength(Interactive.getConnections(absynClass));
+        else
+          Error.addMessage(Error.ACCESS_ENCRYPTED_PROTECTED_CONTENTS, {});
+          n = 0;
+        end if;
       then
         (cache,Values.INTEGER(n));
 
@@ -2586,7 +2627,13 @@ algorithm
 
     case (cache,_,"getNthConnection",{Values.CODE(Absyn.C_TYPENAME(path)),Values.INTEGER(n)},_)
       equation
-        vals = Interactive.getNthConnection(Absyn.pathToCref(path), SymbolTable.getAbsyn(), n);
+        Values.ENUM_LITERAL(index=access) = Interactive.checkAccessAnnotationAndEncryption(path, SymbolTable.getAbsyn());
+        if (access >= 4) then // i.e., Access.diagram
+          vals = Interactive.getNthConnection(Absyn.pathToCref(path), SymbolTable.getAbsyn(), n);
+        else
+          Error.addMessage(Error.ACCESS_ENCRYPTED_PROTECTED_CONTENTS, {});
+          vals = {};
+        end if;
       then
         (cache,ValuesUtil.makeArray(vals));
 
@@ -3300,21 +3347,25 @@ protected function configureFMU
   input String logfile;
   input Boolean isWindows;
 protected
-  String CC, CFLAGS, LDFLAGS, makefileStr,
+  String CC, CFLAGS, LDFLAGS, makefileStr, container, host, nozip,
     dir=fmutmp+"/sources/", cmd="",
     quote="'",
     dquote = if isWindows then "\"" else "'";
+  list<String> rest;
+  Boolean finishedBuild;
+  Integer uid;
 algorithm
   CC := System.getCCompiler();
   CFLAGS := "-Os "+System.stringReplace(System.getCFlags(),"${MODELICAUSERCFLAGS}","");
   LDFLAGS := ("-L"+dquote+Settings.getInstallationDirectoryPath()+"/lib/"+System.getTriple()+"/omc"+dquote+" "+
                          "-Wl,-rpath,"+dquote+Settings.getInstallationDirectoryPath()+"/lib/"+System.getTriple()+"/omc"+dquote+" "+
                          System.getLDFlags()+" ");
-  if System.regularFileExists(dir + logfile) then
-    System.removeFile(dir + logfile);
+  if System.regularFileExists(logfile) then
+    System.removeFile(logfile);
   end if;
-  _ := match platform
-    case "dynamic"
+  nozip := System.getMakeCommand()+" -j"+intString(Config.noProc()) + " nozip";
+  finishedBuild := match Util.stringSplitAtChar(platform, " ")
+    case {"dynamic"}
       algorithm
         makefileStr := System.readFile(dir + "Makefile.in");
         // replace @XX@ variables in the Makefile
@@ -3332,8 +3383,8 @@ algorithm
         System.writeFile(dir + "Makefile", makefileStr);
         System.writeFile(dir + "config.log", "Using cached values for dynamic platform");
         cmd := "cached values";
-      then ();
-    case "static"
+      then false;
+    case {"static"}
       algorithm
         makefileStr := System.readFile(dir + "Makefile.in");
         // replace @XX@ variables in the Makefile
@@ -3351,24 +3402,49 @@ algorithm
         System.writeFile(dir + "Makefile", makefileStr);
         System.writeFile(dir + "config.log", "Using cached values for static platform");
         cmd := "cached values";
-      then ();
-    else
+      then false;
+    case {_}
       algorithm
-        cmd := "cd \"" +  fmutmp + "/sources\" && ./configure --host="+quote+platform+quote+" CFLAGS="+quote+"-Os -flto"+quote+" LDFLAGS=-flto";
+        cmd := "cd \"" +  fmutmp + "/sources\" && ./configure --host="+quote+platform+quote+" CFLAGS="+quote+"-Os"+quote+" LDFLAGS= && " +
+               nozip;
         if 0 <> System.systemCall(cmd, outFile=logfile) then
           Error.addMessage(Error.SIMULATOR_BUILD_ERROR, {System.readFile(logfile)});
           System.removeFile(dir + logfile);
           fail();
         end if;
-      then ();
+      then true;
+    case host::"docker"::"run"::rest
+      algorithm
+        uid := System.getuid();
+        cmd := "docker run "+(if uid<>0 then "--user " + String(uid) else "")+" --rm -w /fmu -v "+quote+System.realpath(fmutmp+"/..")+quote+":/fmu " +stringDelimitList(rest," ")+ " sh -c " + dquote +
+               "cd " + dquote + System.basename(fmutmp) + "/sources" + dquote + " && " +
+               "./configure --host="+quote+host+quote+" CFLAGS="+quote+"-Os"+quote+" LDFLAGS= && " +
+               nozip + dquote;
+        if 0 <> System.systemCall(cmd, outFile=logfile) then
+          Error.addMessage(Error.SIMULATOR_BUILD_ERROR, {System.readFile(logfile)});
+          System.removeFile(dir + logfile);
+          fail();
+        end if;
+      then true;
+    else
+      algorithm
+        Error.addMessage(Error.SIMULATOR_BUILD_ERROR, {"Unknown platform (contains spaces but does does not conform to \"platform docker run [args] container\""});
+      then fail();
   end match;
-  if not isWindows then
-    if 0 <> System.systemCall("cd " + dir + " && make clean > /dev/null 2>&1") then
-      Error.addMessage(Error.SIMULATOR_BUILD_ERROR, {"Failed to make clean"});
+  ExecStat.execStat("buildModelFMU: configured platform " + platform + " using " + cmd);
+  if not finishedBuild then
+    if not isWindows then
+      if 0 <> System.systemCall("cd " + dir + " && make clean > /dev/null 2>&1") then
+        Error.addMessage(Error.SIMULATOR_BUILD_ERROR, {"Failed to make clean"});
+        fail();
+      end if;
+    end if;
+    if 0 <> System.systemCall("cd \"" +  fmutmp + "/sources\" && " + nozip, outFile=logfile) then
+      Error.addMessage(Error.SIMULATOR_BUILD_ERROR, {System.readFile(logfile)});
+      System.removeFile(dir + logfile);
       fail();
     end if;
   end if;
-  ExecStat.execStat("buildModelFMU: configured platform " + platform + " using " + cmd);
 end configureFMU;
 
 protected function buildModelFMU " author: Frenkel TUD
@@ -3385,7 +3461,7 @@ protected function buildModelFMU " author: Frenkel TUD
   output Values.Value outValue;
 protected
   Boolean staticSourceCodeFMU, success;
-  String filenameprefix, fmutmp, logfile, dir;
+  String filenameprefix, fmutmp, logfile, dir, cmd;
   String fmuTargetName;
   GlobalScript.SimulationOptions defaulSimOpt;
   SimCode.SimulationSettings simSettings;
@@ -3457,17 +3533,20 @@ algorithm
   dir := fmutmp+"/sources/";
 
   for platform in platforms loop
-    configureFMU(platform, fmutmp, logfile, isWindows);
-    try
-      CevalScript.compileModel(filenameprefix, libs, workingDir=dir, makeVars={});
-    else
-      outValue := Values.STRING("");
-      Error.addMessage(Error.SIMULATOR_BUILD_ERROR, {System.readFile(logfile)});
-      ExecStat.execStat("buildModelFMU failed for platform " + platform);
-      return;
-    end try;
+    configureFMU(platform, fmutmp, System.realpath(fmutmp)+"/resources/"+System.stringReplace(listGet(Util.stringSplitAtChar(platform," "),1),"/","-")+".log", isWindows);
     ExecStat.execStat("buildModelFMU: Generate platform " + platform);
   end for;
+
+  cmd := "rm -f \"" + filenameprefix + ".fmu\" && cd \"" +  fmutmp + "\" && zip -r \"../" + fmuTargetName + ".fmu\" *";
+  if 0 <> System.systemCall(cmd, outFile=logfile) then
+    Error.addMessage(Error.SIMULATOR_BUILD_ERROR, {cmd + "\n\n" + System.readFile(logfile)});
+    ExecStat.execStat("buildModelFMU failed");
+  end if;
+
+  if not System.regularFileExists(fmuTargetName + ".fmu") then
+    Error.addMessage(Error.SIMULATOR_BUILD_ERROR, {"Build commands returned success, but " + filenameprefix + ".fmu does not exist"});
+    fail();
+  end if;
 
   System.removeDirectory(fmutmp);
 end buildModelFMU;
@@ -7063,69 +7142,6 @@ algorithm
   end matchcontinue;
 end getDymolaStateAnnotationModStr;
 
-protected function getAccessAnnotation
-  "Returns the Protection(access=) annotation of a class.
-  This is annotated with the annotation:
-  annotation(Protection(access = Access.documentation)); in the class definition"
-  input Absyn.Path className;
-  input Absyn.Program p;
-  output String access;
-algorithm
-  access := match(className,p)
-    local
-      String accessStr;
-    case(_,_)
-      equation
-        accessStr = Interactive.getNamedAnnotation(className, p, Absyn.IDENT("Protection"), SOME(""), getAccessAnnotationString);
-      then
-        accessStr;
-    else "";
-  end match;
-end getAccessAnnotation;
-
-protected function getAccessAnnotationString
-  "Extractor function for getAccessAnnotation"
-  input Option<Absyn.Modification> mod;
-  output String access;
-algorithm
-  access := match (mod)
-    local
-      list<Absyn.ElementArg> arglst;
-
-    case (SOME(Absyn.CLASSMOD(elementArgLst = arglst)))
-      then getAccessAnnotationString2(arglst);
-
-  end match;
-end getAccessAnnotationString;
-
-protected function getAccessAnnotationString2
-  "Extractor function for getAccessAnnotation"
-  input list<Absyn.ElementArg> eltArgs;
-  output String access;
-algorithm
-  access := match eltArgs
-    local
-      list<Absyn.ElementArg> xs;
-      Absyn.ComponentRef cref;
-      String name;
-      Absyn.Info info;
-
-    case ({}) then "";
-
-    case (Absyn.MODIFICATION(path = Absyn.IDENT(name="access"),
-          modification = SOME(Absyn.CLASSMOD(eqMod=Absyn.EQMOD(exp=Absyn.CREF(cref)))))::_)
-      equation
-        name = Dump.printComponentRefStr(cref);
-      then name;
-
-    case (_::xs)
-      equation
-        name = getAccessAnnotationString2(xs);
-      then name;
-
-    end match;
-end getAccessAnnotationString2;
-
 protected function getClassInformation
 "author: PA
   Returns all the possible class information.
@@ -7161,7 +7177,7 @@ algorithm
   version := CevalScript.getPackageVersion(path, p);
   Absyn.STRING(preferredView) := Interactive.getNamedAnnotation(path, p, Absyn.IDENT("preferredView"), SOME(Absyn.STRING("")), Interactive.getAnnotationExp);
   isState := getDymolaStateAnnotation(path, p);
-  access := getAccessAnnotation(path, p);
+  access := Interactive.getAccessAnnotation(path, p);
   res_1 := Values.TUPLE({
     Values.STRING(res),
     Values.STRING(cmt),

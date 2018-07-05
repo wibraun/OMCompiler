@@ -38,6 +38,7 @@ import NFInstNode.InstNode;
 import Type = NFType;
 import NFPrefixes.*;
 import List;
+import FunctionDerivative = NFFunctionDerivative;
 
 protected
 import ErrorExt;
@@ -69,6 +70,7 @@ import Dimension = NFDimension;
 import Statement = NFStatement;
 import Sections = NFSections;
 import Algorithm = NFAlgorithm;
+import OperatorOverloading = NFOperatorOverloading;
 
 
 public
@@ -208,6 +210,7 @@ uniontype Function
     list<Slot> slots;
     Type returnType;
     DAE.FunctionAttributes attributes;
+    list<FunctionDerivative> derivatives;
     Pointer<Boolean> collected "Whether this function has already been added to the function tree or not.";
     Pointer<Integer> callCounter "Used during function evaluation to limit recursion.";
   end FUNCTION;
@@ -228,7 +231,7 @@ uniontype Function
     // Make sure builtin functions aren't added to the function tree.
     collected := Pointer.create(isBuiltinAttr(attr));
     fn := FUNCTION(path, node, inputs, outputs, locals, {}, Type.UNKNOWN(),
-      attr, collected, Pointer.create(0));
+      attr, {}, collected, Pointer.create(0));
   end new;
 
   function lookupFunctionSimple
@@ -336,18 +339,26 @@ uniontype Function
         Absyn.ComponentRef cr;
         InstNode sub_fnNode;
         list<Function> funcs;
+        list<FunctionDerivative> fn_ders;
+
+      case SCode.CLASS() guard SCode.isOperatorRecord(def)
+        algorithm
+          fnNode := instFunction3(fnNode);
+          fnNode := OperatorOverloading.instConstructor(fnPath, fnNode, info);
+        then
+          (fnNode, false);
 
       case SCode.CLASS() guard SCode.isRecord(def)
         algorithm
           fnNode := instFunction3(fnNode);
-          fnNode := Record.instConstructors(fnPath, fnNode, info);
+          fnNode := Record.instDefaultConstructor(fnPath, fnNode, info);
         then
           (fnNode, false);
 
       case SCode.CLASS(restriction = SCode.R_OPERATOR(), classDef = cdef as SCode.PARTS())
         algorithm
           fnNode := instFunction3(fnNode);
-          fnNode := Record.instOperatorFunctions(fnNode, info);
+          fnNode := OperatorOverloading.instOperatorFunctions(fnNode, info);
         then
           (fnNode, false);
 
@@ -365,10 +376,15 @@ uniontype Function
 
       case SCode.CLASS()
         algorithm
+          if SCode.isOperator(def) then
+            OperatorOverloading.checkOperatorRestrictions(fnNode);
+          end if;
+
           fnNode := InstNode.setNodeType(NFInstNode.InstNodeType.ROOT_CLASS(), fnNode);
           fnNode := instFunction3(fnNode);
-          fn := Function.new(fnPath, fnNode);
+          fn := new(fnPath, fnNode);
           specialBuiltin := isSpecialBuiltin(fn);
+          fn.derivatives := FunctionDerivative.instDerivatives(fnNode, fn);
           fnNode := InstNode.cacheAddFunc(fnNode, fn, specialBuiltin);
         then
           (fnNode, specialBuiltin);
@@ -763,9 +779,7 @@ uniontype Function
         end if;
 
         (margexp, mty, matchKind) := TypeCheck.matchTypes(tmpty, compty, argexp, false);
-        // Allow only exact matches for vectorization.
-        // No casting, generic... matches alllowed (which are allowed for non-vected function matching)
-        correct := TypeCheck.isExactMatch(matchKind);
+        correct := TypeCheck.isValidArgumentMatch(matchKind);
         vectorized := true::vectorized;
       end if;
 
@@ -870,6 +884,7 @@ uniontype Function
     input list<TypedArg> args;
     input list<TypedNamedArg> named_args;
     input SourceInfo info;
+    input Boolean vectorize = true;
     output list<TypedArg> out_args;
     output FunctionMatchKind matchKind = NO_MATCH;
   protected
@@ -881,7 +896,7 @@ uniontype Function
 
       // If we failed to match a function normally then we try to see if
       // we can have a vectorized match.
-      if not matched then
+      if not matched and vectorize then
         (out_args, matched, matchKind) := matchArgsVectorize(func, out_args, info);
       end if;
     end if;
@@ -892,6 +907,7 @@ uniontype Function
     input list<TypedArg> args;
     input list<TypedNamedArg> named_args;
     input SourceInfo info;
+    input Boolean vectorize = true;
     output list<MatchedFunction> matchedFunctions;
   protected
     list<TypedArg> m_args;
@@ -900,7 +916,7 @@ uniontype Function
   algorithm
     matchedFunctions := {};
     for func in funcs loop
-      (m_args, matchKind) := matchFunction(func, args, named_args, info);
+      (m_args, matchKind) := matchFunction(func, args, named_args, info, vectorize);
 
       if FunctionMatchKind.isValid(matchKind) then
         matchedFunctions := MatchedFunction.MATCHED_FUNC(func,m_args,matchKind)::matchedFunctions;
@@ -913,11 +929,12 @@ uniontype Function
     input list<TypedArg> args;
     input list<TypedNamedArg> named_args;
     input SourceInfo info;
+    input Boolean vectorize = true;
     output list<MatchedFunction> matchedFunctions;
   protected
   algorithm
     ErrorExt.setCheckpoint("NFFunction:matchFunctions");
-    matchedFunctions := matchFunctions(funcs, args, named_args, info);
+    matchedFunctions := matchFunctions(funcs, args, named_args, info, vectorize);
     ErrorExt.rollBack("NFFunction:matchFunctions");
   end matchFunctionsSilent;
 
@@ -936,27 +953,9 @@ uniontype Function
      they are not already typed."
     input ComponentRef functionRef;
     output list<Function> functions;
-  protected
-    InstNode fn_node;
-    Boolean typed, special;
-    String name;
   algorithm
     functions := match functionRef
-      case ComponentRef.CREF(node = fn_node)
-        algorithm
-          fn_node := InstNode.classScope(fn_node);
-          CachedData.FUNCTION(functions, typed, special) := InstNode.getFuncCache(fn_node);
-
-          // Type the function(s) if not already done.
-          if not typed then
-            functions := list(typeFunctionSignature(f) for f in functions);
-            InstNode.setFuncCache(fn_node, CachedData.FUNCTION(functions, true, special));
-            functions := list(typeFunctionBody(f) for f in functions);
-            InstNode.setFuncCache(fn_node, CachedData.FUNCTION(functions, true, special));
-          end if;
-        then
-          functions;
-
+      case ComponentRef.CREF() then typeNodeCache(functionRef.node);
       else
         algorithm
           Error.assertion(false, getInstanceName() + " got invalid function call reference", sourceInfo());
@@ -964,6 +963,28 @@ uniontype Function
           fail();
     end match;
   end typeRefCache;
+
+  function typeNodeCache
+    "Returns the function(s) in the cache of the given node, and types them if
+     they are not already typed."
+    input InstNode functionNode;
+    output list<Function> functions;
+  protected
+    InstNode fn_node;
+    Boolean typed, special;
+    String name;
+  algorithm
+    fn_node := InstNode.classScope(functionNode);
+    CachedData.FUNCTION(functions, typed, special) := InstNode.getFuncCache(fn_node);
+
+    // Type the function(s) if not already done.
+    if not typed then
+      functions := list(typeFunctionSignature(f) for f in functions);
+      InstNode.setFuncCache(fn_node, CachedData.FUNCTION(functions, true, special));
+      functions := list(typeFunctionBody(f) for f in functions);
+      InstNode.setFuncCache(fn_node, CachedData.FUNCTION(functions, true, special));
+    end if;
+  end typeNodeCache;
 
   function typeFunction
     input output Function fn;
@@ -1015,6 +1036,11 @@ uniontype Function
 
     // Type the algorithm section of the function, if it has one.
     Typing.typeFunctionSections(fn.node, ExpOrigin.FUNCTION);
+
+    // Type any derivatives of the function.
+    for fn_der in fn.derivatives loop
+      FunctionDerivative.typeDerivative(fn_der);
+    end for;
   end typeFunctionBody;
 
   function isBuiltin
@@ -1154,19 +1180,21 @@ uniontype Function
 
   function toDAE
     input Function fn;
-    input list<DAE.FunctionDefinition> defs;
+    input DAE.FunctionDefinition def;
     output DAE.Function daeFn;
   protected
     SCode.Visibility vis;
     Boolean par, impr;
     DAE.InlineType ity;
     DAE.Type ty;
+    list<DAE.FunctionDefinition> defs;
   algorithm
     vis := SCode.PUBLIC(); // TODO: Use the actual visibility.
     par := false; // TODO: Use the actual partial prefix.
     impr := fn.attributes.isImpure;
     ity := fn.attributes.inline;
     ty := makeDAEType(fn);
+    defs := def :: list(FunctionDerivative.toDAE(fn_der) for fn_der in fn.derivatives);
     daeFn := DAE.FUNCTION(fn.path, defs, ty, vis, par, impr, ity,
       DAE.emptyElementSource, SCode.getElementComment(InstNode.definition(fn.node)));
   end toDAE;
