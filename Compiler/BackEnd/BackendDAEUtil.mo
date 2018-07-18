@@ -6191,9 +6191,9 @@ algorithm
         BackendDAE.BackendDAE bdae;
       case BackendDAE.EQUATIONSYSTEM(jac=BackendDAE.FULL_JACOBIAN(SOME(jac)))
         then traverseBackendDAEExpsJacobianEqn(jac, inFunc, arg);
-      case BackendDAE.EQUATIONSYSTEM(jac=BackendDAE.GENERIC_JACOBIAN(jacobian = SOME((bdae,_,_,_,_))))
+      case BackendDAE.EQUATIONSYSTEM(jac=BackendDAE.GENERIC_JACOBIAN(jacobian = SOME((bdae,_,_,_,_,_))))
         then traverseBackendDAEExps(bdae, inFunc, arg);
-      case BackendDAE.TORNSYSTEM(BackendDAE.TEARINGSET(jac=BackendDAE.GENERIC_JACOBIAN(jacobian = SOME((bdae,_,_,_,_)))))
+      case BackendDAE.TORNSYSTEM(BackendDAE.TEARINGSET(jac=BackendDAE.GENERIC_JACOBIAN(jacobian = SOME((bdae,_,_,_,_,_)))))
         then traverseBackendDAEExps(bdae, inFunc, arg);
       else arg;
     end match;
@@ -6249,7 +6249,7 @@ algorithm
       BackendDAE.BackendDAE bdae;
       Type_a arg;
     case ({}, _, _) then inTypeA;
-    case (BackendDAE.STATESET(jacobian = BackendDAE.GENERIC_JACOBIAN(jacobian = SOME((bdae,_,_,_,_))))::rest, _, _)
+    case (BackendDAE.STATESET(jacobian = BackendDAE.GENERIC_JACOBIAN(jacobian = SOME((bdae,_,_,_,_,_))))::rest, _, _)
       equation
         arg = traverseBackendDAEExps(bdae, inFunc, inTypeA);
       then
@@ -7173,6 +7173,10 @@ algorithm
   // sort assigned equations to blt form
   systs := mapSortEqnsDAE(systs, shared);
   outDAE := BackendDAE.DAE(systs, shared);
+
+  // if system contain state sets calculate related jacobians
+  // Generates analytical jacobian for dynamic state selection sets.
+  outDAE := SymbolicJacobian.calculateStateSetsJacobians(outDAE);
 end causalizeDAE;
 
 protected function mapCausalizeDAE "
@@ -7680,7 +7684,6 @@ public function allPostOptimizationModules
     (DynamicOptimization.removeLoops, "extendDynamicOptimization"),
     (BackendDAEOptimize.addTimeAsState, "addTimeAsState"),
     (SymbolicJacobian.calculateStrongComponentJacobians, "calculateStrongComponentJacobians"),
-    (SymbolicJacobian.calculateStateSetsJacobians, "calculateStateSetsJacobians"),
     (SymbolicJacobian.symbolicJacobian, "symbolicJacobian"),
     (SymbolicJacobian.generateSymbolicSensitivities, "generateSymbolicSensitivities"),
     (SymbolicJacobian.generateSymbolicLinearizationPast, "generateSymbolicLinearization"),

@@ -69,6 +69,7 @@ import List;
 import Matching;
 import MetaModelica.Dangerous;
 import Sorting;
+import SymbolicJacobian;
 
 // =============================================================================
 // section for all public functions
@@ -2096,6 +2097,7 @@ protected function collectInitialStateSets
   BackendDAE.Equation eqn;
   DAE.Exp lhs, rhs, exp;
   list<DAE.Exp> expLst = {};
+  list<DAE.ComponentRef> crLst;
   BackendDAE.Var var;
 algorithm
   //BackendDump.dumpVariables(vars, "INITIAL VARS BEFORE");
@@ -2122,8 +2124,8 @@ algorithm
     expLst:={};
 
     // KAB Change to jacobian
-    expLst := DAE.CREF(componentRef=DAE.CREF_IDENT("x",DAE.T_REAL_DEFAULT, {}), ty=DAE.T_REAL_DEFAULT)::expLst;
-    expLst := DAE.CREF(componentRef=DAE.CREF_IDENT("y",DAE.T_REAL_DEFAULT, {}), ty=DAE.T_REAL_DEFAULT)::expLst;
+    crLst := SymbolicJacobian.getJacobianDependencies(stateSet.jacobian);
+    expLst := list(Expression.crefToExp(cr) for cr in crLst);
     expLst := DAE.ICONST(integer=stateSet.index-1)::expLst;
 
     rhs := DAE.CALL(path=Absyn.IDENT(name="$stateSelectionSet"),expLst=expLst,attr=DAE.callAttrBuiltinOther);
