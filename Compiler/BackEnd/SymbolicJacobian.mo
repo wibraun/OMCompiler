@@ -1744,7 +1744,7 @@ try
     if Flags.isSet(Flags.JAC_DUMP2) then
       BackendDump.dumpSparsityPattern(sparsePattern, "FMI sparsity");
     end if;
-    outJacobianMatrixes := (SOME((emptyBDAE,"FMIDER",{},{},{})), sparsePattern, sparseColoring)::outJacobianMatrixes;
+    outJacobianMatrixes := (SOME((emptyBDAE,"FMIDER",{},{},{}, {})), sparsePattern, sparseColoring)::outJacobianMatrixes;
     outFunctionTree := inBackendDAE.shared.functionTree;
   else
     // prepare more needed variables
@@ -2000,7 +2000,7 @@ algorithm
     local
       BackendDAE.BackendDAE backendDAE, reducedDAE;
 
-      list<DAE.ComponentRef> comref_vars, comref_differentiatedVars;
+      list<DAE.ComponentRef> comref_vars, comref_differentiatedVars, dependencies;
 
       BackendDAE.Shared shared;
       BackendDAE.Variables  globalKnownVars, globalKnownVars1;
@@ -2042,9 +2042,10 @@ algorithm
         if Flags.isSet(Flags.JAC_DUMP2) then
           print("analytical Jacobians -> generated Jacobian DAE time: " + realString(clock()) + "\n");
         end if;
+        dependencies = calcJacobianDependencies((backendDAE, "", {}, {}, {}, {}));
 
      then
-        ((backendDAE, inName, inDiffVars, diffedVars, inVars), funcs);
+        ((backendDAE, inName, inDiffVars, diffedVars, inVars, dependencies), funcs);
     else
       equation
         Error.addInternalError("function createJacobian failed", sourceInfo());
@@ -2379,7 +2380,7 @@ algorithm
       BackendDAE.SymbolicJacobians rest;
       String name;
 
-    case (matrix as (SOME((_,name,_,_,_)), _, _))::_ guard
+    case (matrix as (SOME((_,name,_,_,_,_)), _, _))::_ guard
       stringEq(name, inJacobianName)
     then SOME(matrix);
 
@@ -2389,6 +2390,33 @@ algorithm
     else NONE();
   end match;
 end getJacobianMatrixbyName;
+
+
+public function calcJacobianDependencies
+  input BackendDAE.SymbolicJacobian jacobian;
+  output list<DAE.ComponentRef> dependencies;
+protected
+  BackendDAE.EqSystem syst;
+  BackendDAE.Shared shared;
+algorithm
+  (BackendDAE.DAE(syst::_, shared), _, _, _, _, _) := jacobian;
+  dependencies := BackendEquation.getCrefsFromEquations(syst.orderedEqs, syst.orderedVars, shared.globalKnownVars);
+end calcJacobianDependencies;
+
+public function getJacobianDependencies
+  input BackendDAE.Jacobian jacobian;
+  output list<DAE.ComponentRef> dependencies;
+algorithm
+  dependencies := match(jacobian)
+    case (BackendDAE.GENERIC_JACOBIAN(jacobian=SOME((_, _, _, _, _, dependencies))))
+    then dependencies;
+
+    else equation
+      Error.addInternalError("function getJacobianDependencies failed", sourceInfo());
+    then fail();
+
+  end match;
+end getJacobianDependencies;
 
 // =============================================================================
 // Module for to calculate strong component Jacobains

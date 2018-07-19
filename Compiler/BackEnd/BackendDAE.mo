@@ -763,7 +763,8 @@ type SymbolicJacobian = tuple<BackendDAE,               // symbolic equation sys
                               String,                   // Matrix name
                               list<Var>,                // diff vars (independent vars)
                               list<Var>,                // diffed vars (residual vars)
-                              list<Var>                 // all diffed vars (residual vars + dependent vars)
+                              list<Var>,                // all diffed vars (residual vars + dependent differentiated vars)
+                              list< .DAE.ComponentRef>  // dependent origunal variables
                               >;
 
 public

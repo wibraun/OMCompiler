@@ -3896,7 +3896,7 @@ algorithm
 
     case (BackendDAE.GENERIC_JACOBIAN(SOME((BackendDAE.DAE(eqs={syst as BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps))},
                                     shared=shared), name,
-                                    independentVarsLst, residualVarsLst, dependentVarsLst)),
+                                    independentVarsLst, residualVarsLst, dependentVarsLst, _)),
                                       (sparsepatternComRefs, sparsepatternComRefsT, (_, _), _),
                                       sparseColoring), _, _)
       equation
@@ -4024,7 +4024,7 @@ algorithm
   result := match(inBDAE)
     case (NONE())
       then true;
-    case (SOME((_,_,{},{},{})))
+    case (SOME((_,_,{},{},{}, _)))
       equation
       then true;
     else
@@ -4161,7 +4161,7 @@ algorithm
 
     case (((SOME((BackendDAE.DAE(eqs={syst as BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps))},
                                     shared=shared), name,
-                                    _, diffedVars, alldiffedVars)), (sparsepattern, sparsepatternT, (diffCompRefs, diffedCompRefs), _), colsColors))::rest,
+                                    _, diffedVars, alldiffedVars, _)), (sparsepattern, sparsepatternT, (diffCompRefs, diffedCompRefs), _), colsColors))::rest,
                                     _, _, _::restnames)
       equation
         if Flags.isSet(Flags.JAC_DUMP2) then
