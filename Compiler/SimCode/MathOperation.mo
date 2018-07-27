@@ -313,7 +313,7 @@ protected
   OperationData optData;
   list<Integer> tmpLst;
 
-  constant Boolean debug = true;
+  constant Boolean debug = false;
 algorithm
   // get function for funcName
   // create OperationData for single func
@@ -627,7 +627,7 @@ protected
   list<DAE.Statement> statements;
   list<LinSysPattern> lsPat;
   Integer tmptmpIndex;
-  constant Boolean debug = true;
+  constant Boolean debug = false;
 algorithm
   try
     operations := {};
@@ -895,7 +895,15 @@ algorithm
             op = replaceOperationResult(op, simVarOperand);
             outOperations = op::rest;
           else
-            op = OPERATION({assignOperand}, ASSIGN_ACTIVE(), simVarOperand);
+            op = match assignOperand
+              case OPERAND_VAR()
+              then OPERATION({assignOperand}, ASSIGN_ACTIVE(), simVarOperand);
+              case OPERAND_CONST()
+              then OPERATION({assignOperand}, ASSIGN_PASSIVE(), simVarOperand);
+              else equation
+                Error.addInternalError("createOperationDataStmts failed with arg: " + ExpressionDump.printExpStr(rhs) + "\n", sourceInfo());
+              then fail();
+            end match;
             outOperations = op::outOperations;
           end if;
           // print(" ops: " + printOperationStr(op) + "\n");
@@ -1119,7 +1127,7 @@ algorithm
       Absyn.Ident ident;
       Absyn.Path path;
       Boolean isActive;
-      constant Boolean debug = true;
+      constant Boolean debug = false;
 
     // BCONST
     case (e1 as DAE.BCONST(false)) equation
