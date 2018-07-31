@@ -149,6 +149,11 @@ extern const char* System_getRTLibsFMU()
   return LDFLAGS_RT_SOURCE_FMU;
 }
 
+extern const char* System_getAdolcCFlags()
+{
+  return ADOLC_CFLAGS;
+}
+
 extern const char* System_getCCompiler()
 {
   return cc;

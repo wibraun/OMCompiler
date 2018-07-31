@@ -476,6 +476,18 @@ algorithm
   end match;
 end getVarType;
 
+public function getSimExtArgType
+  input SimCodeFunction.SimExtArg arg;
+  output DAE.Type ty;
+algorithm
+  ty := match arg
+    case SimCodeFunction.SIMEXTARG(type_=ty) then ty;
+    case SimCodeFunction.SIMEXTARGEXP(type_=ty) then ty;
+    case SimCodeFunction.SIMEXTARGSIZE(type_=ty) then ty;
+    else fail();
+  end match;
+end getSimExtArgType;
+
 protected function getRecordDependenciesFromType
   input DAE.Type ty;
   input list<SimCodeFunction.RecordDeclaration> allDecls;
@@ -2502,7 +2514,8 @@ public function createMakefileParams
   input Boolean isFMU=false;
   output SimCodeFunction.MakefileParams makefileParams;
 protected
-  String omhome, ccompiler, cxxcompiler, linker, exeext, dllext, cflags, ldflags, rtlibs, platform, fopenmp,compileDir;
+  String omhome, ccompiler, cxxcompiler, linker, exeext, dllext, cflags, ldflags, rtlibs, platform, fopenmp, compileDir;
+  list<String> includesNew;
 algorithm
   ccompiler   := if stringEq(Config.simCodeTarget(),"JavaScript") then "emcc" else
                  (if Flags.isSet(Flags.HPCOM) then System.getOMPCCompiler() else System.getCCompiler());
@@ -2519,8 +2532,9 @@ algorithm
   rtlibs := if isFunction then System.getRTLibs() else (if isFMU then System.getRTLibsFMU() else System.getRTLibsSim());
   platform := System.modelicaPlatform();
   compileDir :=  System.pwd() + System.pathDelimiter();
+  includesNew := (if Flags.getConfigBool(Flags.GEN_ADOLC_TRACE) then System.getAdolcCFlags() else "")::includes;
   makefileParams := SimCodeFunction.MAKEFILE_PARAMS(ccompiler, cxxcompiler, linker, exeext, dllext,
-        omhome, cflags, ldflags, rtlibs, includes, libs,libPaths, platform,compileDir);
+        omhome, cflags, ldflags, rtlibs, includesNew, libs,libPaths, platform,compileDir);
 end createMakefileParams;
 
 public
