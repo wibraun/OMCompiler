@@ -369,7 +369,7 @@ int dassl_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo,
       unsigned int sizeTmpVars = jac->sizeTmpVars;
 
       // Benchmarks indicate that it is beneficial to initialize and malloc the jacColumns using a parallel for loop.
-      // Rationale: The thread working on the data initializes the data and thus have it in probably in cache.
+      // Rationale: The thread working on the data initializes the data and thus have it probably in a memory hierarchy close to the CPU.
       unsigned int i;
       for (i = 0; i < maxTh; ++i) {
         dasslData->jacColumns[i].sizeCols = columns;
