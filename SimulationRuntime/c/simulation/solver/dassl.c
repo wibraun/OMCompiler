@@ -1038,7 +1038,7 @@ int jacA_symColored(double *t, double *y, double *yprime, double *delta, double 
   //  t_jac->sparsePattern.leadindex = (unsigned int*) malloc(sizeof(unsigned int)*t_jac->sparsePattern.sizeOfIndex);
   unsigned int ii, j, l, k;
 
-#pragma omp for
+#pragma omp for schedule(runtime)
   for(i=0; i < spp.maxColors; i++)
   {
 	//infoStreamPrint(LOG_STATS_V, 0, "Thread-ID %d, color i = %i\n", omp_get_thread_num(), i);
@@ -1111,7 +1111,7 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   //printf("index= %d, t_jac->sizeCols= %d, t_jac->sizeRows = %d, t_jac->sizeTmpVars = %d \n",index, t_jac->sizeCols , t_jac->sizeRows, t_jac->sizeTmpVars);
 
   unsigned int j;
-#pragma omp for
+#pragma omp for schedule(runtime)
   for(i=0; i < columns; i++)
   {
     t_jac->seedVars[i] = 1.0;

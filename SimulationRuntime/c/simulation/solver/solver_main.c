@@ -60,6 +60,10 @@
 
 #include "optimization/OptimizerInterface.h"
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 /*
  * #include "dopri45.h"
  */
@@ -587,6 +591,10 @@ int finishSimulation(DATA* data, threadData_t *threadData, SOLVER_INFO* solverIn
       infoStreamPrint(LOG_STATS, 0, "%gs time of jacobian evaluation", rt_accumulated(SIM_TIMER_JACOBIAN));
 #ifdef _OPENMP
       infoStreamPrint(LOG_STATS, 0, "%i OpenMP-threads used for jacobian evaluation", omp_get_max_threads());
+      int chunk_size;
+      omp_sched_t kind;
+      omp_get_schedule(&kind, &chunk_size);
+      infoStreamPrint(LOG_STATS, 0, "Schedule: %i Chunk Size: %i", kind, chunk_size);
 #endif
 
       messageClose(LOG_STATS);
