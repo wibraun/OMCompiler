@@ -125,6 +125,44 @@ void freeStateSetData(DATA *data)
   TRACE_POP
 }
 
+/*! \fn printStateSelectionInfo
+ *
+ *  function prints actually information about current state selection
+ *
+ *  \param [in]  [data]
+ *  \param [in]  [set]
+ *
+ *  \author wbraun
+ */
+void printStateSelectionInfo(DATA *data, STATE_SET_DATA *set)
+{
+  long k, l;
+
+  infoStreamPrint(LOG_DSS, 1, "Select %ld states from %ld candidates.", set->nStates, set->nCandidates);
+  for(k=0; k < set->nCandidates; k++)
+  {
+    infoStreamPrint(LOG_DSS, 0, "[%ld] candidate %s", k+1, set->statescandidates[k]->name);
+  }
+  messageClose(LOG_DSS);
+
+  infoStreamPrint(LOG_DSS, 1, "Selected states");
+  {
+    unsigned int aid = set->A->id - data->modelData->integerVarsData[0].info.id;
+    modelica_integer *Adump = &(data->localData[0]->integerVars[aid]);
+    for(k=0; k < set->nStates; k++)
+    {
+      for(l=0; l < set->nCandidates; l++)
+      {
+        if (Adump[k*set->nCandidates+l] == 1)
+        {
+          infoStreamPrint(LOG_DSS, 0, "[%ld] %s", l+1, set->statescandidates[l]->name);
+        }
+      }
+    }
+  }
+  messageClose(LOG_DSS);
+}
+
 /*! \fn getAnalyticalJacobianSet
  *
  *  function calculates analytical jacobian
@@ -262,29 +300,32 @@ static void setAMatrix(modelica_integer* newEnable, modelica_integer nCandidates
  *  \param [ref] [data]
  *  \return ???
  */
-static int comparePivot(modelica_integer *oldPivot, modelica_integer *newPivot, modelica_integer nCandidates, modelica_integer nDummyStates, modelica_integer nStates, VAR_INFO* A, VAR_INFO** states, VAR_INFO** statecandidates, DATA *data, int switchStates)
+static int comparePivot(modelica_integer *oldPivot, STATE_SET_DATA *set , DATA *data, int switchStates)
 {
   TRACE_PUSH
   modelica_integer i;
   int ret = 0;
-  modelica_integer* oldEnable = (modelica_integer*) calloc(nCandidates, sizeof(modelica_integer));
-  modelica_integer* newEnable = (modelica_integer*) calloc(nCandidates, sizeof(modelica_integer));
+  modelica_integer* newPivot = set->colPivot;
+  modelica_integer* oldEnable = (modelica_integer*) calloc(set->nCandidates, sizeof(modelica_integer));
+  modelica_integer* newEnable = (modelica_integer*) calloc(set->nCandidates, sizeof(modelica_integer));
 
-  for(i=0; i<nCandidates; i++)
+  for(i=0; i<set->nCandidates; i++)
   {
-    modelica_integer entry = (i < nDummyStates) ? 1: 2;
+    modelica_integer entry = (i < set->nDummyStates) ? 1: 2;
     newEnable[ newPivot[i] ] = entry;
     oldEnable[ oldPivot[i] ] = entry;
   }
 
-  for(i=0; i<nCandidates; i++)
+  for(i=0; i<set->nCandidates; i++)
   {
     if(newEnable[i] != oldEnable[i])
     {
       if(switchStates)
       {
-        infoStreamPrint(LOG_DSS, 1, "select new states at time %f", data->localData[0]->timeValue);
-        setAMatrix(newEnable, nCandidates, nStates, A, states, statecandidates, data);
+        infoStreamPrint(LOG_DSS, 1, "StateSelection Set %ld at time = %f", i, data->localData[0]->timeValue);
+        printStateSelectionInfo(data, set);
+        infoStreamPrint(LOG_DSS, 0, "select new states at time %f", data->localData[0]->timeValue);
+        setAMatrix(newEnable, set->nCandidates, set->nStates, set->A, set->states, set->statescandidates, data);
         messageClose(LOG_DSS);
       }
       ret = -1;
@@ -297,44 +338,6 @@ static int comparePivot(modelica_integer *oldPivot, modelica_integer *newPivot, 
 
   TRACE_POP
   return ret;
-}
-
-/*! \fn printStateSelectionInfo
- *
- *  function prints actually information about current state selection
- *
- *  \param [in]  [data]
- *  \param [in]  [set]
- *
- *  \author wbraun
- */
-void printStateSelectionInfo(DATA *data, STATE_SET_DATA *set)
-{
-  long k, l;
-
-  infoStreamPrint(LOG_DSS, 1, "Select %ld states from %ld candidates.", set->nStates, set->nCandidates);
-  for(k=0; k < set->nCandidates; k++)
-  {
-    infoStreamPrint(LOG_DSS, 0, "[%ld] candidate %s", k+1, set->statescandidates[k]->name);
-  }
-  messageClose(LOG_DSS);
-
-  infoStreamPrint(LOG_DSS, 1, "Selected states");
-  {
-    unsigned int aid = set->A->id - data->modelData->integerVarsData[0].info.id;
-    modelica_integer *Adump = &(data->localData[0]->integerVars[aid]);
-    for(k=0; k < set->nStates; k++)
-    {
-      for(l=0; l < set->nCandidates; l++)
-      {
-        if (Adump[k*set->nCandidates+l] == 1)
-        {
-          infoStreamPrint(LOG_DSS, 0, "[%ld] %s", l+1, set->statescandidates[l]->name);
-        }
-      }
-    }
-  }
-  messageClose(LOG_DSS);
 }
 
 /*! \fn stateSelection
@@ -365,13 +368,6 @@ int stateSelection(DATA *data, threadData_t *threadData, char reportError, int s
     modelica_integer* oldColPivot = (modelica_integer*) malloc(set->nCandidates * sizeof(modelica_integer));
     modelica_integer* oldRowPivot = (modelica_integer*) malloc(set->nDummyStates * sizeof(modelica_integer));
 
-    /* debug */
-    if(ACTIVE_STREAM(LOG_DSS))
-    {
-      infoStreamPrint(LOG_DSS, 1, "StateSelection Set %ld at time = %f", i, data->localData[0]->timeValue);
-      printStateSelectionInfo(data, set);
-      messageClose(LOG_DSS);
-    }
     /* generate jacobian, stored in set->J */
     getAnalyticalJacobianSet(data, threadData, i);
 
@@ -401,7 +397,7 @@ int stateSelection(DATA *data, threadData_t *threadData, char reportError, int s
     }
     /* if we have a new set throw event for reinitialization
        and set the A matrix for set.x=A*(states) */
-    res = comparePivot(oldColPivot, set->colPivot, set->nCandidates, set->nDummyStates, set->nStates, set->A, set->states, set->statescandidates, data, switchStates);
+    res = comparePivot(oldColPivot, set, data, switchStates);
     if(!switchStates)
     {
       memcpy(set->colPivot, oldColPivot, set->nCandidates*sizeof(modelica_integer));

@@ -389,6 +389,23 @@ algorithm
   //print(jacobianString(inStateSet.jacobian));
 end printStateSet;
 
+protected function createStateSetInfoDump
+  input BackendDAE.EqSystems systs;
+  output Integer nStateSets = 0;
+  output String stateSetInfo = "";
+protected
+  BackendDAE.EqSystem syst;
+algorithm
+  for syst in systs loop
+    nStateSets := nStateSets + listLength(syst.stateSets);
+    for set in syst.stateSets loop
+      stateSetInfo := stateSetInfo + " * " + ComponentReference.crefFirstIdent(set.crA) + " : select " + intString(set.rang) + " states from " +
+                      intString(listLength(set.statescandidates)) + " state candidates\n";
+      stateSetInfo := stateSetInfo + " * state candidates: " + stringDelimitList(list(ComponentReference.printComponentRefStr(BackendVariable.varCref(v)) for v in set.statescandidates),", ") + "\n";
+    end for;
+  end for;
+end createStateSetInfoDump;
+
 public function printVar
   input BackendDAE.Var inVar;
 algorithm
@@ -3424,6 +3441,8 @@ protected
   DumpCompShortMixedTpl mixedTpl;
   DumpCompShortTornTpl tornTpl,tornTpl2;
   BackendDAE.BackendDAEType backendDAEType;
+  Integer nStateSet;
+  String stateSetInfo;
 algorithm
   BackendDAE.DAE(systs, BackendDAE.SHARED(backendDAEType=backendDAEType)) := inDAE;
   removedEqs := BackendDAEUtil.collapseRemovedEqs(inDAE);
@@ -3466,6 +3485,10 @@ algorithm
   dstStr := dstStr+discstatesStr;
   msgs := {daeType,sysStr,stStr,dvarStr,dstStr,inpStr};
   Error.addMessage(Error.BACKENDDAEINFO_STATISTICS, msgs);
+  if Flags.isSet(Flags.DUMP_STATESELECTION_INFO) then
+    (nStateSet, stateSetInfo) := createStateSetInfoDump(systs);
+    Error.addMessage(Error.BACKENDDAEINFO_STATESETS, {intString(nStateSet), stateSetInfo});
+  end if;
 
   strcompsStr := intString(strcomps);
   seqStr := intString(seq);
