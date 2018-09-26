@@ -97,7 +97,12 @@ typedef struct IDA_SOLVER
 
   /* adolc data */
   double** adolcJac;
+  double** adolcJacSeed;
+  double** adolcColoredJac;
+
   double* adolcParam;
+  int adolcNumParam;
+  int useAdolc;
 
   /* ### ida sensitivities ### */
   int idaSmode;
