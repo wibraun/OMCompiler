@@ -275,6 +275,8 @@ protected
   SimCodeVar.SimVar dtSimVar;
   BackendDAE.Var dtVar;
   HashTableSimCodeEqCache.HashTable eqCache;
+  BackendDAE.Jacobian dataReconJac;
+  SimCode.JacobianMatrix dataReconSimJac;
 
   constant Boolean debug = false;
 algorithm
@@ -465,6 +467,14 @@ algorithm
     SymbolicJacsNLS := listAppend(SymbolicJacsTemp, SymbolicJacsNLS);
     (inlineEquations, modelInfo, SymbolicJacsTemp) := addAlgebraicLoopsModelInfo(inlineEquations, modelInfo);
     SymbolicJacsNLS := listAppend(SymbolicJacsTemp, SymbolicJacsNLS);
+    
+    if Flags.isSet(Flags.UNCERTAINTIES) then
+      if Util.isSome(shared.dataReconciliationData) then
+        BackendDAE.DATA_RECON(dataReconJac) := Util.getOption(shared.dataReconciliationData);
+        (SOME(dataReconSimJac), uniqueEqIndex, tempvars) := createSymbolicSimulationJacobian(dataReconJac, uniqueEqIndex, tempvars);
+        SymbolicJacsNLS := dataReconSimJac::SymbolicJacsNLS;
+      end if;
+    end if;
 
     // collect symbolic jacobians from state selection
     (stateSets, modelInfo, SymbolicJacsStateSelect, SymbolicJacsStateSelectInternal) :=  addAlgebraicLoopsModelInfoStateSets(stateSets, modelInfo);
