@@ -3814,7 +3814,7 @@ end createStateSetsSets;
 //
 // =============================================================================
 
-protected function createSymbolicSimulationJacobian "function createSymbolicSimulationJacobian
+public function createSymbolicSimulationJacobian "function createSymbolicSimulationJacobian
   author: wbraun
   function creates a symbolic jacobian column for
   non-linear systems and tearing systems."
@@ -8284,7 +8284,7 @@ end getVectorizedCrefFromExp;
 
 /*mahge: kernel functions*/
 
-protected function dlowvarToSimvar
+public function dlowvarToSimvar
   input BackendDAE.Var dlowVar;
   input Option<BackendDAE.Variables> optAliasVars;
   input BackendDAE.Variables inVars;

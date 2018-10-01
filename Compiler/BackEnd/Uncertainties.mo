@@ -39,6 +39,10 @@ public import FCore;
 public import GlobalScript;
 public import HashTable;
 public import Values;
+public import SymbolicJacobian;
+public import SimCodeUtil;
+public import Tpl;
+public import CodegenC;
 
 protected
 import AdjacencyMatrix;
@@ -314,6 +318,7 @@ algorithm
       list<BackendDAE.EqSystem> eqsyslist;
       BackendDAE.Variables allVars,knownVariables,unknownVariables,globalKnownVars,finalvars;
       BackendDAE.EquationArray allEqs,newEqs;
+      list<BackendDAE.Var> knownvarlist,knvarlst, states, inputvars, paramvars,newfinalvars;
       list<Integer> variables,knowns,unknowns,directlyLinked,indirectlyLinked,inputvar,outputvars,fullvars,finalvarlist;
       BackendDAE.Shared shared;
       BackendDAE.EqSystem currentSystem;
@@ -333,6 +338,15 @@ algorithm
       list<tuple<list<Integer>,list<String>,Boolean,Integer,Boolean>> blockdata;
       String modelname;
       BackendDAE.ExtraInfo einfo;
+      Option<BackendDAE.SymbolicJacobian> outJacobian;
+      BackendDAE.Jacobian simcodejacobian;
+      DAE.FunctionTree outFunctionTree;
+      BackendDAE.SparsePattern outSparsePattern;
+      BackendDAE.SparseColoring outSparseColoring;
+      SimCode.JacobianMatrix jacmatrix;
+      list<SimCodeVar.SimVar> simcodevars;
+      Tpl.Text out_txt;
+
     case(dae)
        equation
         BackendDAE.DAE(currentSystem::eqsyslist,shared) = dae;
@@ -416,7 +430,27 @@ algorithm
         BackendDump.dumpEquationList(setS_eq,"SET_S");
         VerifyDataReconciliation(tempsetC,tempsetS,knowns,unknowns,mExt,var);
         outDae=BackendDAE.DAE({currentSystem}, shared);
-        print("\n\n ################ END OF EXTRACTION ####################\n\n");
+
+        // Prepare all needed variables
+        print("\n jacobian variables \n");
+        knownvarlist = List.map1r(knowns,BackendVariable.getVarAt,allVars);
+        states = BackendVariable.getAllStateVarFromVariables(finalvars);
+        knvarlst = BackendVariable.varList(shared.globalKnownVars);
+        inputvars = List.select(knvarlst,BackendVariable.isInput);
+        paramvars = List.select(knvarlst, BackendVariable.isParam);
+        newfinalvars = List.map1r(finalvarlist,BackendVariable.getVarAt,allVars);
+        //print(anyString(knownvarlist));
+
+        (outJacobian, outFunctionTree, outSparsePattern, outSparseColoring)=   SymbolicJacobian.generateGenericJacobian(outDae,knownvarlist,BackendVariable.listVar1(states),BackendVariable.listVar1(inputvars),BackendVariable.listVar1(paramvars),BackendVariable.listVar1(states),newfinalvars,"A",false);
+        simcodejacobian=BackendDAE.GENERIC_JACOBIAN(outJacobian,outSparsePattern,outSparseColoring);
+
+        // create list of simcodevars
+          (simcodevars, _) =  BackendVariable.traverseBackendDAEVars(finalvars, SimCodeUtil.traversingdlowvarToSimvar, ({}, BackendVariable.emptyVars()));
+
+        //(SOME(jacmatrix),_,_)=SimCodeUtil.createSymbolicSimulationJacobian(simcodejacobian,1,simcodevars);
+        //out_txt=CodegenC.functionAnalyticJacobians(Tpl.emptyTxt,{jacmatrix},"OUTPUT");
+        //print("\n Jacobians test:\n" + anyString(out_txt));
+        //print("\n\n ################ END OF EXTRACTION ####################\n\n");
       then
        outDae;
     case(_) then inDae;
