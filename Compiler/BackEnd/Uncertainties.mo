@@ -429,7 +429,8 @@ algorithm
         BackendDump.dumpEquationList(setC_eq,"SET_C");
         BackendDump.dumpEquationList(setS_eq,"SET_S");
         VerifyDataReconciliation(tempsetC,tempsetS,knowns,unknowns,mExt,var);
-        outDae=BackendDAE.DAE({currentSystem}, shared);
+
+        outDae = BackendDAE.DAE({currentSystem}, shared);
 
         // Prepare all needed variables
         print("\n jacobian variables \n");
@@ -441,16 +442,15 @@ algorithm
         newfinalvars = List.map1r(finalvarlist,BackendVariable.getVarAt,allVars);
         //print(anyString(knownvarlist));
 
-        (outJacobian, outFunctionTree, outSparsePattern, outSparseColoring)=   SymbolicJacobian.generateGenericJacobian(outDae,knownvarlist,BackendVariable.listVar1(states),BackendVariable.listVar1(inputvars),BackendVariable.listVar1(paramvars),BackendVariable.listVar1(states),newfinalvars,"A",false);
+        (outJacobian, outFunctionTree, outSparsePattern, outSparseColoring) =   SymbolicJacobian.generateGenericJacobian(outDae,knownvarlist,BackendVariable.listVar1(states),BackendVariable.listVar1(inputvars),BackendVariable.listVar1(paramvars),BackendVariable.listVar1(states),newfinalvars,"A",false);
         simcodejacobian=BackendDAE.GENERIC_JACOBIAN(outJacobian,outSparsePattern,outSparseColoring);
+        
+        // put also new generated function into the functionTree
+        shared = BackendDAEUtil.setSharedFunctionTree(shared, outFunctionTree);
+        // put the jacobian also into shared object
+        shared.dataReconciliationData = SOME(BackendDAE.DATA_RECON(symbolicJacobian=simcodejacobian));
 
-        // create list of simcodevars
-          (simcodevars, _) =  BackendVariable.traverseBackendDAEVars(finalvars, SimCodeUtil.traversingdlowvarToSimvar, ({}, BackendVariable.emptyVars()));
-
-        //(SOME(jacmatrix),_,_)=SimCodeUtil.createSymbolicSimulationJacobian(simcodejacobian,1,simcodevars);
-        //out_txt=CodegenC.functionAnalyticJacobians(Tpl.emptyTxt,{jacmatrix},"OUTPUT");
-        //print("\n Jacobians test:\n" + anyString(out_txt));
-        //print("\n\n ################ END OF EXTRACTION ####################\n\n");
+        outDae=BackendDAE.DAE({currentSystem}, shared);
       then
        outDae;
     case(_) then inDae;
