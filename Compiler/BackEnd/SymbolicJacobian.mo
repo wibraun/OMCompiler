@@ -1950,7 +1950,7 @@ algorithm
   end match;
 end createLinearModelMatrixes;
 
-protected function generateGenericJacobian "author: wbraun"
+public function generateGenericJacobian "author: wbraun"
   input BackendDAE.BackendDAE inBackendDAE;
   input list<BackendDAE.Var> inDiffVars "independent vars";
   input BackendDAE.Variables inStateVars;
