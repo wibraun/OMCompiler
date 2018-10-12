@@ -513,6 +513,7 @@ int finishSimulation(DATA* data, threadData_t *threadData, SOLVER_INFO* solverIn
 
   int retValue = 0;
   int ui;
+  double totalTime, totalSimTime;
 
   SIMULATION_INFO *simInfo = data->simulationInfo;
 
@@ -542,26 +543,32 @@ int finishSimulation(DATA* data, threadData_t *threadData, SOLVER_INFO* solverIn
 
   if(ACTIVE_STREAM(LOG_STATS))
   {
+
     rt_accumulate(SIM_TIMER_TOTAL);
+    totalTime = rt_accumulated(SIM_TIMER_TOTAL);
+    totalSimTime = totalTime-rt_accumulated(SIM_TIMER_OVERHEAD)-rt_accumulated(SIM_TIMER_EVENT)-
+            rt_accumulated(SIM_TIMER_OUTPUT)-rt_accumulated(SIM_TIMER_STEP)-rt_accumulated(SIM_TIMER_INIT)-
+            rt_accumulated(SIM_TIMER_PREINIT)-rt_accumulated(SIM_TIMER_ADOLC_INIT);
 
     infoStreamPrint(LOG_STATS, 1, "### STATISTICS ###");
 
-    infoStreamPrint(LOG_STATS, 1, "timer");
-    infoStreamPrint(LOG_STATS, 0, "%12gs          reading init.xml", rt_accumulated(SIM_TIMER_INIT_XML));
-    infoStreamPrint(LOG_STATS, 0, "%12gs          reading info.xml", rt_accumulated(SIM_TIMER_INFO_XML));
-    infoStreamPrint(LOG_STATS, 0, "%12gs          pre-initialization", rt_accumulated(SIM_TIMER_PREINIT));
-    infoStreamPrint(LOG_STATS, 0, "%12gs [%5.1f%%] initialization", rt_accumulated(SIM_TIMER_INIT), rt_accumulated(SIM_TIMER_INIT)/rt_accumulated(SIM_TIMER_TOTAL)*100.0);
-    infoStreamPrint(LOG_STATS, 0, "%12gs [%5.1f%%] steps", rt_accumulated(SIM_TIMER_STEP), rt_accumulated(SIM_TIMER_STEP)/rt_accumulated(SIM_TIMER_TOTAL)*100.0);
-    infoStreamPrint(LOG_STATS, 0, "%12gs [%5.1f%%] creating output-file", rt_accumulated(SIM_TIMER_OUTPUT), rt_accumulated(SIM_TIMER_OUTPUT)/rt_accumulated(SIM_TIMER_TOTAL)*100.0);
-    infoStreamPrint(LOG_STATS, 0, "%12gs [%5.1f%%] event-handling", rt_accumulated(SIM_TIMER_EVENT), rt_accumulated(SIM_TIMER_EVENT)/rt_accumulated(SIM_TIMER_TOTAL)*100.0);
-    infoStreamPrint(LOG_STATS, 0, "%12gs [%5.1f%%] overhead", rt_accumulated(SIM_TIMER_OVERHEAD), rt_accumulated(SIM_TIMER_OVERHEAD)/rt_accumulated(SIM_TIMER_TOTAL)*100.0);
+    infoStreamPrint(LOG_STATS, 1, "timer in seconds");
+    infoStreamPrint(LOG_STATS, 0, "%12g          reading init.xml", rt_accumulated(SIM_TIMER_INIT_XML));
+    infoStreamPrint(LOG_STATS, 0, "%12g          reading info.xml", rt_accumulated(SIM_TIMER_INFO_XML));
+    infoStreamPrint(LOG_STATS, 0, "%12g          pre-initialization", rt_accumulated(SIM_TIMER_PREINIT));
+    infoStreamPrint(LOG_STATS, 0, "%12g          time read adolc trace", rt_accumulated(SIM_TIMER_ADOLC_INIT));
+    infoStreamPrint(LOG_STATS, 0, "%12g [%5.1f%%] initialization", rt_accumulated(SIM_TIMER_INIT), rt_accumulated(SIM_TIMER_INIT)/rt_accumulated(SIM_TIMER_TOTAL)*100.0);
+    infoStreamPrint(LOG_STATS, 0, "%12g [%5.1f%%] steps", rt_accumulated(SIM_TIMER_STEP), rt_accumulated(SIM_TIMER_STEP)/rt_accumulated(SIM_TIMER_TOTAL)*100.0);
+    infoStreamPrint(LOG_STATS, 0, "%12g [%5.1f%%] creating output-file", rt_accumulated(SIM_TIMER_OUTPUT), rt_accumulated(SIM_TIMER_OUTPUT)/rt_accumulated(SIM_TIMER_TOTAL)*100.0);
+    infoStreamPrint(LOG_STATS, 0, "%12g [%5.1f%%] event-handling", rt_accumulated(SIM_TIMER_EVENT), rt_accumulated(SIM_TIMER_EVENT)/rt_accumulated(SIM_TIMER_TOTAL)*100.0);
+    infoStreamPrint(LOG_STATS, 0, "%12g [%5.1f%%] overhead", rt_accumulated(SIM_TIMER_OVERHEAD), rt_accumulated(SIM_TIMER_OVERHEAD)/rt_accumulated(SIM_TIMER_TOTAL)*100.0);
 
     if(S_OPTIMIZATION != solverInfo->solverMethod)
-      infoStreamPrint(LOG_STATS, 0, "%12gs [%5.1f%%] simulation", rt_accumulated(SIM_TIMER_TOTAL)-rt_accumulated(SIM_TIMER_OVERHEAD)-rt_accumulated(SIM_TIMER_EVENT)-rt_accumulated(SIM_TIMER_OUTPUT)-rt_accumulated(SIM_TIMER_STEP)-rt_accumulated(SIM_TIMER_INIT)-rt_accumulated(SIM_TIMER_PREINIT), (rt_accumulated(SIM_TIMER_TOTAL)-rt_accumulated(SIM_TIMER_OVERHEAD)-rt_accumulated(SIM_TIMER_EVENT)-rt_accumulated(SIM_TIMER_OUTPUT)-rt_accumulated(SIM_TIMER_STEP)-rt_accumulated(SIM_TIMER_INIT)-rt_accumulated(SIM_TIMER_PREINIT))/rt_accumulated(SIM_TIMER_TOTAL)*100.0);
+      infoStreamPrint(LOG_STATS, 0, "%12g [%5.1f%%] simulation", totalSimTime, (totalSimTime)/totalTime*100.0);
     else
-      infoStreamPrint(LOG_STATS, 0, "%12gs [%5.1f%%] optimization", rt_accumulated(SIM_TIMER_TOTAL)-rt_accumulated(SIM_TIMER_OVERHEAD)-rt_accumulated(SIM_TIMER_EVENT)-rt_accumulated(SIM_TIMER_OUTPUT)-rt_accumulated(SIM_TIMER_STEP)-rt_accumulated(SIM_TIMER_INIT)-rt_accumulated(SIM_TIMER_PREINIT), (rt_accumulated(SIM_TIMER_TOTAL)-rt_accumulated(SIM_TIMER_OVERHEAD)-rt_accumulated(SIM_TIMER_EVENT)-rt_accumulated(SIM_TIMER_OUTPUT)-rt_accumulated(SIM_TIMER_STEP)-rt_accumulated(SIM_TIMER_INIT)-rt_accumulated(SIM_TIMER_PREINIT))/rt_accumulated(SIM_TIMER_TOTAL)*100.0);
+      infoStreamPrint(LOG_STATS, 0, "%12g [%5.1f%%] optimization", totalSimTime, (totalSimTime)/totalTime*100.0);
 
-    infoStreamPrint(LOG_STATS, 0, "%12gs [%5.1f%%] total", rt_accumulated(SIM_TIMER_TOTAL), rt_accumulated(SIM_TIMER_TOTAL)/rt_accumulated(SIM_TIMER_TOTAL)*100.0);
+    infoStreamPrint(LOG_STATS, 0, "%12g [%5.1f%%] total", totalTime, totalTime/totalTime*100.0);
     messageClose(LOG_STATS);
 
     infoStreamPrint(LOG_STATS, 1, "events");
@@ -585,7 +592,8 @@ int finishSimulation(DATA* data, threadData_t *threadData, SOLVER_INFO* solverIn
       infoStreamPrint(LOG_STATS, 0, "%5d evaluations of jacobian", solverInfo->solverStats[2]);
       infoStreamPrint(LOG_STATS, 0, "%5d error test failures", solverInfo->solverStats[3]);
       infoStreamPrint(LOG_STATS, 0, "%5d convergence test failures", solverInfo->solverStats[4]);
-      infoStreamPrint(LOG_STATS, 0, "%gs time of jacobian evaluation", rt_accumulated(SIM_TIMER_JACOBIAN));
+      infoStreamPrint(LOG_STATS, 0, "%g time(seconds) of jacobian evaluations", rt_accumulated(SIM_TIMER_JACOBIAN));
+      infoStreamPrint(LOG_STATS, 0, "%g time(seconds) pre one jacobian evaluation", rt_accumulated(SIM_TIMER_JACOBIAN)/solverInfo->solverStats[2]);
       messageClose(LOG_STATS);
     }
 
@@ -602,11 +610,6 @@ int finishSimulation(DATA* data, threadData_t *threadData, SOLVER_INFO* solverIn
     infoStreamPrint(LOG_STATS_V, 0, "%5ld calls of updateDiscreteSystem", data->simulationInfo->callStatistics.updateDiscreteSystem);
     infoStreamPrint(LOG_STATS_V, 0, "%5ld calls of functionZeroCrossingsEquations", data->simulationInfo->callStatistics.functionZeroCrossingsEquations);
     infoStreamPrint(LOG_STATS_V, 0, "%5ld calls of functionZeroCrossings", data->simulationInfo->callStatistics.functionZeroCrossings);
-    messageClose(LOG_STATS_V);
-
-    infoStreamPrint(LOG_STATS_V, 1, "timings:");
-    infoStreamPrint(LOG_STATS_V, 0, "%g time read adolc trace", rt_accumulated(SIM_TIMER_ADOLC_INIT));
-    infoStreamPrint(LOG_STATS_V, 0, "%g evaluation time jacobian", rt_accumulated(SIM_TIMER_JACOBIAN)/solverInfo->solverStats[2]);
     messageClose(LOG_STATS_V);
 
     infoStreamPrint(LOG_STATS_V, 1, "linear systems");
