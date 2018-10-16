@@ -2756,7 +2756,7 @@ algorithm
   end match;
 end isRecordInvoled;
 
-protected function getSymbolicJacobian "author: wbraun
+public function getSymbolicJacobian "author: wbraun
   This function creates a symbolic Jacobian column for non-linear systems and
   tearing systems."
   input BackendDAE.Variables inDiffVars;
