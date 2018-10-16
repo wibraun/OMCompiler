@@ -4703,7 +4703,7 @@ template generateMatrix(list<JacobianColumn> jacobianColumn, list<SimVar> seedVa
     {
       TRACE_PUSH
       TRACE_POP
-      return 0;
+      return -1;
     }
     >>
   case _ then
@@ -4714,7 +4714,7 @@ template generateMatrix(list<JacobianColumn> jacobianColumn, list<SimVar> seedVa
         {
           TRACE_PUSH
           TRACE_POP
-          return 0;
+          return -1;
         }
         >>
       case _ then
@@ -4735,6 +4735,17 @@ template functionJac(list<SimEqSystem> jacEquations, Integer partIdx, String mat
   This template generates functions for each column of a single jacobian.
   This is a helper of generateMatrix."
 ::=
+  match jacEquations
+  case {} then
+  <<
+  int <%symbolName(modelNamePrefix,"functionJac")%><%matrixName%>_column(void* data, threadData_t *threadData)
+  {
+    TRACE_PUSH
+    TRACE_POP
+    return -1;
+  }
+  >>
+  case _ then
   <<
   <%(jacEquations |> eq =>
     equation_impl(partIdx, eq, contextSimulationNonDiscrete, modelNamePrefix); separator="\n")%>
