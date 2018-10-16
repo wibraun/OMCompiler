@@ -439,7 +439,6 @@ int initializeModel(DATA* data, threadData_t *threadData, const char* init_initM
   {
     rt_accumulate(SIM_TIMER_PREINIT);
     rt_tick(SIM_TIMER_INIT);
-    rt_tick(SIM_TIMER_TOTAL);
   }
 
   copyStartValuestoInitValues(data);
@@ -555,8 +554,8 @@ int finishSimulation(DATA* data, threadData_t *threadData, SOLVER_INFO* solverIn
     infoStreamPrint(LOG_STATS, 1, "timer in seconds");
     infoStreamPrint(LOG_STATS, 0, "%12g          reading init.xml", rt_accumulated(SIM_TIMER_INIT_XML));
     infoStreamPrint(LOG_STATS, 0, "%12g          reading info.xml", rt_accumulated(SIM_TIMER_INFO_XML));
-    infoStreamPrint(LOG_STATS, 0, "%12g          pre-initialization", rt_accumulated(SIM_TIMER_PREINIT));
-    infoStreamPrint(LOG_STATS, 0, "%12g          time read adolc trace", rt_accumulated(SIM_TIMER_ADOLC_INIT));
+    infoStreamPrint(LOG_STATS, 0, "%12g [%5.1f%%] pre-initialization", rt_accumulated(SIM_TIMER_PREINIT) - rt_accumulated(SIM_TIMER_ADOLC_INIT), (rt_accumulated(SIM_TIMER_PREINIT) - rt_accumulated(SIM_TIMER_ADOLC_INIT))/rt_accumulated(SIM_TIMER_TOTAL)*100.0);
+    infoStreamPrint(LOG_STATS, 0, "%12g [%5.1f%%] time read adolc trace", rt_accumulated(SIM_TIMER_ADOLC_INIT), rt_accumulated(SIM_TIMER_ADOLC_INIT)/rt_accumulated(SIM_TIMER_TOTAL)*100.0);
     infoStreamPrint(LOG_STATS, 0, "%12g [%5.1f%%] initialization", rt_accumulated(SIM_TIMER_INIT), rt_accumulated(SIM_TIMER_INIT)/rt_accumulated(SIM_TIMER_TOTAL)*100.0);
     infoStreamPrint(LOG_STATS, 0, "%12g [%5.1f%%] steps", rt_accumulated(SIM_TIMER_STEP), rt_accumulated(SIM_TIMER_STEP)/rt_accumulated(SIM_TIMER_TOTAL)*100.0);
     infoStreamPrint(LOG_STATS, 0, "%12g [%5.1f%%] creating output-file", rt_accumulated(SIM_TIMER_OUTPUT), rt_accumulated(SIM_TIMER_OUTPUT)/rt_accumulated(SIM_TIMER_TOTAL)*100.0);
