@@ -545,7 +545,6 @@ int finishSimulation(DATA* data, threadData_t *threadData, SOLVER_INFO* solverIn
     rt_accumulate(SIM_TIMER_TOTAL);
 
     infoStreamPrint(LOG_STATS, 1, "### STATISTICS ###");
-
     infoStreamPrint(LOG_STATS, 1, "timer");
     infoStreamPrint(LOG_STATS, 0, "%12gs          reading init.xml", rt_accumulated(SIM_TIMER_INIT_XML));
     infoStreamPrint(LOG_STATS, 0, "%12gs          reading info.xml", rt_accumulated(SIM_TIMER_INFO_XML));
@@ -586,6 +585,10 @@ int finishSimulation(DATA* data, threadData_t *threadData, SOLVER_INFO* solverIn
       infoStreamPrint(LOG_STATS, 0, "%5d error test failures", solverInfo->solverStats[3]);
       infoStreamPrint(LOG_STATS, 0, "%5d convergence test failures", solverInfo->solverStats[4]);
       infoStreamPrint(LOG_STATS, 0, "%gs time of jacobian evaluation", rt_accumulated(SIM_TIMER_JACOBIAN));
+#ifdef _OPENMP
+      infoStreamPrint(LOG_STATS, 0, "%i OpenMP-threads used for jacobian evaluation", omp_get_max_threads());
+#endif
+
       messageClose(LOG_STATS);
     }
 

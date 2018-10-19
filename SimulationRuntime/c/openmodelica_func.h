@@ -242,18 +242,18 @@ const int INDEX_JAC_D;
  * Return-value 0: jac is present
  * Return-value 1: jac is not present
  */
-int (*initialAnalyticJacobianA)(void* data, threadData_t *threadData);
-int (*initialAnalyticJacobianB)(void* data, threadData_t *threadData);
-int (*initialAnalyticJacobianC)(void* data, threadData_t *threadData);
-int (*initialAnalyticJacobianD)(void* data, threadData_t *threadData);
+int (*initialAnalyticJacobianA)(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* jacobian);
+int (*initialAnalyticJacobianB)(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* jacobian);
+int (*initialAnalyticJacobianC)(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* jacobian);
+int (*initialAnalyticJacobianD)(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* jacobian);
 
 /*
  * These functions calculate specific jacobian column.
  */
-int (*functionJacA_column)(void* data, threadData_t *threadData);
-int (*functionJacB_column)(void* data, threadData_t *threadData);
-int (*functionJacC_column)(void* data, threadData_t *threadData);
-int (*functionJacD_column)(void* data, threadData_t *threadData);
+int (*functionJacA_column)(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* jacobian);
+int (*functionJacB_column)(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* jacobian);
+int (*functionJacC_column)(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* jacobian);
+int (*functionJacD_column)(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* jacobian);
 
 /*#endif*/
 

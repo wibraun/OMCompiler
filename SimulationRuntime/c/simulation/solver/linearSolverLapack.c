@@ -65,8 +65,8 @@ int allocateLapackData(int size, void** voiddata)
   data->work = _omc_allocateVectorData(size);
 
   data->x = _omc_createVector(size, NULL);
-  data->b = _omc_createVector(size, NULL);
-  data->A = _omc_createMatrix(size, size, NULL);
+  data->b = _omc_allocateVectorData(size);
+  data->A = _omc_allocateMatrixData(size, size);
 
   *voiddata = (void*)data;
   return 0;
@@ -83,8 +83,8 @@ int freeLapackData(void **voiddata)
   _omc_deallocateVectorData(data->work);
 
   _omc_destroyVector(data->x);
-  _omc_destroyVector(data->b);
-  _omc_destroyMatrix(data->A);
+  _omc_deallocateVectorData(data->b);
+  _omc_deallocateMatrixData(data->A);
 
   free(data);
   voiddata[0] = 0;
@@ -108,36 +108,46 @@ int getAnalyticalJacobianLapack(DATA* data, threadData_t *threadData, double* ja
   LINEAR_SYSTEM_DATA* systemData = &(((DATA*)data)->simulationInfo->linearSystemData[currentSys]);
 
   const int index = systemData->jacobianIndex;
+#ifdef _OPENMP
+  ANALYTIC_JACOBIAN* jacobian = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
+  ((systemData->initialAnalyticalJacobian))(data, threadData, jacobian);
+#else
+  ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[systemData->jacobianIndex]);
+#endif
 
   memset(jac, 0, (systemData->size)*(systemData->size)*sizeof(double));
 
-  for(i=0; i < data->simulationInfo->analyticJacobians[index].sparsePattern.maxColors; i++)
+  for(i=0; i < jacobian->sparsePattern.maxColors; i++)
   {
     /* activate seed variable for the corresponding color */
-    for(ii=0; ii < data->simulationInfo->analyticJacobians[index].sizeCols; ii++)
-      if(data->simulationInfo->analyticJacobians[index].sparsePattern.colorCols[ii]-1 == i)
-        data->simulationInfo->analyticJacobians[index].seedVars[ii] = 1;
+    for(ii=0; ii < jacobian->sizeCols; ii++)
+      if(jacobian->sparsePattern.colorCols[ii]-1 == i)
+        jacobian->seedVars[ii] = 1;
 
-    ((systemData->analyticalJacobianColumn))(data, threadData);
+    ((systemData->analyticalJacobianColumn))(data, threadData, jacobian);
 
-    for(j = 0; j < data->simulationInfo->analyticJacobians[index].sizeCols; j++)
+    for(j = 0; j < jacobian->sizeCols; j++)
     {
-      if(data->simulationInfo->analyticJacobians[index].seedVars[j] == 1)
+      if(jacobian->seedVars[j] == 1)
       {
-        ii = data->simulationInfo->analyticJacobians[index].sparsePattern.leadindex[j];
-        while(ii < data->simulationInfo->analyticJacobians[index].sparsePattern.leadindex[j+1])
+        ii = jacobian->sparsePattern.leadindex[j];
+        while(ii < jacobian->sparsePattern.leadindex[j+1])
         {
-          l  = data->simulationInfo->analyticJacobians[index].sparsePattern.index[ii];
-          k  = j*data->simulationInfo->analyticJacobians[index].sizeRows + l;
-          jac[k] = -data->simulationInfo->analyticJacobians[index].resultVars[l];
+          l  = jacobian->sparsePattern.index[ii];
+          k  = j*jacobian->sizeRows + l;
+          jac[k] = -jacobian->resultVars[l];
           ii++;
         };
       }
       /* de-activate seed variable for the corresponding color */
-      if(data->simulationInfo->analyticJacobians[index].sparsePattern.colorCols[j]-1 == i)
-        data->simulationInfo->analyticJacobians[index].seedVars[j] = 0;
+      if(jacobian->sparsePattern.colorCols[j]-1 == i)
+        jacobian->seedVars[j] = 0;
     }
   }
+
+#ifdef _OPENMP
+  freeAnalyticalJacobian(jacobian);
+#endif
 
   return 0;
 }
@@ -160,14 +170,17 @@ static int wrapper_fvec_lapack(_omc_vector* x, _omc_vector* f, int* iflag, void*
  *
  *  \author wbraun
  */
-int solveLapack(DATA *data, threadData_t *threadData, int sysNumber)
+int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
 {
   void *dataAndThreadData[2] = {data, threadData};
   int i, iflag = 1;
   LINEAR_SYSTEM_DATA* systemData = &(data->simulationInfo->linearSystemData[sysNumber]);
-  DATA_LAPACK* solverData = (DATA_LAPACK*)systemData->solverData[0];
+  DATA_LAPACK* solverData;
 
   int success = 1;
+#ifdef _OPENMP
+  infoStreamPrint(LOG_LS_V, 0, "----- Thread %i starts solveLapack.\n", omp_get_thread_num());
+#endif
 
   /* We are given the number of the linear system.
    * We want to look it up among all equations. */
@@ -181,18 +194,16 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber)
          eqSystemNumber, (int) systemData->size,
          data->localData[0]->timeValue);
 
-
+  allocateLapackData(systemData->size, &solverData);
   /* set data */
-  _omc_setVectorData(solverData->x, systemData->x);
-  _omc_setVectorData(solverData->b, systemData->b);
-  _omc_setMatrixData(solverData->A, systemData->A);
+  _omc_setVectorData(solverData->x, aux_x);
 
   rt_ext_tp_tick(&(solverData->timeClock));
   if (0 == systemData->method) {
 
     if (!reuseMatrixJac){
       /* reset matrix A */
-      memset(systemData->A, 0, (systemData->size)*(systemData->size)*sizeof(double));
+      memset(solverData->A, 0, (systemData->size)*(systemData->size)*sizeof(double));
 
       /* update matrix A */
       systemData->setA(data, threadData, systemData);
@@ -201,7 +212,6 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber)
     /* update vector b (rhs) */
     systemData->setb(data, threadData, systemData);
   } else {
-
     if (!reuseMatrixJac){
       /* calculate jacobian -> matrix A*/
       if(systemData->jacobianIndex != -1){
@@ -210,13 +220,27 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber)
         assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
       }
     }
-
     /* calculate vector b (rhs) */
     _omc_copyVector(solverData->work, solverData->x);
+
     wrapper_fvec_lapack(solverData->work, solverData->b, &iflag, dataAndThreadData, sysNumber);
   }
   tmpJacEvalTime = rt_ext_tp_tock(&(solverData->timeClock));
+
+#ifdef _OPENMP
+  // MS: Caution with timing if the OpenMP-parallel Jacobian evaluation is used. Depending on the information of interest,
+  //     there are different timings, e.g.:
+  //     1. Accumulate time spent in Jacobian evaluations of all threads will give you the total CPU time.
+  //     2. Track time spent in Jacobian evaluations of each thread separately.
+  //     3. Track time spent in Jacobian evaluations of a specific thread.
+  //     Currently, we do not track any time in this context.
+  if (!omp_get_thread_num()) {
+    systemData->jacobianTime += tmpJacEvalTime;
+  }
+#else
   systemData->jacobianTime += tmpJacEvalTime;
+#endif
+
   infoStreamPrint(LOG_LS_V, 0, "###  %f  time to set Matrix A and vector b.", tmpJacEvalTime);
 
   /* Log A*x=b */
@@ -258,7 +282,7 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber)
   }
 
 
-  infoStreamPrint(LOG_LS_V, 0, "Solve System: %f", rt_ext_tp_tock(&(solverData->timeClock)));
+  infoStreamPrint(LOG_LS, 0, "Solve System: %f", rt_ext_tp_tock(&(solverData->timeClock)));
 
   if(solverData->info < 0)
   {
@@ -284,11 +308,24 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber)
   if (1 == success){
 
     if (1 == systemData->method){
+
+
+      if(ACTIVE_STREAM(LOG_LS_V)){
+        _omc_printVector(solverData->work, "Vector work", LOG_LS_V);
+        _omc_printVector(solverData->b, "Vector b", LOG_LS_V);
+      }
       /* take the solution */
       solverData->x = _omc_addVectorVector(solverData->x, solverData->work, solverData->b); // x = xold(work) + xnew(b)
 
+      if(ACTIVE_STREAM(LOG_LS_V)){
+        _omc_printVector(solverData->x, "Vector x", LOG_LS_V);
+      }
       /* update inner equations */
       wrapper_fvec_lapack(solverData->x, solverData->work, &iflag, dataAndThreadData, sysNumber);
+      if(ACTIVE_STREAM(LOG_LS_V)){
+        _omc_printVector(solverData->work, "Vector work", LOG_LS_V);
+      }
+
       residualNorm = _omc_euclideanVectorNorm(solverData->work);
 
       if ((isnan(residualNorm)) || (residualNorm>1e-4)){
@@ -313,6 +350,10 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber)
       messageClose(LOG_LS_V);
     }
   }
+  freeLapackData(&solverData);
+#ifdef _OPENMP
+  infoStreamPrint(LOG_LS_V, 1,"----- Thread %i finishes solveLapack.\n", omp_get_thread_num());
+#endif
 
   return success;
 }

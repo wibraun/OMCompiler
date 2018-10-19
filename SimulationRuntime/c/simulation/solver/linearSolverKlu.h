@@ -54,6 +54,8 @@ typedef struct DATA_KLU
   klu_common common;
 
   double* work;
+  double* b;
+  ANALYTIC_JACOBIAN* matrixA;
 
   rtclock_t timeClock;             /* time clock */
   int numberSolving;
@@ -62,7 +64,7 @@ typedef struct DATA_KLU
 
 int allocateKluData(int n_row, int n_col, int nz, void **data);
 int freeKluData(void **data);
-int solveKlu(DATA *data, threadData_t *threadData, int sysNumber);
+int solveKlu(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x);
 
 #endif
 #endif

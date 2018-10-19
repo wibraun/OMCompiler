@@ -3125,6 +3125,7 @@ algorithm
       Boolean mixedSystem;
       BackendDAE.TearingSet strictTearingSet;
       Option<BackendDAE.TearingSet> casualTearingSet;
+      Boolean partOfJac;
 
     // EQUATIONSYSTEM: continuous system of equations
     case (BackendDAE.EQSYSTEM(orderedVars=vars, orderedEqs=eqns),
@@ -3148,7 +3149,8 @@ algorithm
         var_lst_1 = List.map(var_lst, BackendVariable.transformXToXd);
         vars_1 = BackendVariable.listVar1(var_lst_1);
         eqns_1 = BackendEquation.listEquation(eqn_lst);
-        (equations_, uniqueEqIndex, tempvars) = createOdeSystem2(false, vars_1, globalKnownVars, eqns_1, jacobian, jac_tp, funcs, vars, iuniqueEqIndex, ei, mixedSystem, itempvars);
+        partOfJac = BackendDAEUtil.isJacobianDAE(ishared);
+        (equations_, uniqueEqIndex, tempvars) = createOdeSystem2(false, vars_1, globalKnownVars, eqns_1, jacobian, jac_tp, funcs, vars, iuniqueEqIndex, ei, mixedSystem, partOfJac, itempvars);
         uniqueEqIndexMapping = uniqueEqIndex-1; //a system with this index is created that contains all the equations with the indeces from iuniqueEqIndex to uniqueEqIndex-2
         //tmpEqSccMapping = appendSccIdxRange(iuniqueEqIndex, uniqueEqIndex - 1, isccIndex, ieqSccMapping);
         tmpEqSccMapping = appendSccIdxRange(uniqueEqIndexMapping, uniqueEqIndex - 1, isccIndex, ieqSccMapping);
@@ -3187,6 +3189,7 @@ protected function createOdeSystem2
   input Integer iuniqueEqIndex;
   input BackendDAE.ExtraInfo iei;
   input Boolean mixedSystem;
+  input Boolean partOfJac;
   input list<SimCodeVar.SimVar> itempvars;
   output list<SimCode.SimEqSystem> equations_;
   output Integer ouniqueEqIndex;
@@ -3243,11 +3246,8 @@ algorithm
       (beqs, sources) = BackendDAEUtil.getEqnSysRhs(inEquationArray, inVars, SOME(inFuncs));
       beqs = listReverse(beqs);
       simJac = List.map1(jac, jacToSimjac, inVars);
-    if (Config.simCodeTarget()=="Cpp") then
-    simJac = List.sort(simJac,simJacCSRToCSC);
-    end if;
 
-    then ({SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(iuniqueEqIndex, mixedEvent, false, simVars, beqs, simJac, {}, NONE(), sources, 0, inVars.numberOfVars), NONE(), BackendDAE.EQ_ATTR_DEFAULT_UNKNOWN)}, iuniqueEqIndex+1, itempvars);
+    then ({SimCode.SES_LINEAR(SimCode.LINEARSYSTEM(iuniqueEqIndex, mixedEvent, false, simVars, beqs, simJac, {}, NONE(), sources, 0, inVars.numberOfVars, partOfJac), NONE(), BackendDAE.EQ_ATTR_DEFAULT_UNKNOWN)}, iuniqueEqIndex+1, itempvars);
 
     // Time varying nonlinear jacobian. Non-linear system of equations.
     case (_, BackendDAE.JAC_GENERIC()) equation
@@ -3364,6 +3364,8 @@ algorithm
        SimCode.NonlinearSystem nlSystem;
        Option<SimCode.LinearSystem> alternativeTearingL;
        Option<SimCode.NonlinearSystem> alternativeTearingNl;
+       BackendDAE.BackendDAEType backendDAEType;
+       Boolean partOfJac;
 
      // CASE: linear
      case(true, BackendDAE.EQSYSTEM(orderedVars=vars, orderedEqs=eqns), BackendDAE.SHARED(globalKnownVars=globalKnownVars)) equation
@@ -3389,7 +3391,8 @@ algorithm
        simequations = listAppend(simequations, resEqs);
 
        (jacobianMatrix, uniqueEqIndex, tempvars) = createSymbolicSimulationJacobian(inJacobian, uniqueEqIndex, tempvars);
-       lSystem = SimCode.LINEARSYSTEM(uniqueEqIndex, false, true, simVars, {}, {}, simequations, jacobianMatrix, {}, 0, listLength(tvars)+nInnerVars+listLength(tempvars)-listLength(itempvars));
+       partOfJac = BackendDAEUtil.isJacobianDAE(ishared);
+       lSystem = SimCode.LINEARSYSTEM(uniqueEqIndex, false, true, simVars, {}, {}, simequations, jacobianMatrix, {}, 0, listLength(tvars)+nInnerVars+listLength(tempvars)-listLength(itempvars), partOfJac);
        tempvars2 = tempvars;
 
        // Do if dynamic tearing is activated
@@ -3410,7 +3413,7 @@ algorithm
          simequations = listAppend(simequations, resEqs);
 
          (jacobianMatrix, uniqueEqIndex, tempvars2) = createSymbolicSimulationJacobian(inJacobian, uniqueEqIndex, tempvars2);
-         alternativeTearingL = SOME(SimCode.LINEARSYSTEM(uniqueEqIndex, false, true, simVars, {}, {}, simequations, jacobianMatrix, {}, 0, listLength(tvars)+nInnerVars+listLength(tempvars2)-listLength(tempvars)));
+         alternativeTearingL = SOME(SimCode.LINEARSYSTEM(uniqueEqIndex, false, true, simVars, {}, {}, simequations, jacobianMatrix, {}, 0, listLength(tvars)+nInnerVars+listLength(tempvars2)-listLength(tempvars), partOfJac));
 
        else
          alternativeTearingL = NONE();

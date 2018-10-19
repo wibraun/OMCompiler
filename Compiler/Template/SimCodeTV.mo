@@ -532,6 +532,7 @@ package SimCode
       list<DAE.ElementSource> sources;
       Integer indexLinearSystem;
       Integer nUnknowns;
+      Boolean partOfJac "if TRUE then this system is part of a jacobian matrix";
     end LINEARSYSTEM;
   end LinearSystem;
 
