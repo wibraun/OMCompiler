@@ -774,12 +774,15 @@ type SymbolicJacobian = tuple<BackendDAE,               // symbolic equation sys
                               list<Var>                 // all diffed vars (residual vars + dependent vars)
                               >;
 
+type SparsePatternCref = tuple< .DAE.ComponentRef, list< .DAE.ComponentRef>>;
+type SparsePatternCrefs = list<SparsePatternCref>;
+
 public
-type SparsePattern = tuple<list<tuple< .DAE.ComponentRef, list< .DAE.ComponentRef>>>, // column-wise sparse pattern
-                           list<tuple< .DAE.ComponentRef, list< .DAE.ComponentRef>>>, // row-wise sparse pattern
-                           tuple<list< .DAE.ComponentRef>,                            // diff vars
-                                 list< .DAE.ComponentRef>>,                           // diffed vars
-                           Integer>;                                                  // nonZeroElements
+type SparsePattern = tuple<SparsePatternCrefs,              // column-wise sparse pattern
+                           SparsePatternCrefs,              // row-wise sparse pattern
+                           tuple<list< .DAE.ComponentRef>,  // diff vars
+                                 list< .DAE.ComponentRef>>, // diffed vars
+                           Integer>;                        // nonZeroElements
 
 public
 constant SparsePattern emptySparsePattern = ({},{},({},{}),0);

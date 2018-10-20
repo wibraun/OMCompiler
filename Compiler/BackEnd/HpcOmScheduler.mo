@@ -3569,14 +3569,15 @@ algorithm
   (jacOut,tplOut) := matchcontinue(jacIn,tplIn)
     local
       list<SimCode.SimEqSystem> simEqs;
+      list<list<SimCode.SimEqSystem>> columnCalls;
       list<SimCodeVar.SimVar> simVars;
       Integer rowLen;
       array<Integer> ass;
       Integer newIdx;
-    case (SimCode.JAC_COLUMN(simEqs,simVars,rowLen),(newIdx,ass))
+    case (SimCode.JAC_COLUMN(simEqs,simVars,rowLen,columnCalls),(newIdx,ass))
       equation
         (simEqs,(newIdx,ass)) = List.mapFold(simEqs,TDS_replaceSimEqSysIndexWithUpdate,(newIdx,ass));
-   then (SimCode.JAC_COLUMN(simEqs,simVars,rowLen),(newIdx,ass));
+   then (SimCode.JAC_COLUMN(simEqs,simVars,rowLen,columnCalls),(newIdx,ass));
    else (jacIn,tplIn);
   end matchcontinue;
 end TDS_replaceSimEqSysIdxInJacobianColumnWithUpdate;

@@ -176,7 +176,8 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
   int indexes[2] = {1,eqSystemNumber};
   _omc_scalar residualNorm = 0;
   double tmpJacEvalTime;
-  int reuseMatrixJac = (data->simulationInfo->currentContext == CONTEXT_SYM_JACOBIAN && data->simulationInfo->currentJacobianEval > 0);
+  //int reuseMatrixJac = (data->simulationInfo->currentContext == CONTEXT_SYM_JACOBIAN && data->simulationInfo->currentJacobianEval > 0);
+  int reuseMatrixJac = 0;
 
   infoStreamPrintWithEquationIndexes(LOG_LS, 0, indexes, "Start solving Linear System %d (size %d) at time %g with Lapack Solver",
          eqSystemNumber, (int) systemData->size,

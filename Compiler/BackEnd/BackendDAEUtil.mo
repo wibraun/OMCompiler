@@ -1386,6 +1386,40 @@ algorithm
   tree := BackendEquation.expressionVarsIndexes(exp, tree, func);
 end varsCollector;
 
+public function markDependentVars
+  "This function goes through all equations and marks that ones where
+  are need to calculate all given varibales.
+  with a non-zero value in the array passed as argument.
+  This is done by traversing the directed graph of nodes where
+  a node is an equation/solved variable and following the edges in the
+  backward direction."
+  input BackendDAE.EqSystem syst;
+  input list<DAE.ComponentRef> inCrefs;
+  input array<Integer> arr;
+  output array<Integer> outIntegerArray;
+protected
+  list<Integer> varindx_lst,eqns,ilst;
+  BackendDAE.IncidenceMatrix m;
+  BackendDAE.Variables v;
+  AvlSetInt.Tree tree = AvlSetInt.new();
+  array<Integer> ass1;
+algorithm
+  //BackendDump.dumpEqSystem(syst, "Dep System");
+  BackendDAE.EQSYSTEM(orderedVars = v,m=SOME(m),matching=BackendDAE.MATCHING(ass1=ass1)) := syst;
+  for cr in inCrefs loop
+    try
+      //print("search for: " + ComponentReference.printComponentRefStr(cr) + "\n");
+      (_, ilst) := BackendVariable.getVar(cr, v);
+      tree := AvlSetInt.addList(tree, ilst);
+      else
+    end try;
+  end for;
+  varindx_lst := AvlSetInt.listKeys(tree);
+  //print("var index : " + Util.intLstString(varindx_lst) + "\n");
+  eqns := list(arrayGet(ass1,i) for i guard arrayGet(ass1,i)>0 in varindx_lst);
+  outIntegerArray := markStateEquationsWork(eqns,m,ass1,arr);
+end markDependentVars;
+
 protected function markStateEquationsWork
 "Helper function to mark_state_equation
   Does the job by looking at variable indexes and incidencematrices.

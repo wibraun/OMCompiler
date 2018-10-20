@@ -869,7 +869,12 @@ int jacA_symColored(double *t, double *y, double *yprime, double *delta, double 
       if(jacobian->sparsePattern.colorCols[ii]-1 == i)
         jacobian->seedVars[ii] = 1;
 
-    data->callback->functionJacA_column(data, threadData, jacobian, NULL);
+    if (data->simulationInfo->analyticJacobians[index].columnColor != NULL) {
+      data->simulationInfo->analyticJacobians[index].columnColor(data, threadData, i);
+    }
+    else {
+      data->callback->functionJacA_column(data, threadData, jacobian, NULL);
+    }
 
     increaseJacContext(data);
 
