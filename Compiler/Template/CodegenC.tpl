@@ -4733,8 +4733,12 @@ template generateMatrix(list<JacobianColumn> jacobianColumn, list<SimVar> seedVa
         }
         >>
       case _ then
-        let jacMats = (jacobianColumn |> JAC_COLUMN(columnEqns=eqs) =>
+        let jacMats = (jacobianColumn |> JAC_COLUMN(columnEqns=eqs, columnCalls=eqCalls) =>
+          match eqCalls
+          case {} then
           functionJac(eqs, partIdx, matrixname, modelNamePrefix)
+          case _ then
+          functionJacDepCalls(eqs, eqCalls, partIdx, matrixname, modelNamePrefix)
           ;separator="\n")
         let indexColumn = (jacobianColumn |> JAC_COLUMN(numberOfResultVars=nRows)  =>
           nRows
@@ -4767,6 +4771,71 @@ template functionJac(list<SimEqSystem> jacEquations, Integer partIdx, String mat
   }
   >>
 end functionJac;
+
+template functionJacDepCalls(list<SimEqSystem> jacEquations, list<list<SimEqSystem>> eqCalls, Integer partIdx, String matrixName, String modelNamePrefix) "template functionJac
+  This template generates functions for each column of a single jacobian.
+  This is a helper of generateMatrix."
+::=
+  let &jacColumns = buffer ""
+  let jacCalls = (eqCalls |> callLst hasindex color =>
+                <<
+                /* color <%color%> */
+                <%symbolName(modelNamePrefix,"jac")%>_<%matrixName%>_column_<%color%>(inData, threadData);
+                >>;
+               separator="\n")
+  let jacCallsSwitch = (eqCalls |> callLst hasindex color =>
+                <<
+                /* color <%color%> */
+                case <%color%>: 
+                  <%symbolName(modelNamePrefix,"jac")%>_<%matrixName%>_column_<%color%>(inData, threadData);
+                  break;
+                >>;
+               separator="\n")
+  let jacColorColumns = (eqCalls |> callLst hasindex color =>
+                <<
+                /* color <%color%> */
+                int <%symbolName(modelNamePrefix,"jac")%>_<%matrixName%>_column_<%color%>(void* data, threadData_t *threadData)
+                {
+                  <%(callLst |> eq => equation_call(eq, modelNamePrefix); separator="\n")%>
+                }
+                >>;
+               separator="\n")
+  <<
+  <%(jacEquations |> eq =>
+    equation_impl(partIdx, eq, contextSimulationNonDiscrete, modelNamePrefix); separator="\n")%>
+  
+  <% jacColorColumns %>
+  
+  int <%symbolName(modelNamePrefix,"functionJac")%><%matrixName%>_column(void* inData, threadData_t *threadData)
+  {
+    TRACE_PUSH
+
+    DATA* data = ((DATA*)inData);
+    int index = <%symbolName(modelNamePrefix,"INDEX_JAC_")%><%matrixName%>;
+
+    <%jacCalls%>
+
+    TRACE_POP
+    return 0;
+  }
+  int <%symbolName(modelNamePrefix,"functionJac")%><%matrixName%>_columnColor(void* inData, threadData_t *threadData, int color)
+  {
+    TRACE_PUSH
+
+    DATA* data = ((DATA*)inData);
+    int index = <%symbolName(modelNamePrefix,"INDEX_JAC_")%><%matrixName%>;
+    
+    switch (color){
+      <%jacCallsSwitch%>
+      default:
+        throwStreamPrint(NULL, "function <%symbolName(modelNamePrefix,"functionJac")%><%matrixName%>_columnColor called with a non-existing color!");
+    }
+
+    TRACE_POP
+    return 0;
+  }
+  >>
+end functionJacDepCalls;
 
 // function for sparsity pattern generation
 template genSPCRSPtr(Integer sizeColPtr, list<tuple<Integer,list<Integer>>> sparsepattern, String constArrayName)
