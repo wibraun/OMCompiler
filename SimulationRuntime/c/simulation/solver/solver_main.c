@@ -584,7 +584,8 @@ int finishSimulation(DATA* data, threadData_t *threadData, SOLVER_INFO* solverIn
       infoStreamPrint(LOG_STATS, 0, "%5d evaluations of jacobian", solverInfo->solverStats[2]);
       infoStreamPrint(LOG_STATS, 0, "%5d error test failures", solverInfo->solverStats[3]);
       infoStreamPrint(LOG_STATS, 0, "%5d convergence test failures", solverInfo->solverStats[4]);
-      infoStreamPrint(LOG_STATS, 0, "%gs time of jacobian evaluation", rt_accumulated(SIM_TIMER_JACOBIAN));
+      infoStreamPrint(LOG_STATS, 0, "%g time(seconds) of jacobian evaluations", rt_accumulated(SIM_TIMER_JACOBIAN));
+      infoStreamPrint(LOG_STATS, 0, "%g time(seconds) pre one jacobian evaluation", rt_accumulated(SIM_TIMER_JACOBIAN)/solverInfo->solverStats[2]);
       messageClose(LOG_STATS);
     }
 
