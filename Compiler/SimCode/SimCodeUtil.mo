@@ -1814,11 +1814,8 @@ algorithm
   // sparse pattern is based original variables, here the differd variables are needed
   sparsePatternCrefsDiff := translateSparsePatterToJacobian(sparsePatternCrefs, inAllVars, crefZ, inMatrixName);
   //BackendDump.printSparsityPatternCrefs(sparsePatternCrefsDiff);
-  // (eqnlst, varlst, index) = BackendDAETransform.getEquationAndSolvedVar(comp, syst.orderedEqs, syst.orderedVars);
-  // States are solved for der(x) not x.
-  // varlst = List.map(varlst, BackendVariable.transformXToXd);
-  // get result variables of every column
-  
+
+  // get result variables of every column, but
   // join dependencies of columns with the same color
   joinedSparseDeps := joinSparseColorDep(sparsePatternCrefsDiff, sparseColoring);
 
@@ -1838,14 +1835,13 @@ algorithm
     (compEqns, _) := BackendDAETransform.getEquationAndSolvedVarIndxes(comp);
     i := 1;
     for e in spDepEqnsVars loop
-      // print("add comp: " + intString(i) + "for  "+ ComponentReference.printComponentRefStr(Util.tuple21(e)) + "\n");
       (cr, marks) := e;
       b := Util.boolAndList(list(arrayGet(marks, eqn) == 1 for eqn in compEqns));
+      // print("add comp: " + intString(i) + "for  "+ ComponentReference.printComponentRefStr(Util.tuple21(e)) + "\n");
       //for eqn in compEqns loop
       //  print("eqn: " + intString(eqn) + " " + boolString(arrayGet(marks, eqn) == 1) + "\n");
       //end for;
       if b then
-        //print(" add eqn " + ComponentReference.printComponentRefStr(Util.tuple21(e)) + "\n");
         columns := Array.appendToElement(i, equations, columns);
       end if;
       i := i+1;
@@ -1868,7 +1864,7 @@ protected
   DAE.ComponentRef cr;
   list<DAE.ComponentRef> crlst;
   array<list<DAE.ComponentRef>> crlstArray = arrayCreate(listLength(inColoring), {});
-  HashTable3.HashTable ht = HashTable3.emptyHashTableSized(listLength(inPattern));
+  HashTable3.HashTable ht = HashTable3.emptyHashTableSized(intMax(listLength(inPattern), 1));
   Integer i;
 algorithm
   for p in inPattern loop
