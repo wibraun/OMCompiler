@@ -1394,18 +1394,18 @@ protected
   AvlSetInt.Tree tree = AvlSetInt.new();
   array<Integer> ass1;
 algorithm
-  
+  //BackendDump.dumpEqSystem(syst, "Dep System");
   BackendDAE.EQSYSTEM(orderedVars = v,m=SOME(m),matching=BackendDAE.MATCHING(ass1=ass1)) := syst;
   for cr in inCrefs loop
     try
-      print("search for: " + ComponentReference.printComponentRefStr(cr) + "\n");
+      //print("search for: " + ComponentReference.printComponentRefStr(cr) + "\n");
       (_, ilst) := BackendVariable.getVar(cr, v);
       tree := AvlSetInt.addList(tree, ilst);
       else
     end try;
   end for;
   varindx_lst := AvlSetInt.listKeys(tree);
-  print("var index : " + Util.intLstString(varindx_lst) + "\n");
+  //print("var index : " + Util.intLstString(varindx_lst) + "\n");
   eqns := list(arrayGet(ass1,i) for i guard arrayGet(ass1,i)>0 in varindx_lst);
   outIntegerArray := markStateEquationsWork(eqns,m,ass1,arr);
 end markDependentVars;

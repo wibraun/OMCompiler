@@ -4633,9 +4633,9 @@ template functionAnalyticJacobians(list<JacobianMatrix> JacobianMatrixes,String 
     generateMatrix(mat, vars, name, partIdx, modelNamePrefix) ;separator="\n")
 
   <<
-  <%initialjacMats%>
-
   <%jacMats%>
+
+  <%initialjacMats%>
   >>
 end functionAnalyticJacobians;
 
@@ -4663,6 +4663,9 @@ match sparsepattern
       let colorString = genSPColors(colorList, "data->simulationInfo->analyticJacobians[index].sparsePattern.colorCols")
       let indexColumn = (jacobianColumn |> JAC_COLUMN(numberOfResultVars=n) => '<%n%>';separator="\n")
       let tmpvarsSize = (jacobianColumn |> JAC_COLUMN(columnVars=vars) => listLength(vars);separator="\n")
+      let columnCalls = (jacobianColumn |> JAC_COLUMN(columnCalls=columnCalls) => 
+        match columnCalls case {} then 'NULL' case _ then '<%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_columnColor'
+        ;separator="")
       let index_ = listLength(seedVars)
       <<
       OMC_DISABLE_OPT
@@ -4687,6 +4690,7 @@ match sparsepattern
         data->simulationInfo->analyticJacobians[index].sparsePattern.colorCols = (unsigned int*) malloc(<%index_%>*sizeof(int));
         data->simulationInfo->analyticJacobians[index].sparsePattern.maxColors = <%maxColor%>;
         data->simulationInfo->analyticJacobians[index].jacobian = NULL;
+        data->simulationInfo->analyticJacobians[index].columnColor = <%columnCalls%>;
 
         /* write lead index of compressed sparse column */
         memcpy(data->simulationInfo->analyticJacobians[index].sparsePattern.leadindex, colPtrIndex, (<%sizeleadindex%>+1)*sizeof(int));
@@ -4794,7 +4798,7 @@ template functionJacDepCalls(list<SimEqSystem> jacEquations, list<list<SimEqSyst
   let jacColorColumns = (eqCalls |> callLst hasindex color =>
                 <<
                 /* color <%color%> */
-                int <%symbolName(modelNamePrefix,"jac")%>_<%matrixName%>_column_<%color%>(void* data, threadData_t *threadData)
+                void <%symbolName(modelNamePrefix,"jac")%>_<%matrixName%>_column_<%color%>(void* data, threadData_t *threadData)
                 {
                   <%(callLst |> eq => equation_call(eq, modelNamePrefix); separator="\n")%>
                 }

@@ -1748,6 +1748,7 @@ protected function createDependendEquations
   input BackendDAE.StrongComponents comps;
   input BackendDAE.SparsePatternCrefs sparsePatternCrefs;
   input BackendDAE.SparseColoring sparseColoring;
+  input BackendDAE.Variables inAllVars;
   input String inMatrixName;
   input Integer iuniqueEqIndex;
   input list<SimCodeVar.SimVar> itempvars;
@@ -1763,7 +1764,7 @@ protected
   Integer i;
   array<Integer> eqnMarks;
   list<Integer> compEqns;
-  DAE.ComponentRef cr;
+  DAE.ComponentRef cr, crefZ;
   array<Integer> marks;
   Boolean b;
   BackendDAE.EqSystem syst;
@@ -1773,13 +1774,21 @@ algorithm
   BackendDump.dumpSparseColoring(sparseColoring, "Colors : " + intString(listLength(sparseColoring)));
   BackendDump.printSparsityPatternCrefs(sparsePatternCrefs);
 
+  crefZ := DAE.CREF_IDENT(("dummyVar" + inMatrixName), DAE.T_REAL_DEFAULT, {});
+
+  // obtain the sparse pattern
+  syst := BackendDAEUtil.getIncidenceMatrixfromOption(inSyst, BackendDAE.ABSOLUTE(), SOME(shared.functionTree));
+
+  // sparse pattern is based original variables, here the differd variables are needed
+  sparsePatternCrefsDiff := translateSparsePatterToJacobian(sparsePatternCrefs, inAllVars, crefZ, inMatrixName);
+  BackendDump.printSparsityPatternCrefs(sparsePatternCrefsDiff);
   // (eqnlst, varlst, index) = BackendDAETransform.getEquationAndSolvedVar(comp, syst.orderedEqs, syst.orderedVars);
   // States are solved for der(x) not x.
   // varlst = List.map(varlst, BackendVariable.transformXToXd);
   // get result variables of every column
 
   for p in sparsePatternCrefsDiff loop
-    print("sp: " + ComponentReference.printComponentRefStr(Util.tuple21(p)) + "\n");
+    //print("sp: " + ComponentReference.printComponentRefStr(Util.tuple21(p)) + "\n");
     eqnMarks := arrayCreate(BackendDAEUtil.equationArraySizeDAE(syst), 0);
     eqnMarks := BackendDAEUtil.markDependentVars(syst, Util.tuple22(p), eqnMarks);
     spDepEqnsVars := (Util.tuple21(p), eqnMarks)::spDepEqnsVars;
@@ -1794,22 +1803,22 @@ algorithm
     (compEqns, _) := BackendDAETransform.getEquationAndSolvedVarIndxes(comp);
     i := 1;
     for e in spDepEqnsVars loop
-      print("add comp: " + intString(i) + "for  "+ ComponentReference.printComponentRefStr(Util.tuple21(e)) + "\n");
+      //print("add comp: " + intString(i) + "for  "+ ComponentReference.printComponentRefStr(Util.tuple21(e)) + "\n");
       (cr, marks) := e;
       b := Util.boolAndList(list(arrayGet(marks, eqn) == 1 for eqn in compEqns));
-      for eqn in compEqns loop
-        print("eqn: " + intString(eqn) + " " + boolString(arrayGet(marks, eqn) == 1) + "\n");
-      end for;
+      //for eqn in compEqns loop
+      //  print("eqn: " + intString(eqn) + " " + boolString(arrayGet(marks, eqn) == 1) + "\n");
+      //end for;
       if b then
-        print(" add eqn " + ComponentReference.printComponentRefStr(Util.tuple21(e)) + "\n");
+        //print(" add eqn " + ComponentReference.printComponentRefStr(Util.tuple21(e)) + "\n");
         columns := Array.appendToElement(i, equations, columns);
       end if;
       i := i+1;
     end for;
   end for;
 
-  for p in sparsePatternCrefs loop
-    GC.free(eqnMarks);
+  for p in spDepEqnsVars loop
+    GC.free(Util.tuple22(p));
   end for;
 
   allEquations := List.flattenReverse(accEquations);
@@ -4265,7 +4274,7 @@ algorithm
         end if;
         // generate also discrete equations, they might be introduced by wrapFunctionCalls
         //(columnEquations, _, uniqueEqIndex, _) = createEquations(false, false, true, false, syst, shared, comps, iuniqueEqIndex, {});
-        (allEquations, columnEquations, uniqueEqIndex, _) = createDependendEquations(syst, shared, comps, sparsepattern, colsColors, name, iuniqueEqIndex, {});
+        (allEquations, columnEquations, uniqueEqIndex, _) = createDependendEquations(syst, shared, comps, sparsepatternT, colsColors, BackendVariable.listVar1(alldiffedVars), name, iuniqueEqIndex, {});
         if Flags.isSet(Flags.JAC_DUMP2) then
           print("analytical Jacobians -> created all SimCode equations for Matrix " + name +  " time: " + realString(clock()) + "\n");
         end if;
@@ -4476,8 +4485,9 @@ protected function createDiffedVar
 protected
   BackendDAE.Var var;
 algorithm
-  print("search for: " + ComponentReference.printComponentRefStr(cr) + "\n");
+  print("search for: " + ComponentReference.printComponentRefStr(inCref) + "\n");
   ({var},_) := BackendVariable.getVar(inCref, inAllVars);
+  print("var: " + BackendDump.varString(var) + "\n");
   outCref := match (var.varKind)
     case BackendDAE.STATE() then ComponentReference.crefPrefixDer(inCref);
     else inCref;
@@ -12176,8 +12186,11 @@ protected
 algorithm
   for e in sparsePattern loop
     (cref, crefs) := e;
-    cref := createDiffedVar(cref, allVars, inX, inMatrixName);
-    //crefs := List.map3(crefs, createDiffedVar, allVars, inX, inMatrixName);
+    //cref := Differentiate.createDifferentiatedCrefName(cref, inX, inMatrixName);
+    //derivedCref := Differentiate.createSeedCrefName(indiffVar, inMatrixName);
+    //cref := createDiffedVar(cref, allVars, inX, inMatrixName);
+    //crefs := List.map1(crefs, Differentiate.createSeedCrefName, inMatrixName);
+    crefs := List.map3(crefs, createDiffedVar, allVars, inX, inMatrixName);
     outSparsePattern := (cref,crefs)::outSparsePattern;
   end for; 
   outSparsePattern := listReverse(outSparsePattern);
