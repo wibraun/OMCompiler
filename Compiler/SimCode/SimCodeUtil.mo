@@ -1760,7 +1760,7 @@ protected function createDependendEquations
 protected
   list<list<SimCode.SimEqSystem>> accEquations = {};
   list<SimCode.SimEqSystem> equations;
-  array<list<SimCode.SimEqSystem>> columns = arrayCreate(listLength(sparsePatternCrefs), {});
+  array<list<SimCode.SimEqSystem>> columns = arrayCreate(listLength(sparseColoring), {});
   list<tuple<DAE.ComponentRef, array<Integer>>> spDepEqnsVars = {};
   list<list<DAE.ComponentRef>> joinedSparseDeps;
   Integer i;
@@ -1773,18 +1773,18 @@ protected
   DAE.ComponentRef inDiffX;
   BackendDAE.SparsePatternCrefs sparsePatternCrefsDiff;
 algorithm
-  BackendDump.dumpSparseColoring(sparseColoring, "Colors : " + intString(listLength(sparseColoring)));
-  BackendDump.printSparsityPatternCrefs(sparsePatternCrefs);
+  //BackendDump.dumpSparseColoring(sparseColoring, "Colors : " + intString(listLength(sparseColoring)));
+  //BackendDump.printSparsityPatternCrefs(sparsePatternCrefs);
 
   crefZ := DAE.CREF_IDENT(("dummyVar" + inMatrixName), DAE.T_REAL_DEFAULT, {});
 
   // obtain the sparse pattern
   syst := BackendDAEUtil.getIncidenceMatrixfromOption(inSyst, BackendDAE.ABSOLUTE(), SOME(shared.functionTree));
-  BackendDump.dumpEqSystem(syst, "Dep System");
+  //BackendDump.dumpEqSystem(syst, "Dep System");
 
   // sparse pattern is based original variables, here the differd variables are needed
   sparsePatternCrefsDiff := translateSparsePatterToJacobian(sparsePatternCrefs, inAllVars, crefZ, inMatrixName);
-  BackendDump.printSparsityPatternCrefs(sparsePatternCrefsDiff);
+  //BackendDump.printSparsityPatternCrefs(sparsePatternCrefsDiff);
   // (eqnlst, varlst, index) = BackendDAETransform.getEquationAndSolvedVar(comp, syst.orderedEqs, syst.orderedVars);
   // States are solved for der(x) not x.
   // varlst = List.map(varlst, BackendVariable.transformXToXd);
@@ -1800,9 +1800,7 @@ algorithm
     spDepEqnsVars := (DAE.CREF_IDENT("Column_Color_" + intString(i), DAE.T_INTEGER_DEFAULT, {}), eqnMarks)::spDepEqnsVars;
     i := i+1;
   end for;
-  //spDepEqnsVars := listReverse(spDepEqnsVars);
-  
-  BackendDump.printDependentArray(spDepEqnsVars);
+  //BackendDump.printDependentArray(spDepEqnsVars);
 
   for comp in comps loop
     (equations, _, ouniqueEqIndex, otempvars) := createEquationsWork(false, false, true, false, syst, shared, comp, ouniqueEqIndex, otempvars, {});
@@ -1811,7 +1809,7 @@ algorithm
     (compEqns, _) := BackendDAETransform.getEquationAndSolvedVarIndxes(comp);
     i := 1;
     for e in spDepEqnsVars loop
-     // print("add comp: " + intString(i) + "for  "+ ComponentReference.printComponentRefStr(Util.tuple21(e)) + "\n");
+      // print("add comp: " + intString(i) + "for  "+ ComponentReference.printComponentRefStr(Util.tuple21(e)) + "\n");
       (cr, marks) := e;
       b := Util.boolAndList(list(arrayGet(marks, eqn) == 1 for eqn in compEqns));
       //for eqn in compEqns loop
@@ -4519,9 +4517,7 @@ protected function createDiffedVar
 protected
   BackendDAE.Var var;
 algorithm
-  print("search for: " + ComponentReference.printComponentRefStr(inCref) + "\n");
   ({var},_) := BackendVariable.getVar(inCref, inAllVars);
-  print("var: " + BackendDump.varString(var) + "\n");
   outCref := match (var.varKind)
     case BackendDAE.STATE() then ComponentReference.crefPrefixDer(inCref);
     else inCref;
