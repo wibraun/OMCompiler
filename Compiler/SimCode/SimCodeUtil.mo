@@ -94,6 +94,7 @@ import Global;
 import Graph;
 import HashSet;
 import HashSetExp;
+import HashTable3;
 import HashTableSimCodeEqCache;
 import HpcOmSimCode;
 import Inline;
@@ -1761,6 +1762,7 @@ protected
   list<SimCode.SimEqSystem> equations;
   array<list<SimCode.SimEqSystem>> columns = arrayCreate(listLength(sparsePatternCrefs), {});
   list<tuple<DAE.ComponentRef, array<Integer>>> spDepEqnsVars = {};
+  list<list<DAE.ComponentRef>> joinedSparseDeps;
   Integer i;
   array<Integer> eqnMarks;
   list<Integer> compEqns;
@@ -1778,6 +1780,7 @@ algorithm
 
   // obtain the sparse pattern
   syst := BackendDAEUtil.getIncidenceMatrixfromOption(inSyst, BackendDAE.ABSOLUTE(), SOME(shared.functionTree));
+  BackendDump.dumpEqSystem(syst, "Dep System");
 
   // sparse pattern is based original variables, here the differd variables are needed
   sparsePatternCrefsDiff := translateSparsePatterToJacobian(sparsePatternCrefs, inAllVars, crefZ, inMatrixName);
@@ -1786,14 +1789,19 @@ algorithm
   // States are solved for der(x) not x.
   // varlst = List.map(varlst, BackendVariable.transformXToXd);
   // get result variables of every column
+  
+  // join dependencies of columns with the same color
+  joinedSparseDeps := joinSparseColorDep(sparsePatternCrefsDiff, sparseColoring);
 
-  for p in sparsePatternCrefsDiff loop
-    //print("sp: " + ComponentReference.printComponentRefStr(Util.tuple21(p)) + "\n");
+  i := 1;
+  for p in joinedSparseDeps loop
     eqnMarks := arrayCreate(BackendDAEUtil.equationArraySizeDAE(syst), 0);
-    eqnMarks := BackendDAEUtil.markDependentVars(syst, Util.tuple22(p), eqnMarks);
-    spDepEqnsVars := (Util.tuple21(p), eqnMarks)::spDepEqnsVars;
+    eqnMarks := BackendDAEUtil.markDependentVars(syst, p, eqnMarks);
+    spDepEqnsVars := (DAE.CREF_IDENT("Column_Color_" + intString(i), DAE.T_INTEGER_DEFAULT, {}), eqnMarks)::spDepEqnsVars;
+    i := i+1;
   end for;
-  spDepEqnsVars := listReverse(spDepEqnsVars);
+  //spDepEqnsVars := listReverse(spDepEqnsVars);
+  
   BackendDump.printDependentArray(spDepEqnsVars);
 
   for comp in comps loop
@@ -1803,7 +1811,7 @@ algorithm
     (compEqns, _) := BackendDAETransform.getEquationAndSolvedVarIndxes(comp);
     i := 1;
     for e in spDepEqnsVars loop
-      //print("add comp: " + intString(i) + "for  "+ ComponentReference.printComponentRefStr(Util.tuple21(e)) + "\n");
+     // print("add comp: " + intString(i) + "for  "+ ComponentReference.printComponentRefStr(Util.tuple21(e)) + "\n");
       (cr, marks) := e;
       b := Util.boolAndList(list(arrayGet(marks, eqn) == 1 for eqn in compEqns));
       //for eqn in compEqns loop
@@ -1824,6 +1832,32 @@ algorithm
   allEquations := List.flattenReverse(accEquations);
   columnCalls := arrayList(columns);
 end createDependendEquations;
+
+protected function joinSparseColorDep
+  input BackendDAE.SparsePatternCrefs inPattern;
+  input BackendDAE.SparseColoring inColoring;
+  output list<list<DAE.ComponentRef>> outColeredDeps;
+protected
+  DAE.ComponentRef cr;
+  list<DAE.ComponentRef> crlst;
+  array<list<DAE.ComponentRef>> crlstArray = arrayCreate(listLength(inColoring), {});
+  HashTable3.HashTable ht = HashTable3.emptyHashTableSized(listLength(inPattern));
+  Integer i;
+algorithm
+  for p in inPattern loop
+    (cr, crlst) := p;
+    ht := BaseHashTable.add((cr, crlst), ht);
+  end for;
+  i := 1;
+  for lst in inColoring loop
+    for cref in lst loop
+      crlst := BaseHashTable.get(cref, ht);
+      crlstArray := Array.appendToElement(i, crlst, crlstArray);
+    end for;
+    i := i+1;
+  end for;
+  outColeredDeps := arrayList(crlstArray);
+end joinSparseColorDep;
 
 protected function createEquations
   input Boolean includeWhen;
@@ -4269,16 +4303,6 @@ algorithm
                                     _, diffedVars, alldiffedVars)), (sparsepattern, sparsepatternT, (diffCompRefs, diffedCompRefs), _), colsColors))::rest,
                                     _, _, _::restnames)
       equation
-        if Flags.isSet(Flags.JAC_DUMP2) then
-          print("analytical Jacobians -> creating SimCode equations for Matrix " + name + " time: " + realString(clock()) + "\n");
-        end if;
-        // generate also discrete equations, they might be introduced by wrapFunctionCalls
-        //(columnEquations, _, uniqueEqIndex, _) = createEquations(false, false, true, false, syst, shared, comps, iuniqueEqIndex, {});
-        (allEquations, columnEquations, uniqueEqIndex, _) = createDependendEquations(syst, shared, comps, sparsepatternT, colsColors, BackendVariable.listVar1(alldiffedVars), name, iuniqueEqIndex, {});
-        if Flags.isSet(Flags.JAC_DUMP2) then
-          print("analytical Jacobians -> created all SimCode equations for Matrix " + name +  " time: " + realString(clock()) + "\n");
-        end if;
-
         // create SimCodeVar.SimVars from jacobian vars
         dummyVar = ("dummyVar" + name);
         x = DAE.CREF_IDENT(dummyVar, DAE.T_REAL_DEFAULT, {});
@@ -4358,6 +4382,16 @@ algorithm
         seedVars = replaceSeedVarsName(seedVars, name);
         seedVars = List.map1(seedVars, setSimVarKind, BackendDAE.SEED_VAR());
         seedVars = List.map1(seedVars, setSimVarMatrixName, SOME(name));
+
+        if Flags.isSet(Flags.JAC_DUMP2) then
+          print("analytical Jacobians -> creating SimCode equations for Matrix " + name + " time: " + realString(clock()) + "\n");
+        end if;
+        // generate also discrete equations, they might be introduced by wrapFunctionCalls
+        //(columnEquations, _, uniqueEqIndex, _) = createEquations(false, false, true, false, syst, shared, comps, iuniqueEqIndex, {});
+        (allEquations, columnEquations, uniqueEqIndex, _) = createDependendEquations(syst, shared, comps, sparsepattern, colsColors, BackendVariable.listVar1(alldiffedVars), name, iuniqueEqIndex, {});
+        if Flags.isSet(Flags.JAC_DUMP2) then
+          print("analytical Jacobians -> created all SimCode equations for Matrix " + name +  " time: " + realString(clock()) + "\n");
+        end if;
 
         tmpJac = SimCode.JAC_MATRIX({SimCode.JAC_COLUMN(allEquations, columnVars, nRows, columnEquations)}, seedVars, name, sparseInts, sparseIntsT, coloring, maxColor, -1, 0);
         linearModelMatrices = tmpJac::inJacobianMatrixes;

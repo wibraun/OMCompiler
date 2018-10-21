@@ -4780,11 +4780,9 @@ template functionJacDepCalls(list<SimEqSystem> jacEquations, list<list<SimEqSyst
   This template generates functions for each column of a single jacobian.
   This is a helper of generateMatrix."
 ::=
-  let &jacColumns = buffer ""
-  let jacCalls = (eqCalls |> callLst hasindex color =>
+  let jacCalls = (jacEquations |> eq =>
                 <<
-                /* color <%color%> */
-                <%symbolName(modelNamePrefix,"jac")%>_<%matrixName%>_column_<%color%>(inData, threadData);
+                <%equation_call(eq, modelNamePrefix)%>;
                 >>;
                separator="\n")
   let jacCallsSwitch = (eqCalls |> callLst hasindex color =>

@@ -530,7 +530,7 @@ public function printDependentArray
 algorithm
   for e in inTplArray loop
     print(ComponentReference.printComponentRefStr(Util.tuple21(e)) +
-          " affected by the following (" + intString(listLength(arrayList(Util.tuple22(e)))) +
+          " affects by the following (" + intString(listLength(arrayList(Util.tuple22(e)))) +
           ") outputs\n eqns:");
     print(Util.intLstString(arrayList(Util.tuple22(e))));
     print("\n");
