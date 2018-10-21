@@ -869,7 +869,8 @@ int jacA_symColored(double *t, double *y, double *yprime, double *delta, double 
       if(jacobian->sparsePattern.colorCols[ii]-1 == i)
         jacobian->seedVars[ii] = 1;
 
-    if (data->simulationInfo->analyticJacobians[index].columnColor != NULL) {
+    if (data->simulationInfo->analyticJacobians[index].columnColor != NULL &&
+        omc_flag[FLAG_JACOBIAN_DEBUG] ) {
       data->simulationInfo->analyticJacobians[index].columnColor(data, threadData, i);
     }
     else {
