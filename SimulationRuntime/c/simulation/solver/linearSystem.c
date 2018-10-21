@@ -88,6 +88,8 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
 
     linsys[i].totalTime = 0;
     linsys[i].failed = 0;
+    linsys[i].reuseMatrixJacIndex = -1;
+    linsys[i].reuseMatrixJac = 0;
 
     /* allocate system data */
     linsys[i].b = (double*) malloc(size*sizeof(double));
@@ -405,6 +407,20 @@ int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber, dou
 
   /* enable to avoid division by zero */
   data->simulationInfo->noThrowDivZero = 1;
+
+  /* set if the system is used in symbolic jacobian to reuse LU factors */
+  if (data->simulationInfo->currentContext == CONTEXT_SYM_JACOBIAN){
+    /* set linsys->reuseMatrixJacIndex to currentJacobian eval as first column */
+    if (linsys->reuseMatrixJacIndex < 0){
+      linsys->reuseMatrixJacIndex = data->simulationInfo->currentJacobianEval;
+    }
+
+    if(data->simulationInfo->currentJacobianEval > linsys->reuseMatrixJacIndex){
+      linsys->reuseMatrixJac = 1;
+    } else {
+      linsys->reuseMatrixJac = 0;
+    }
+  }
 
   if(linsys->useSparseSolver == 1)
   {
