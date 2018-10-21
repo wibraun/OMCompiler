@@ -31,6 +31,10 @@
  /*! \file solver_main.c
  */
 
+#ifdef _OPENMP
+  #include <omp.h>
+#endif
+
 #include "omc_config.h"
 #include "simulation/simulation_runtime.h"
 #include "simulation/results/simulation_result.h"

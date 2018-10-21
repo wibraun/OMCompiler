@@ -414,16 +414,6 @@ void printSparseStructure(SPARSE_PATTERN *sparsePattern, int sizeRows, int sizeC
   messageClose(stream);
 }
 
-void freeAnalyticalJacobian(ANALYTIC_JACOBIAN* jacobian)
-{
-  free(jacobian->seedVars);
-  free(jacobian->tmpVars);
-  free(jacobian->resultVars);
-  free(jacobian->sparsePattern.leadindex);
-  free(jacobian->sparsePattern.index);
-  free(jacobian->sparsePattern.colorCols);
-}
-
 #ifdef USE_DEBUG_OUTPUT
 /*! \fn printRelationsDebug
  *

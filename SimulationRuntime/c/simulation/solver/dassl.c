@@ -87,7 +87,7 @@ static int jacA_sym(double *t, double *y, double *yprime, double *deltaD, double
 static int jacA_symColored(double *t, double *y, double *yprime, double *deltaD, double *pd, double *cj, double *h, double *wt,
        double *rpar, int* ipar);
 
-static void setJacElementDasslSparse(int l, int k, int nth, double val, void* matrixA, int rows);
+static void setJacElementDasslSparse(int l, int k, int nth, double val, void* matrixA, int rows, int columns);
 
 void  DDASKR(
     int (*res) (double *t, double *y, double *yprime, double* cj, double *delta, int *ires, double *rpar, int* ipar),
@@ -413,7 +413,12 @@ int dassl_deinitial(DASSL_DATA *dasslData)
   free(dasslData->stateDer);
 
 #ifdef _OPENMP
-  free(dasslData->jacColumns);
+    switch (dasslData->dasslJacobian){
+    case COLOREDSYMJAC:
+    case SYMJAC:
+      free(dasslData->jacColumns);
+      break;
+    }
 #endif
 
   free(dasslData);
@@ -851,7 +856,7 @@ int function_ZeroCrossingsDASSL(int *neqm, double *t, double *y, double *yp,
   return 0;
 }
 
-void setJacElementDasslSparse(int l, int j, int nth, double val, void* matrixA, int rows)
+void setJacElementDasslSparse(int l, int j, int nth, double val, void* matrixA, int rows, int columns)
 {
   int k  = j*rows + l;
   ((double*) matrixA)[k]=val;
@@ -913,17 +918,17 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   unsigned int rows = jac->sizeRows;
   unsigned int sizeTmpVars = jac->sizeTmpVars;
   unsigned int i;
+
+  /* set symbolical jacobian to reuse the matrix A and the factorization
+   * in the Linear loops of  functionJacA_column */
+  setContext(data, t, CONTEXT_SYM_JACOBIAN);
+
 #pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i, matrixA, data, threadData, dasslData)
 {
   // Use a thread local analyticJacobians (replace SimulationInfo->analyticaJacobians)
   // This are not the Jacobians of the linear systems! (SimulationInfo->linearSystemData[idx].jacobian)
   ANALYTIC_JACOBIAN* t_jac = &(dasslData->jacColumns[omp_get_thread_num()]);
   //printf("index= %d, t_jac->sizeCols= %d, t_jac->sizeRows = %d, t_jac->sizeTmpVars = %d \n",index, t_jac->sizeCols , t_jac->sizeRows, t_jac->sizeTmpVars);
-
-  /* set symbolical jacobian to reuse the matrix A and the factorization
-   * in the Linear loops of  functionJacA_column */
-  setContext(data, t, CONTEXT_SYM_JACOBIAN);
-
 
   unsigned int j;
 #pragma omp for

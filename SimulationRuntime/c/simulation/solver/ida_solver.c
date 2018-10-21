@@ -1538,17 +1538,7 @@ static int callDenseJacobian(long int Neq, double tt, double cj,
   return retVal;
 }
 
-/* Element function for sparse matrix set */
-static void setJacElementKluSparse(int row, int col, double value, int nth, SlsMat spJac)
-{
-  if (col > 0 && spJac->colptrs[col] == 0){
-      spJac->colptrs[col] = nth;
-  }
-  spJac->rowvals[nth] = row;
-  spJac->data[nth] = value;
-}
-
-static void setJacElementKluSparse_neu(int row, int col, int nth, double value, void* spJac)
+static void setJacElementKluSparse(int row, int col, int nth, double value, void* spJac, int rows, int columns)
 {
   SlsMat mat = (SlsMat)spJac;
   if (col > 0 && mat->colptrs[col] == 0){
@@ -1675,12 +1665,12 @@ int jacoColoredNumericalSparse(double tt, N_Vector yy, N_Vector yp, N_Vector rr,
         while(nth < sparsePattern->leadindex[ii+1])
         {
           j  =  sparsePattern->index[nth];
-          //setJacElementKluSparse(j, ii, (newdelta[j] - delta[j]) * delta_hh[ii], nth, Jac);
+          //setJacElementKluSparse(j, ii, (newdelta[j] - delta[j]) * delta_hh[ii], nth, (void*) Jac, idaData->N, idaData->N);
           /* use row scaling for jacobian elements */
           if (idaData->disableScaling == 1 || !omc_flag[FLAG_IDA_SCALING]){
-            setJacElementKluSparse(j, ii, (newdelta[j] - delta[j]) * delta_hh[ii], nth, Jac);
+            setJacElementKluSparse(j, ii, (newdelta[j] - delta[j]) * delta_hh[ii], nth, (void*) Jac, idaData->N, idaData->N);
           }else{
-            setJacElementKluSparse(j, ii, ((newdelta[j] - delta[j]) * delta_hh[ii]) / idaData->resScale[j] * idaData->yScale[ii], nth, Jac);
+            setJacElementKluSparse(j, ii, ((newdelta[j] - delta[j]) * delta_hh[ii]) / idaData->resScale[j] * idaData->yScale[ii], nth, (void*) Jac,idaData->N, idaData->N);
           }
           nth++;
         };
@@ -1741,7 +1731,7 @@ jacColoredSymbolicalSparse(double tt, N_Vector yy, N_Vector yp, N_Vector rr, Sls
   setContext(data, &tt, CONTEXT_JACOBIAN);
   ANALYTIC_JACOBIAN* jacColumns = (idaData->jacColumns);
   genericParallelColoredSymbolicJacobianEvaluation(rows, columns, sparsePattern, Jac, jacColumns,
-                                                   data, threadData, &setJacElementKluSparse_neu);
+                                                   data, threadData, &setJacElementKluSparse);
 
   finishSparseColPtr(Jac, sparsePattern->numberOfNoneZeros);
   unsetContext(data);

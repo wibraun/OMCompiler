@@ -441,9 +441,6 @@ typedef struct DAEMODE_DATA
   /* index of the algebraic DAE variable in original order */
   int *algIndexes;
 
-  /* index of the algebraic DAE variable in original order */
-   int *algIndexes;
-
 } DAEMODE_DATA;
 
 typedef struct INLINE_DATA

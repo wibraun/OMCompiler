@@ -53,6 +53,8 @@ void genericParallelColoredSymbolicJacobianEvaluation(int rows, int columns, SPA
                                                       void* matrixA, ANALYTIC_JACOBIAN* jacColumns,
                                                       DATA* data,
                                                       threadData_t* threadData,
-                                                      void (*f)(int, int, int, double, void*, int));
+                                                      void (*f)(int, int, int, double, void*, int, int));
+
+void freeSymbolicJacobian(ANALYTIC_JACOBIAN* jacobian);
 
 #endif

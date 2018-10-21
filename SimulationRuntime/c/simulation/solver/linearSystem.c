@@ -31,6 +31,9 @@
 /*! \file linearSystem.c
  */
 
+#ifdef _OPENMP
+  #include <omp.h>
+#endif
 #include <math.h>
 #include <string.h>
 

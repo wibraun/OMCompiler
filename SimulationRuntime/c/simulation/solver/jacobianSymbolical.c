@@ -31,6 +31,10 @@
  /*! \file jacobian_symbolical.c
  */
 
+#ifdef _OPENMP
+  #include <omp.h>
+#endif
+
 #include "simulation/solver/jacobianSymbolical.h"
 
 void allocateThreadLocalJacobians(DATA* data, ANALYTIC_JACOBIAN** jacColumns)
@@ -59,7 +63,7 @@ void allocateThreadLocalJacobians(DATA* data, ANALYTIC_JACOBIAN** jacColumns)
 void genericParallelColoredSymbolicJacobianEvaluation(int rows, int columns, SPARSE_PATTERN* spp,
                                                       void* matrixA, ANALYTIC_JACOBIAN* jacColumns, DATA* data,
                                                       threadData_t* threadData,
-                                                      void (*f)(int, int, int, double, void*, int))
+                                                      void (*f)(int, int, int, double, void*, int, int))
 {
 #pragma omp parallel default(none) firstprivate(columns, rows) \
                                    shared(spp, matrixA, jacColumns, data, threadData, f)
@@ -79,7 +83,7 @@ void genericParallelColoredSymbolicJacobianEvaluation(int rows, int columns, SPA
         nth = spp->leadindex[j];
         while(nth < spp->leadindex[j+1]) {
           l = spp->index[nth];
-          (*f)(l, j, nth, t_jac->resultVars[l], matrixA, rows);
+          (*f)(l, j, nth, t_jac->resultVars[l], matrixA, rows, columns);
           nth++;
         };
       }
@@ -89,4 +93,15 @@ void genericParallelColoredSymbolicJacobianEvaluation(int rows, int columns, SPA
       t_jac->seedVars[j] = 0;
   } // for column
 } // omp parallel
+}
+
+
+void freeSymbolicJacobian(ANALYTIC_JACOBIAN* jacobian)
+{
+  free(jacobian->seedVars);
+  free(jacobian->tmpVars);
+  free(jacobian->resultVars);
+  free(jacobian->sparsePattern.leadindex);
+  free(jacobian->sparsePattern.index);
+  free(jacobian->sparsePattern.colorCols);
 }

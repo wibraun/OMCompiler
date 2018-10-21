@@ -4944,66 +4944,83 @@ template equation_impl2(Integer clockIndex, SimEqSystem eq, Context context, Str
 ::=
   let OMC_NO_OPT = if noOpt then 'OMC_DISABLE_OPT<%\n%>' else (match eq case SES_LINEAR(__) then 'OMC_DISABLE_OPT<%\n%>')
   match eq
-  case SES_ALIAS(__) then 'extern void <%symbolName(modelNamePrefix,"eqFunction")%>_<%aliasOf%>(DATA *data, threadData_t *threadData);<%\n%>'
-  case SES_ALGORITHM(statements={})
-  then ""
-  else
-  (
-  let ix = equationIndex(eq) /*System.tmpTickIndex(10)*/
-  let ix2 = match eq
-  case e as SES_LINEAR(lSystem=ls as LINEARSYSTEM(__), alternativeTearing = SOME(at as LINEARSYSTEM(__)))
-  case e as SES_NONLINEAR(nlSystem=nls as NONLINEARSYSTEM(__), alternativeTearing = SOME(at as NONLINEARSYSTEM(__))) then
-    equationIndexAlternativeTearing(eq)
-  else
-    ""
-  let &tmp = buffer ""
-  let &varD = buffer ""
-  let &tempeqns = buffer ""
-  let &tempeqns2 = buffer ""
-  let() = System.tmpTickResetIndex(0,1) /* Boxed array indices */
-  let disc = match context
-  case SIMULATION_CONTEXT(genDiscrete=true) then 1
-  else 0
-  let x = match eq
-  case e as SES_SIMPLE_ASSIGN(__)
-  case e as SES_SIMPLE_ASSIGN_CONSTRAINTS(__)
-    then equationSimpleAssign(e, context, &varD, &tempeqns)
-  case e as SES_ARRAY_CALL_ASSIGN(__)
-    then equationArrayCallAssign(e, context, &varD, &tempeqns)
-  case e as SES_IFEQUATION(__)
-    then equationIfEquationAssign(e, context, &varD, &tempeqns, modelNamePrefix)
-  case e as SES_INVERSE_ALGORITHM(__)
-  case e as SES_ALGORITHM(__)
-    then equationAlgorithm(e, context, &varD, &tempeqns)
-  case e as SES_LINEAR(__)
-    then equationLinear(e, context, &varD)
-  case e as SES_NONLINEAR(nlSystem=nls as NONLINEARSYSTEM(__)) then
-    let &tempeqns += (nls.eqs |> eq => 'void <%symbolName(modelNamePrefix,"eqFunction")%>_<%equationIndex(eq)%>(DATA*,threadData_t*);' ; separator = "\n")
-    equationNonlinear(e, context, modelNamePrefix)
-  case e as SES_WHEN(__)
-    then equationWhen(e, context, &varD, &tempeqns)
-  case e as SES_RESIDUAL(__)
-    then "NOT IMPLEMENTED EQUATION SES_RESIDUAL"
-  case e as SES_MIXED(__)
-    then
-    let &eqs = buffer ""
-    let res = equationMixed(e, context, &eqs, modelNamePrefix)
-    eqs + res
-  case e as SES_FOR_LOOP(__)
-    then equationForLoop(e, context, &varD, &tempeqns)
-  else
-    error(sourceInfo(), "NOT IMPLEMENTED EQUATION equation_")
-  let x2 = match eq
-  case e as SES_LINEAR(lSystem=ls as LINEARSYSTEM(__), alternativeTearing = SOME(at as LINEARSYSTEM(__))) then
-    equationLinearAlternativeTearing(e, context, &varD)
-  case e as SES_NONLINEAR(nlSystem=nls as NONLINEARSYSTEM(__), alternativeTearing = SOME(at as NONLINEARSYSTEM(__))) then
-    let &tempeqns2 += (at.eqs |> eq => 'void <%symbolName(modelNamePrefix,"eqFunction")%>_<%equationIndex(eq)%>(DATA*,threadData_t*);' ; separator = "\n")
-    equationNonlinearAlternativeTearing(e, context, modelNamePrefix)
-  else
-    ""
+    case SES_ALIAS(__) then 'extern void <%symbolName(modelNamePrefix,"eqFunction")%>_<%aliasOf%>(DATA *data, threadData_t *threadData);<%\n%>'
+    case e as SES_ALGORITHM(statements={}) then ""
+    else
+    (
+    let ix = equationIndex(eq) /*System.tmpTickIndex(10)*/
+    let ix2 = match eq
+        case e as SES_LINEAR(lSystem=ls as LINEARSYSTEM(__), alternativeTearing = SOME(at as LINEARSYSTEM(__)))
+        case e as SES_NONLINEAR(nlSystem=nls as NONLINEARSYSTEM(__), alternativeTearing = SOME(at as NONLINEARSYSTEM(__)))
+        then equationIndexAlternativeTearing(eq)
+        else  ""
+    let &tmp = buffer ""
+    let &varD = buffer ""
+    let &tempeqns = buffer ""
+    let &tempeqns2 = buffer ""
+    let() = System.tmpTickResetIndex(0,1) /* Boxed array indices */
+    let disc = match context case SIMULATION_CONTEXT(genDiscrete=true) then 1 else 0
+    let x = match eq
 
-  let &varD += addRootsTempArray()
-  let clockIndex_ = if intLt(clockIndex, 0) then '' else 'const int clockIndex = <%clockIndex%>;'
+        case e as SES_SIMPLE_ASSIGN(__)
+        case e as SES_SIMPLE_ASSIGN_CONSTRAINTS(__)
+        then equationSimpleAssign(e, context, &varD, &tempeqns)
+
+        case e as SES_ARRAY_CALL_ASSIGN(__)
+        then equationArrayCallAssign(e, context, &varD, &tempeqns)
+
+        case e as SES_IFEQUATION(__)
+        then equationIfEquationAssign(e, context, &varD, &tempeqns, modelNamePrefix)
+
+        case e as SES_ALGORITHM(__)
+        then equationAlgorithm(e, context, &varD, &tempeqns)
+
+        case e as SES_INVERSE_ALGORITHM(__)
+        then equationAlgorithm(e, context, &varD, &tempeqns)
+
+        case e as SES_LINEAR(__)
+        then equationLinear(e, context, &varD)
+
+        case e as SES_NONLINEAR(nlSystem=nls as NONLINEARSYSTEM(__))
+        then
+            let &tempeqns += (nls.eqs |> eq => 'void <%symbolName(modelNamePrefix,"eqFunction")%>_<%equationIndex(eq)%>(DATA*, threadData_t*);' ; separator = "\n")
+            equationNonlinear(e, context, modelNamePrefix)
+
+        case e as SES_WHEN(__)
+        then equationWhen(e, context, &varD, &tempeqns)
+
+        case e as SES_RESIDUAL(__)
+        then "NOT IMPLEMENTED EQUATION SES_RESIDUAL"
+
+        case e as SES_MIXED(__)
+        then
+            let &eqs = buffer ""
+            let res = equationMixed(e, context, &eqs, modelNamePrefix)
+            eqs + res
+
+        case e as SES_FOR_LOOP(__)
+        then equationForLoop(e, context, &varD, &tempeqns)
+
+        else "NOT IMPLEMENTED EQUATION equation_"
+
+    let x2 = match eq
+        case e as SES_LINEAR(lSystem=ls as LINEARSYSTEM(__), alternativeTearing = SOME(at as LINEARSYSTEM(__)))
+        then equationLinearAlternativeTearing(e, context, &varD)
+
+        case e as SES_NONLINEAR(nlSystem=nls as NONLINEARSYSTEM(__), alternativeTearing = SOME(at as NONLINEARSYSTEM(__)))
+        then
+            let &tempeqns2 += (at.eqs |> eq => 'void <%symbolName(modelNamePrefix,"eqFunction")%>_<%equationIndex(eq)%>(DATA*,threadData_t*);' ; separator = "\n")
+            equationNonlinearAlternativeTearing(e, context, modelNamePrefix)
+        else ""
+
+    let &varD += addRootsTempArray()
+    let clockIndex_ = if intLt(clockIndex, 0) then '' else 'const int clockIndex = <%clockIndex%>;'
+
+    match eq
+        // dynamic tearing
+        case e as SES_LINEAR(lSystem=ls as LINEARSYSTEM(__), alternativeTearing = SOME(at as LINEARSYSTEM(__)))
+        case e as SES_NONLINEAR(nlSystem=nls as NONLINEARSYSTEM(__), alternativeTearing = SOME(at as NONLINEARSYSTEM(__))) then
+        <<
 
         <%tempeqns%>
         /*

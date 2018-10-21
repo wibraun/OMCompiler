@@ -31,8 +31,11 @@
 /*! \file linearSolverKlu.c
  */
 
+#ifdef _OPENMP
+  #include <omp.h>
+#endif
+
 #include "omc_config.h"
-#include <omp.h>
 
 #ifdef WITH_UMFPACK
 #include <math.h>
@@ -226,7 +229,7 @@ solveKlu(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
       solverData->Ap[0] = 0;
       /* calculate jacobian -> matrix A*/
       if(systemData->jacobianIndex != -1){
-        getAnalyticalJacobian(data, threadData, sysNumber);
+        getAnalyticalJacobian(data, threadData, solverData, sysNumber);
       } else {
         assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
       }

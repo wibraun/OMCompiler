@@ -31,6 +31,10 @@
 /*! \file nonlinear_solver.c
  */
 
+#ifdef _OPENMP
+  #include <omp.h>
+#endif
+
 #include <math.h>
 #include <stdlib.h>
 #include <string.h> /* memcpy */
@@ -41,6 +45,7 @@
 #include "omc_math.h"
 #include "util/varinfo.h"
 #include "model_help.h"
+#include "jacobianSymbolical.h"
 
 #include "linearSystem.h"
 #include "linearSolverLapack.h"
@@ -146,7 +151,7 @@ int getAnalyticalJacobianLapack(DATA* data, threadData_t *threadData, double* ja
   }
 
 #ifdef _OPENMP
-  freeAnalyticalJacobian(jacobian);
+  freeSymbolicJacobian(jacobian);
 #endif
 
   return 0;
@@ -194,7 +199,7 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
          eqSystemNumber, (int) systemData->size,
          data->localData[0]->timeValue);
 
-  allocateLapackData(systemData->size, &solverData);
+  allocateLapackData(systemData->size, (void*)&solverData);
   /* set data */
   _omc_setVectorData(solverData->x, aux_x);
 
@@ -350,7 +355,7 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
       messageClose(LOG_LS_V);
     }
   }
-  freeLapackData(&solverData);
+  freeLapackData((void*)&solverData);
 #ifdef _OPENMP
   infoStreamPrint(LOG_LS_V, 1,"----- Thread %i finishes solveLapack.\n", omp_get_thread_num());
 #endif
