@@ -178,7 +178,6 @@ static inline int sign(double v)
 #define OMC_LABEL_UNUSED __attribute__((unused))
 #endif
 
-/*
 #if !defined(OMC_DISABLE_OPT)
 #if defined(__clang__)
 #define OMC_DISABLE_OPT __attribute__((optnone))
@@ -186,8 +185,6 @@ static inline int sign(double v)
 #define OMC_DISABLE_OPT __attribute__((optimize(0)))
 #endif
 #endif
-*/
-#define OMC_DISABLE_OPT
 
 #if defined(__cplusplus)
 } /* end extern "C" */
