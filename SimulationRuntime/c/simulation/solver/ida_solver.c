@@ -1445,7 +1445,13 @@ int jacColoredSymbolicalDense(double tt, N_Vector yy, N_Vector yp, N_Vector rr, 
       }
     }
 
-    data->callback->functionJacA_column(data, threadData, jacData, NULL);
+    if (jacData->columnColor != NULL && omc_flag[FLAG_JACOBIAN_DEBUG] ) {
+      jacData->columnColor(data, threadData, i, jacData, NULL);
+    }
+    else {
+      data->callback->functionJacA_column(data, threadData, jacData, NULL);
+    }
+
     increaseJacContext(data);
 
     for(ii = 0; ii < idaData->N; ii++)
@@ -1725,7 +1731,12 @@ jacColoredSymbolicalSparse(double tt, N_Vector yy, N_Vector yp, N_Vector rr, Sls
       }
     }
 
-    data->callback->functionJacA_column(data, threadData, jacData, NULL);
+    if (jacData->columnColor != NULL && omc_flag[FLAG_JACOBIAN_DEBUG] ) {
+      jacData->columnColor(data, threadData, i, jacData, NULL);
+    }
+    else {
+      data->callback->functionJacA_column(data, threadData, jacData, NULL);
+    }
     increaseJacContext(data);
 
     for(ii = 0; ii < idaData->N; ii++)

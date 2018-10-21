@@ -871,7 +871,7 @@ int jacA_symColored(double *t, double *y, double *yprime, double *delta, double 
 
     if (data->simulationInfo->analyticJacobians[index].columnColor != NULL &&
         omc_flag[FLAG_JACOBIAN_DEBUG] ) {
-      data->simulationInfo->analyticJacobians[index].columnColor(data, threadData, i);
+      data->simulationInfo->analyticJacobians[index].columnColor(data, threadData, i, jacobian, NULL);
     }
     else {
       data->callback->functionJacA_column(data, threadData, jacobian, NULL);
