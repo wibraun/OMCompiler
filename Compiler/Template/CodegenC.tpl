@@ -4792,6 +4792,7 @@ template functionJacDepCalls(list<SimEqSystem> jacEquations, list<list<SimEqSyst
   let jacColorColumns = (eqCalls |> callLst hasindex color =>
                 <<
                 /* color <%color%> */
+                OMC_DISABLE_OPT
                 void <%symbolName(modelNamePrefix,"jac")%>_<%matrixName%>_column_<%color%>(void* data, threadData_t *threadData)
                 {
                   <%(callLst |> eq => equation_call(eq, modelNamePrefix); separator="")%>
@@ -4804,6 +4805,7 @@ template functionJacDepCalls(list<SimEqSystem> jacEquations, list<list<SimEqSyst
   
   <% jacColorColumns %>
   
+  OMC_DISABLE_OPT
   int <%symbolName(modelNamePrefix,"functionJac")%><%matrixName%>_column(void* inData, threadData_t *threadData)
   {
     TRACE_PUSH
@@ -4816,6 +4818,8 @@ template functionJacDepCalls(list<SimEqSystem> jacEquations, list<list<SimEqSyst
     TRACE_POP
     return 0;
   }
+
+  OMC_DISABLE_OPT
   int <%symbolName(modelNamePrefix,"functionJac")%><%matrixName%>_columnColor(void* inData, threadData_t *threadData, int color)
   {
     TRACE_PUSH
