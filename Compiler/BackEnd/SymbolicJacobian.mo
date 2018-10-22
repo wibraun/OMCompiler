@@ -2102,6 +2102,7 @@ algorithm
                                                                     "wrapFunctionCalls",
                                                                     "inlineArrayEqn",
                                                                     "constantLinearSystem",
+                                                                    "removeSimpleEquations",
                                                                     "solveSimpleEquations",
                                                                     "tearingSystem",
                                                                     "calculateStrongComponentJacobians",
@@ -2225,10 +2226,10 @@ algorithm
              BackendVariable.varsSize(globalKnownVars) +
              BackendVariable.varsSize(inSeedVars);
       jacKnownVars = BackendVariable.emptyVarsSized(size);
-      jacKnownVars = BackendVariable.addVariables(orderedVars, jacKnownVars);
-      jacKnownVars = BackendVariable.addVariables(globalKnownVars, jacKnownVars);
       jacKnownVars = BackendVariable.addVariables(inSeedVars, jacKnownVars);
       (jacKnownVars,_) = BackendVariable.traverseBackendDAEVarsWithUpdate(jacKnownVars, BackendVariable.setVarDirectionTpl, (DAE.INPUT()));
+      jacKnownVars = BackendVariable.addVariables(orderedVars, jacKnownVars);
+      jacKnownVars = BackendVariable.addVariables(globalKnownVars, jacKnownVars);
       jacOrderedEqs = BackendEquation.listEquation(derivedEquations);
 
 

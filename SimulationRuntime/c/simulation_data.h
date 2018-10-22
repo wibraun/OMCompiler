@@ -154,6 +154,7 @@ typedef struct ANALYTIC_JACOBIAN
   modelica_real* resultVars;
   modelica_real* jacobian;
   int (*columnColor)(void* data, threadData_t *threadData, int color);
+  int (*constantEqns)(void* data, threadData_t *threadData);
 }ANALYTIC_JACOBIAN;
 
 /* EXTERNAL_INPUT
@@ -350,6 +351,10 @@ typedef struct LINEAR_SYSTEM_DATA
   modelica_boolean solved;              /* 1: solved in current step - else not */
   modelica_boolean failed;              /* 1: failed while last try with lapack - else not */
   modelica_boolean useSparseSolver;     /* 1: use sparse solver, - else any solver */
+
+  /* for symbolic jacobian evaluation */
+  int reuseMatrixJac;
+  int reuseMatrixJacIndex;
 
   /* statistics */
   unsigned long numberOfCall;           /* number of solving calls of this system */
