@@ -4703,6 +4703,7 @@ match sparsepattern
       let colorString = genSPColors(colorList, "jacobian->sparsePattern.colorCols")
       let indexColumn = (jacobianColumn |> JAC_COLUMN(numberOfResultVars=n) => '<%n%>';separator="\n")
       let tmpvarsSize = (jacobianColumn |> JAC_COLUMN(columnVars=vars) => listLength(vars);separator="\n")
+      let columnCall = '<%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_column'
       let columnCalls = (jacobianColumn |> JAC_COLUMN(columnCalls=columnCalls) => 
         match columnCalls case {} then 'NULL' case _ then '<%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_columnColor'
         ;separator="")
@@ -4731,6 +4732,7 @@ match sparsepattern
         jacobian->sparsePattern.numberOfNoneZeros = <%sp_size_index%>;
         jacobian->sparsePattern.colorCols = (unsigned int*) malloc(<%index_%>*sizeof(int));
         jacobian->sparsePattern.maxColors = <%maxColor%>;
+        jacobian->columnCall = <%columnCall%>;
         jacobian->columnColor = <%columnCalls%>;
         jacobian->constantEqns = <%constantEqns%>;
 
@@ -4850,6 +4852,7 @@ template functionJacDepCalls(list<SimEqSystem> jacEquations, list<list<SimEqSyst
   let jacColorColumns = (eqCalls |> callLst hasindex color =>
                 <<
                 /* color <%color%> */
+                OMC_DISABLE_OPT
                 void <%symbolName(modelNamePrefix,"jac")%>_<%matrixName%>_column_<%color%>(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN *jacobian, ANALYTIC_JACOBIAN *parentJacobian)
                 {
                   <%(callLst |> eq => equation_callJacobian(eq, modelNamePrefix); separator="")%>
@@ -4866,7 +4869,8 @@ template functionJacDepCalls(list<SimEqSystem> jacEquations, list<list<SimEqSyst
 
   <% jacColorColumns %>
  
-   int <%symbolName(modelNamePrefix,"functionJac")%><%matrixName%>_constantEqns(void* inData, threadData_t *threadData, ANALYTIC_JACOBIAN *jacobian, ANALYTIC_JACOBIAN *parentJacobian)
+  OMC_DISABLE_OPT
+  int <%symbolName(modelNamePrefix,"functionJac")%><%matrixName%>_constantEqns(void* inData, threadData_t *threadData, ANALYTIC_JACOBIAN *jacobian, ANALYTIC_JACOBIAN *parentJacobian)
   {
     TRACE_PUSH
 
@@ -4891,6 +4895,8 @@ template functionJacDepCalls(list<SimEqSystem> jacEquations, list<list<SimEqSyst
     TRACE_POP
     return 0;
   }
+
+  OMC_DISABLE_OPT
   int <%symbolName(modelNamePrefix,"functionJac")%><%matrixName%>_columnColor(void* inData, threadData_t *threadData, int color)
   {
     TRACE_PUSH

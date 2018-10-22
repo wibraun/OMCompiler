@@ -811,6 +811,10 @@ int getAnalyticalJacobianHomotopy(DATA_HOMOTOPY* solverData, double* jac)
 
   memset(jac, 0, (solverData->n)*(solverData->n)*sizeof(double));
 
+  if (data->simulationInfo->analyticJacobians[index].constantEqns != NULL) {
+    data->simulationInfo->analyticJacobians[index].constantEqns(data, threadData, jacobian, NULL);
+  }
+
   for(i=0; i < jacobian->sparsePattern.maxColors; i++)
   {
     /* activate seed variable for the corresponding color */

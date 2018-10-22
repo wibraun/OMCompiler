@@ -152,8 +152,8 @@ typedef struct ANALYTIC_JACOBIAN
   modelica_real* seedVars;
   modelica_real* tmpVars;
   modelica_real* resultVars;
-  int (*columnColor)(void* data, threadData_t *threadData, int color);
-  int (*constantEqns)(void* data, threadData_t *threadData);
+  int (*columnColor)(void* data, threadData_t *threadData, int color, ANALYTIC_JACOBIAN*, ANALYTIC_JACOBIAN* parentJacobian);
+  int (*constantEqns)(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN*, ANALYTIC_JACOBIAN* parentJacobian);
 }ANALYTIC_JACOBIAN;
 
 /* EXTERNAL_INPUT

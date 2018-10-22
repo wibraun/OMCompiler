@@ -51,6 +51,7 @@
 static void printMatrixCSC(int* Ap, int* Ai, double* Ax, int n);
 static void printMatrixCSR(int* Ap, int* Ai, double* Ax, int n);
 
+
 /*! \fn allocate memory for linear system solver Klu
  *
  */
@@ -123,36 +124,41 @@ int getAnalyticalJacobian(DATA* data, threadData_t *threadData, int sysNumber)
   LINEAR_SYSTEM_DATA* systemData = &(((DATA*)data)->simulationInfo->linearSystemData[sysNumber]);
 
   const int index = systemData->jacobianIndex;
-  ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[systemData->jacobianIndex]);
+  ANALYTIC_JACOBIAN* symbolicJacobian = &data->simulationInfo->analyticJacobians[index];
   ANALYTIC_JACOBIAN* parentJacobian = systemData->parentJacobian;
 
   int nth = 0;
-  int nnz = jacobian->sparsePattern.numberOfNoneZeros;
+  int nnz = symbolicJacobian->sparsePattern.numberOfNoneZeros;
 
-  for(i=0; i < jacobian->sizeRows; i++)
+  if (symbolicJacobian->constantEqns != NULL) {
+    symbolicJacobian->constantEqns(data, threadData, symbolicJacobian, parentJacobian);
+  }
+
+  for(i=0; i < symbolicJacobian->sparsePattern.maxColors; i++)
   {
-    jacobian->seedVars[i] = 1;
+    /* activate seed variable for the corresponding color */
+    for(ii=0; ii < symbolicJacobian->sizeCols; ii++)
+      if(symbolicJacobian->sparsePattern.colorCols[ii]-1 == i)
+        symbolicJacobian->seedVars[ii] = 1;
 
-    ((systemData->analyticalJacobianColumn))(data, threadData, jacobian, parentJacobian);
+    symbolicJacobian->columnCall(data, threadData, symbolicJacobian, parentJacobian);
 
-    for(j = 0; j < jacobian->sizeCols; j++)
+    for(j = 0; j < symbolicJacobian->sizeCols; j++)
     {
-      if(jacobian->seedVars[j] == 1)
+      if(symbolicJacobian->seedVars[j] == 1)
       {
-        ii = jacobian->sparsePattern.leadindex[j];
-        while(ii < jacobian->sparsePattern.leadindex[j+1])
+        nth = symbolicJacobian->sparsePattern.leadindex[j];
+        while(nth < symbolicJacobian->sparsePattern.leadindex[j+1])
         {
-          l  = jacobian->sparsePattern.index[ii];
-          systemData->setAElement(i, l, -jacobian->resultVars[l], nth, (void*) systemData, threadData);
+          l  = symbolicJacobian->sparsePattern.index[ii];
+          systemData->setAElement(i, l, -symbolicJacobian->resultVars[l], nth, (void*) systemData, threadData);
           nth++;
-          ii++;
         };
       }
+      /* de-activate seed variable for the corresponding color */
+      if (symbolicJacobian->sparsePattern.colorCols[j]-1 == i)
+        symbolicJacobian->seedVars[j] = 0;
     };
-
-    /* de-activate seed variable for the corresponding color */
-    jacobian->seedVars[i] = 0;
-  }
 
   return 0;
 }

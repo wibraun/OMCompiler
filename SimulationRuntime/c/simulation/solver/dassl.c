@@ -858,19 +858,19 @@ int jacA_symColored(double *t, double *y, double *yprime, double *delta, double 
   ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[index]);
 
   unsigned int i,j,l,k,ii;
-  rtclock_t timeClock;             /* time clock */
-  rtclock_t timeClockSum;             /* time clock */
+  //rtclock_t timeClock;             /* time clock */
+  //rtclock_t timeClockSum;             /* time clock */
 
-  rt_ext_tp_tick(&timeClockSum);
+  //rt_ext_tp_tick(&timeClockSum);
   /* set symbolical jacobian to reuse the matrix A and the factorization
    * in the Linear loops of  functionJacA_column */
   setContext(data, t, CONTEXT_SYM_JACOBIAN);
 
-  rt_ext_tp_tick(&timeClock);
+  //rt_ext_tp_tick(&timeClock);
   if (jacobian->constantEqns != NULL) {
     jacobian->constantEqns(data, threadData, jacobian, NULL);
   }
-  printf("eval constant part: %g\n", rt_ext_tp_tock(&timeClock));
+  //printf("eval constant part: %g\n", rt_ext_tp_tock(&timeClock));
 
   for(i=0; i < jacobian->sparsePattern.maxColors; i++)
   {
@@ -878,14 +878,14 @@ int jacA_symColored(double *t, double *y, double *yprime, double *delta, double 
       if(jacobian->sparsePattern.colorCols[ii]-1 == i)
         jacobian->seedVars[ii] = 1;
 
-    rt_ext_tp_tick(&timeClock);
+    //rt_ext_tp_tick(&timeClock);
     if (jacobian->columnColor != NULL && omc_flag[FLAG_JACOBIAN_DEBUG] ) {
       jacobian->columnColor(data, threadData, i, jacobian, NULL);
     }
     else {
       data->callback->functionJacA_column(data, threadData, jacobian, NULL);
     }
-    printf("compute column colored %d in %g seconds.\n", i, rt_ext_tp_tock(&timeClock));
+    //printf("compute column colored %d in %g seconds.\n", i, rt_ext_tp_tock(&timeClock));
     //data->callback->functionJacA_column(data, threadData);
 
     increaseJacContext(data);
@@ -908,7 +908,7 @@ int jacA_symColored(double *t, double *y, double *yprime, double *delta, double 
       if(jacobian->sparsePattern.colorCols[ii]-1 == i) jacobian->seedVars[ii] = 0;
 
   }
-  printf("compute jacobian in %g seconds.\n", i, rt_ext_tp_tock(&timeClockSum));
+  //printf("compute jacobian in %g seconds.\n", i, rt_ext_tp_tock(&timeClockSum));
 
   TRACE_POP
   return 0;
@@ -1041,10 +1041,10 @@ int jacA_numColored(double *t, double *y, double *yprime, double *delta, double 
   double* ypsave = dasslData->ypsave;
 
   unsigned int i,j,l,k,ii;
-  rtclock_t timeClock;             /* time clock */
-  rtclock_t timeClockSum;             /* time clock */
+  //rtclock_t timeClock;             /* time clock */
+  //rtclock_t timeClockSum;             /* time clock */
 
-  rt_ext_tp_tick(&timeClockSum);
+  //rt_ext_tp_tick(&timeClockSum);
 
   /* set context for the start values extrapolation of non-linear algebraic loops */
   setContext(data, t, CONTEXT_JACOBIAN);
@@ -1066,9 +1066,9 @@ int jacA_numColored(double *t, double *y, double *yprime, double *delta, double 
         delta_hh[ii] = 1. / delta_hh[ii];
       }
     }
-    rt_ext_tp_tick(&timeClock);
+    //rt_ext_tp_tick(&timeClock);
     (*dasslData->residualFunction)(t, y, yprime, cj, dasslData->newdelta, &ires, rpar, ipar);
-    printf("compute column colored %d in %g seconds.\n", i, rt_ext_tp_tock(&timeClock));
+    //printf("compute column colored %d in %g seconds.\n", i, rt_ext_tp_tock(&timeClock));
 
     increaseJacContext(data);
 
@@ -1088,7 +1088,7 @@ int jacA_numColored(double *t, double *y, double *yprime, double *delta, double 
       }
     }
   }
-  printf("compute jacobian in %g seconds.\n", i, rt_ext_tp_tock(&timeClockSum));
+  //printf("compute jacobian in %g seconds.\n", i, rt_ext_tp_tock(&timeClockSum));
 
   TRACE_POP
   return 0;

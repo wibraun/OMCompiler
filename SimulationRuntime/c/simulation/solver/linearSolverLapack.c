@@ -108,35 +108,44 @@ int getAnalyticalJacobianLapack(DATA* data, threadData_t *threadData, double* ja
   LINEAR_SYSTEM_DATA* systemData = &(((DATA*)data)->simulationInfo->linearSystemData[currentSys]);
 
   const int index = systemData->jacobianIndex;
-  ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[systemData->jacobianIndex]);
+  ANALYTIC_JACOBIAN* symbolicJacobian = &data->simulationInfo->analyticJacobians[index];
 
   memset(jac, 0, (systemData->size)*(systemData->size)*sizeof(double));
 
-  for(i=0; i < jacobian->sparsePattern.maxColors; i++)
+  if (symbolicJacobian->constantEqns != NULL) {
+    symbolicJacobian->constantEqns(data, threadData, symbolicJacobian, systemData->parentJacobian);
+  }
+
+  for(i=0; i < symbolicJacobian->sparsePattern.maxColors; i++)
   {
     /* activate seed variable for the corresponding color */
-    for(ii=0; ii < jacobian->sizeCols; ii++)
-      if(jacobian->sparsePattern.colorCols[ii]-1 == i)
-        jacobian->seedVars[ii] = 1;
+    for(ii=0; ii < symbolicJacobian->sizeCols; ii++)
+      if(symbolicJacobian->sparsePattern.colorCols[ii]-1 == i)
+        symbolicJacobian->seedVars[ii] = 1;
 
-    ((systemData->analyticalJacobianColumn))(data, threadData, jacobian, systemData->parentJacobian);
+    if (symbolicJacobian->columnColor != NULL){
+      symbolicJacobian->columnColor(data, threadData, i, symbolicJacobian, systemData->parentJacobian);
+    }
+    else {
+      symbolicJacobian->columnCall(data, threadData, symbolicJacobian, systemData->parentJacobian);
+    }
 
-    for(j = 0; j < jacobian->sizeCols; j++)
+    for(j = 0; j < symbolicJacobian->sizeCols; j++)
     {
-      if(jacobian->seedVars[j] == 1)
+      if(symbolicJacobian->seedVars[j] == 1)
       {
-        ii = jacobian->sparsePattern.leadindex[j];
-        while(ii < jacobian->sparsePattern.leadindex[j+1])
+        ii = symbolicJacobian->sparsePattern.leadindex[j];
+        while(ii < symbolicJacobian->sparsePattern.leadindex[j+1])
         {
-          l  = jacobian->sparsePattern.index[ii];
-          k  = j*jacobian->sizeRows + l;
-          jac[k] = -jacobian->resultVars[l];
+          l  = symbolicJacobian->sparsePattern.index[ii];
+          k  = j*symbolicJacobian->sizeRows + l;
+          jac[k] = -symbolicJacobian->resultVars[l];
           ii++;
         };
       }
       /* de-activate seed variable for the corresponding color */
-      if(jacobian->sparsePattern.colorCols[j]-1 == i)
-        jacobian->seedVars[j] = 0;
+      if(symbolicJacobian->sparsePattern.colorCols[j]-1 == i)
+        symbolicJacobian->seedVars[j] = 0;
     }
   }
 
