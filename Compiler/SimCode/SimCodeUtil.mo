@@ -4161,6 +4161,8 @@ protected function getSimEqSystemDepForJacobians
   input BackendDAE.Shared inShared;
   input BackendDAE.SparsePatternCrefs sparsePatternCrefs;
   input BackendDAE.SparseColoring sparseColoring;
+  input BackendDAE.Variables inAllVars;
+  input String inMatrix;
   input Integer iuniqueEqIndex;
   input list<SimCodeVar.SimVar> itempvars;
   output list<SimCode.SimEqSystem> allEquations = {};
@@ -4179,7 +4181,7 @@ algorithm
   syst::rest := inSysts;
   BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps)) := syst; 
   //(allEquations, columnEquations, uniqueEqIndex, tempvars) := createEquations(false, false, true, false, syst, inShared, comps, uniqueEqIndex, tempvars);
-  (allEquations, columnCalls, uniqueEqIndex, tempvars) := createDependendEquations(syst, inShared, comps, sparsepatterncomrefs, sparsecoloring, uniqueEqIndex, tempvars);
+  (allEquations, columnCalls, uniqueEqIndex, tempvars) := createDependendEquations(syst, inShared, comps, sparsePatternCrefs, sparseColoring, inAllVars, inMatrix, uniqueEqIndex, tempvars);
   for eq in rest loop
     BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps)) := eq;
     // generate also discrete equations, they might be introduced by wrapfunctioncalls
@@ -4446,7 +4448,7 @@ algorithm
         // generate also discrete equations, they might be introduced by wrapFunctionCalls
         //(columnEquations, _, uniqueEqIndex, _) = createEquations(false, false, true, false, syst, shared, comps, iuniqueEqIndex, {});
         //(allEquations, columnEquations, uniqueEqIndex, _) = createDependendEquations(syst, shared, comps, sparsepattern, colsColors, BackendVariable.listVar1(alldiffedVars), name, iuniqueEqIndex, {});
-        (allEquations, _, constantEqns, uniqueEqIndex, _) = getSimEqSystemDepForJacobians(systs, shared, sparsepattern, colorCols, uniqueEqIndex,{});
+        (allEquations, _, constantEqns, uniqueEqIndex, _) = getSimEqSystemDepForJacobians(systs, shared, sparsepattern, colsColors, BackendVariable.listVar1(alldiffedVars), name, uniqueEqIndex, {});
 
         if Flags.isSet(Flags.JAC_DUMP2) then
           print("analytical Jacobians -> created all SimCode equations for Matrix " + name +  " time: " + realString(clock()) + "\n");
