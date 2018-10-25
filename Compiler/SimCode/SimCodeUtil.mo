@@ -468,13 +468,13 @@ algorithm
     (inlineEquations, modelInfo, SymbolicJacsTemp) := addAlgebraicLoopsModelInfo(inlineEquations, modelInfo);
     SymbolicJacsNLS := listAppend(SymbolicJacsTemp, SymbolicJacsNLS);
     
-    if Flags.isSet(Flags.UNCERTAINTIES) then
+    //if Flags.isSet(Flags.UNCERTAINTIES) then
       if Util.isSome(shared.dataReconciliationData) then
         BackendDAE.DATA_RECON(dataReconJac) := Util.getOption(shared.dataReconciliationData);
         (SOME(dataReconSimJac), uniqueEqIndex, tempvars) := createSymbolicSimulationJacobian(dataReconJac, uniqueEqIndex, tempvars);
         SymbolicJacsNLS := dataReconSimJac::SymbolicJacsNLS;
       end if;
-    end if;
+    //end if;
 
     // collect symbolic jacobians from state selection
     (stateSets, modelInfo, SymbolicJacsStateSelect, SymbolicJacsStateSelectInternal) :=  addAlgebraicLoopsModelInfoStateSets(stateSets, modelInfo);
@@ -4281,7 +4281,6 @@ algorithm
         seedVars = replaceSeedVarsName(seedVars, name);
         seedVars = List.map1(seedVars, setSimVarKind, BackendDAE.SEED_VAR());
         seedVars = List.map1(seedVars, setSimVarMatrixName, SOME(name));
-
         tmpJac = SimCode.JAC_MATRIX({SimCode.JAC_COLUMN(columnEquations, columnVars, nRows)}, seedVars, name, sparseInts, sparseIntsT, coloring, maxColor, -1, 0);
         linearModelMatrices = tmpJac::inJacobianMatrixes;
         (linearModelMatrices, uniqueEqIndex) = createSymbolicJacobianssSimCode(rest, inSimVarHT, uniqueEqIndex, restnames, linearModelMatrices);

@@ -313,17 +313,17 @@ algorithm
       BackendDAE.BackendDAE dae;
       BackendDAE.BackendDAE dlow,dlow_1;
       BackendDAE.IncidenceMatrix m,mt;
-      list<Integer> approximatedEquations,approximatedEquations_one,constantvars;
+      list<Integer> approximatedEquations,approximatedEquations_one,constantvars,extractedvars,extractedeqs;
       list<BackendDAE.Equation> setC_eq,setS_eq;
       list<BackendDAE.EqSystem> eqsyslist;
-      BackendDAE.Variables allVars,knownVariables,unknownVariables,globalKnownVars,finalvars,inDiffVars,inResVars,inotherVars;
+      BackendDAE.Variables allVars,knownVariables,unknownVariables,globalKnownVars,finalvars,inDiffVars,inResVars,inotherVars,tmpglobalKnownVars;
       BackendDAE.EquationArray allEqs,newEqs,inResEquations,inotherEquations;
       list<BackendDAE.Var> knownvarlist,knvarlst, states, inputvars, paramvars,newfinalvars;
       list<Integer> variables,knowns,unknowns,directlyLinked,indirectlyLinked,inputvar,outputvars,fullvars,finalvarlist;
       BackendDAE.Shared shared;
       BackendDAE.EqSystem currentSystem;
       ExtIncidenceMatrix mExt;
-      list<Integer> setS,setC,tempsetS,tempsetC,removedequationsquared,matchedknownssetc,matchedunknownssetc;
+      list<Integer> setS,setC,tempsetS,tempsetC,removedequationsquared,matchedknownssetc,matchedunknownssetc,inputvarlist;
       array<list<Integer>> mapEqnIncRow;
       array<Integer> mapIncRowEqn, match1,match2;
       list<list<Integer>> bltblocks,blockstofind;
@@ -333,7 +333,7 @@ algorithm
       list<BackendDAE.Var> tempvar;
       list<tuple<list<Integer>,list<tuple<list<Integer>,Integer>>,list<tuple<list<String>,Integer>>>> blocktargetinfo;
       list<Boolean> blocksqstatus;
-      list<Integer> removedequationssolvedvar,outputblocks,removedequationvars,approximated_eq_solvar;
+      list<Integer> removedequationssolvedvar,outputblocks,removedequationvars,approximated_eq_solvar,sets_eqs,sets_vars;
       mapBlocks initblocks;
       list<tuple<list<Integer>,list<String>,Boolean,Integer,Boolean>> blockdata;
       String modelname;
@@ -345,8 +345,10 @@ algorithm
       BackendDAE.SparseColoring outSparseColoring;
       SimCode.JacobianMatrix jacmatrix;
       list<SimCodeVar.SimVar> simcodevars;
-      Tpl.Text out_txt;
-
+      list<tuple<Integer,list<Integer>>> var_dependencytree,eq_dependencytree;
+      BackendDAE.Variables outDiffVars,outResidualVars,outOtherVars;
+      BackendDAE.EquationArray outResidualEqns,outOtherEqns;
+      list<BackendDAE.InnerEquation> sets_inner_equations;
     case(dae)
        equation
         BackendDAE.DAE(currentSystem::eqsyslist,shared) = dae;
@@ -355,6 +357,7 @@ algorithm
         BackendDAE.EXTRA_INFO(fileNamePrefix=modelname)= einfo;
         (m,_,mapEqnIncRow,mapIncRowEqn) = BackendDAEUtil.incidenceMatrixScalar(currentSystem,BackendDAE.NORMAL(),NONE());
         print("\nModelInfo: " + modelname + "\n" + UNDERLINE + "\n\n");
+        //BackendDump.dumpVariables(globalKnownVars,"globalKnownVars");
         BackendDump.dumpEquationArray(allEqs,"orderedEquation");
         BackendDump.dumpVariables(allVars,"orderedVariables");
         (match1,match2) = Matching.PerfectMatching(m);
@@ -365,7 +368,6 @@ algorithm
         dumpListList(bltblocks,"BLT_BLOCKS");
         true = listEmpty(eqsyslist);
         mExt=getExtIncidenceMatrix(m);
-        print(anyString(mExt));
         //dumpExtIncidenceMatrix(mExt);
 
         // Extract List of variables
@@ -391,28 +393,31 @@ algorithm
         //step-3 of algorithm
         (blocksqstatus,blockdata)=findSquareAndNonSquareBlocks(blocktargetinfo,var,mExt,initblocks);
         //Step-4 of algorithm
-        (tempsetC,tempsetS,removedequationsquared)=ExtractEquationsfromBlocks(blockdata,approximatedEquations);
+        (tempsetC,_,_)=ExtractEquationsfromBlocks(blockdata,approximatedEquations);
 
         tempsetC=List.setDifferenceOnTrue(tempsetC,approximatedEquations,intEq);
 
-       //(matchedknownssetc,matchedunknownssetc)= getVariableOccurence(tempsetC,mExt,knowns);
+        // find intermediate variables in SET-C
+        (matchedknownssetc,matchedunknownssetc) = getVariableOccurence(tempsetC,mExt,knowns);
 
-
+        // Extract Optimal Set-S equations if intermediate variables in present in SET-S
+        tempsetS={};
+        if(not listEmpty(matchedunknownssetc)) then
+           (sets_eqs,sets_vars)=getSolvedDependentEquationAndVars(matchedunknownssetc,var);
+           (_,extractedeqs,var_dependencytree,eq_dependencytree) = BuildSquareSubSet(sets_eqs,sets_vars,knowns,mExt,var,constantvars,approximatedEquations);
+           tempsetS=listAppend(tempsetS,extractedeqs);
+        end if;
         tempsetS=List.setDifferenceOnTrue(tempsetS,approximatedEquations,intEq);
         tempsetC = List.setDifferenceOnTrue(tempsetC,tempsetS,intEq);
-        //tempsetS={11,10,13,15,14,16};
-        getVariablesAfterExtraction(tempsetC,tempsetS,mExt);
+        extractedvars=getVariablesAfterExtraction(tempsetC,tempsetS,mExt);
+        finalvarlist=getRemovedEquationSolvedVariables(listAppend(tempsetC,tempsetS),var);
+        (finalvarlist,inputvarlist,_)=List.intersection1OnTrue(extractedvars,finalvarlist,intEq);
+        //print("\n final vars:=>" + anyString(finalvarlist) + "input vars:=>" + anyString(inputvarlist));
+
         print("\nFINAL SET OF EQUATIONS After Reconciliation \n" + UNDERLINE + "\n" +"SET_C: "+dumplistInteger(tempsetC)+"\n" +"SET_S: "+ dumplistInteger(tempsetS)+ "\n\n" );
 
         //BackendDump.dumpList(setC,"setC_Eqs :");
         //BackendDump.dumpList(setS,"setS_Eqs :");
-
-        removedequationsquared=List.setDifferenceOnTrue(removedequationsquared,tempsetS,intEq);
-        removedequationsquared=List.unique(listAppend(removedequationsquared,approximatedEquations));
-        //removedequationsquared={1,2,3,4,5,6,7,8,9,17,18,19,20,21,22,23,24,25};
-        removedequationssolvedvar=getRemovedEquationSolvedVariables(removedequationsquared,var);
-        //removedequationvars=getRemovedEquationSolvedVariables(outputblocks,var);
-        //removedequationvars={};
 
         setC = List.map1r(tempsetC, listGet, arrayList(mapIncRowEqn));
         setC = List.unique(setC);
@@ -421,57 +426,135 @@ algorithm
         setC_eq = List.map1r(setC, BackendEquation.get, allEqs);
         setS_eq = List.map1r(setS, BackendEquation.get, allEqs);
 
-        finalvarlist=List.setDifferenceOnTrue(fullvars,removedequationssolvedvar,intEq);
         finalvars=BackendVariable.listVar(List.map1r(finalvarlist,BackendVariable.getVarAt,allVars));
-        tempvar= List.map1r(removedequationssolvedvar,BackendVariable.getVarAt,allVars);
-        globalKnownVars=BackendVariable.listVar(List.map1(tempvar,BackendVariable.setVarDirection,DAE.INPUT()));
+        tempvar= List.map1r(inputvarlist,BackendVariable.getVarAt,allVars);
+        tmpglobalKnownVars=BackendVariable.listVar(List.map1(tempvar,BackendVariable.setVarDirection,DAE.INPUT()));
         newEqs=BackendEquation.listEquation(listAppend(setC_eq,setS_eq));
 
         currentSystem=BackendDAEUtil.setEqSystVars(currentSystem,finalvars);
         currentSystem=BackendDAEUtil.setEqSystEqs(currentSystem,newEqs);
-        shared = BackendDAEUtil.setSharedGlobalKnownVars(shared, globalKnownVars);
+        shared = BackendDAEUtil.setSharedGlobalKnownVars(shared,BackendVariable.mergeVariables(globalKnownVars, tmpglobalKnownVars));
+        BackendDump.dumpVariables(shared.globalKnownVars,"AFter_globalKnownVars");
 
         //BackendDump.dumpEquationArray(currentSystem.orderedEqs,"After_data_RECONCIALTION_EQUATIONS");
         //BackendDump.dumpVariables(currentSystem.orderedVars,"After_data_RECONCIALTION_VARIABLES");
 
         BackendDump.dumpEquationList(setC_eq,"SET_C");
         BackendDump.dumpEquationList(setS_eq,"SET_S");
-        VerifyDataReconciliation(tempsetC,tempsetS,knowns,unknowns,mExt,var,constantvars);
+
+        //dumpDependencyTree(var_dependencytree,eq_dependencytree,allVars,allEqs);
+        VerifyDataReconciliation(tempsetC,tempsetS,knowns,unknowns,mExt,var,constantvars,var_dependencytree,eq_dependencytree,allVars,allEqs);
 
         outDae = BackendDAE.DAE({currentSystem}, shared);
 
-        // Prepare all needed variables
-        print("\n jacobian variables \n");
-        knownvarlist = List.map1r(knowns,BackendVariable.getVarAt,allVars);
-        states = BackendVariable.getAllStateVarFromVariables(finalvars);
-        knvarlst = BackendVariable.varList(shared.globalKnownVars);
-        inputvars = List.select(knvarlst,BackendVariable.isInput);
-        paramvars = List.select(knvarlst, BackendVariable.isParam);
-        //newfinalvars = List.setDifferenceOnTrue(finalvarlist,knowns,intEq);
-        newfinalvars = List.map1r(finalvarlist,BackendVariable.getVarAt,allVars);
-        // new try
-//       inDiffVars = BackendVariable.listVar(knownvarlist);
-//       inResEquations = BackendEquation.listEquation(setC_eq);
-       inResVars      = BackendVariable.listVar(List.map1r({},BackendVariable.getVarAt,allVars));
-//       inotherEquations = BackendEquation.listEquation(setS_eq);
-//       inotherVars  = BackendVariable.listVar(List.map1r({8, 9, 24, 11, 12, 13, 10},BackendVariable.getVarAt,allVars));
+        print("\n prepare Torn systems for Jacobians");
+        //create the Set-S equation to BackendDae innerequation structure
+        sets_inner_equations=createInnerEquations(tempsetS,var);
+        (outDiffVars,outResidualVars,outOtherVars,outResidualEqns,outOtherEqns)=SymbolicJacobian.prepareTornStrongComponentData(allVars,allEqs,knowns,tempsetC,sets_inner_equations,shared.functionTree);
+        // Dump the torn systems
+        BackendDump.dumpVariables(outDiffVars,"Jacobian_knownVariables");
+        BackendDump.dumpVariables(outResidualVars,"Jacobian_outResidualVars");
+        BackendDump.dumpVariables(outOtherVars,"Jacobian_outOtherVars");
+        BackendDump.dumpEquationArray(outResidualEqns,"Jacobian_ResidualEquation");
+        BackendDump.dumpEquationArray(outOtherEqns,"Jacobian_other_Equation");
+        print("\n prepare torn systems_end");
 
-//      (simcodejacobian,shared)=SymbolicJacobian.getSymbolicJacobian(inDiffVars,inResEquations,inResVars,inotherEquations,inotherVars,shared,allVars,"datareconc",false);
-        
-        (outJacobian, outFunctionTree, outSparsePattern, outSparseColoring) =   SymbolicJacobian.generateGenericJacobian(outDae,knownvarlist,BackendVariable.emptyVars(),BackendVariable.emptyVars(),BackendVariable.emptyVars(),inResVars,newfinalvars,"_datareconc",false);
+(simcodejacobian,shared)=SymbolicJacobian.getSymbolicJacobian(outDiffVars,outResidualEqns,outResidualVars,outOtherEqns,outOtherVars,shared,BackendVariable.listVar(List.map1r(extractedvars,BackendVariable.getVarAt,allVars)),"F",false);
 
-        simcodejacobian=BackendDAE.GENERIC_JACOBIAN(outJacobian,outSparsePattern,outSparseColoring);
+
+        //(outJacobian, outFunctionTree, outSparsePattern, outSparseColoring) =   SymbolicJacobian.generateGenericJacobian(outDae,knownvarlist,BackendVariable.emptyVars(),BackendVariable.emptyVars(),BackendVariable.emptyVars(),inResVars,newfinalvars,"_datareconc",false);
+
+        //simcodejacobian=BackendDAE.GENERIC_JACOBIAN(outJacobian,outSparsePattern,outSparseColoring);
         // put also new generated function into the functionTree
-        shared = BackendDAEUtil.setSharedFunctionTree(shared, outFunctionTree);
+        //shared = BackendDAEUtil.setSharedFunctionTree(shared, outFunctionTree);
+
         // put the jacobian also into shared object
         shared.dataReconciliationData = SOME(BackendDAE.DATA_RECON(symbolicJacobian=simcodejacobian));
-
         outDae=BackendDAE.DAE({currentSystem}, shared);
       then
        outDae;
     case(_) then inDae;
   end match;
 end dataReconciliation;
+
+/* creates list of equations from SET-S needed for jacobian calculation */
+public function createInnerEquations
+   input list<Integer> sets;
+   input list<tuple<Integer,Integer>> solvedeqvar;
+   output BackendDAE.InnerEquations outequations={};
+protected
+   Integer eqnumber,varnumber;
+algorithm
+   print("\ninside inner equations:");
+   for i in sets loop
+      (eqnumber,varnumber):=getSolvedVariableNumber(i,solvedeqvar);
+      print(anyString(eqnumber)+"=>"+ anyString(varnumber));
+      outequations:=BackendDAE.INNEREQUATION(eqnumber,{varnumber})::outequations;
+   end for;
+   outequations:=listReverse(outequations);
+   print("\n finished loop:"+anyString(outequations));
+end createInnerEquations;
+
+public function dumpDependencyTree
+   input list<tuple<Integer,list<Integer>>> invartree;
+   input list<tuple<Integer,list<Integer>>> ineqtree;
+   input list<Integer> knowns;
+   input list<Integer> constantvars;
+   input BackendDAE.Variables allVars;
+   input BackendDAE.EquationArray allEqs;
+protected
+   Integer varnumber,count=1;
+   list<Integer> eqs,varlist;
+   list<BackendDAE.Equation> depeqs;
+   list<BackendDAE.Var> var;
+   list<Integer> kn1,kn2,kn3,c1,c2,c3;
+   Boolean flag=false;
+algorithm
+   //print("\n dependency var tree:=>"+anyString(invartree) +"\n depedency equation tree:=>" + anyString(ineqtree) +"\n\n");
+   for i in invartree loop
+       (varnumber,varlist):=i;
+       (_,eqs):=listGet(ineqtree,count);
+       var:=List.map1r({varnumber},BackendVariable.getVarAt,allVars);
+       depeqs:=List.map1r(eqs, BackendEquation.get, allEqs);
+       (kn1,kn2,kn3):=List.intersection1OnTrue(varlist,knowns,intEq);
+       (c1,c2,c3):=List.intersection1OnTrue(varlist,constantvars,intEq);
+
+       if(listEmpty(kn1) and listEmpty(c1)) then
+          print("\n-The intermediate variable: " + intString(varnumber) + " does not have any knowns or constants as Leaf");
+          return;
+       end if;
+
+       // check for knowns as leaf
+       if(not listEmpty(kn1)) then
+           print("\n-The intermediate variable: " + intString(varnumber) + " have knowns as Leaf:" + dumplistInteger(kn1));
+       end if;
+
+       // check for constantvars as leaf
+       if(not listEmpty(c1)) then
+           print("\n The intermediate variable: " + intString(varnumber) + " have constant as Leaf:" + dumplistInteger(c1));
+       end if;
+
+       BackendDump.dumpVarList(var,"Intermediate_Variable_in_SET_C");
+       BackendDump.dumpEquationList(depeqs,"Dependency_tree");
+       count:=count+1;
+   end for;
+end dumpDependencyTree;
+
+
+public function getSolvedDependentEquationAndVars
+   input list<Integer> inlist;
+   input list<tuple<Integer,Integer>> solvedvar;
+   output list<Integer> sets_eqs={};
+   output list<Integer> sets_vars={};
+protected
+   Integer eqnumber,varnumber;
+algorithm
+   for i in inlist loop
+     (eqnumber,varnumber):= getSolvedEquationNumber(i,solvedvar);
+     sets_eqs:=eqnumber::sets_eqs;
+     sets_vars:=varnumber::sets_vars;
+   end for;
+end getSolvedDependentEquationAndVars;
 
 public function getVariablesAfterExtraction
    input list<Integer> setc;
@@ -483,7 +566,7 @@ protected
    Integer eq;
 algorithm
    fulleqs:=listAppend(setc,sets);
-   for i in sets loop
+   for i in fulleqs loop
       for j in mext loop
          (eq,vars):=j;
          if(intEq(i,eq)) then
@@ -494,7 +577,7 @@ algorithm
       end for;
    end for;
    finalvars:=List.unique(finalvars);
-   print("\n check extraction =>:" + anyString(finalvars) + "lenght is:"+ anyString(listLength(finalvars)));
+   //print("\n check extraction =>:" + anyString(finalvars) + "length is:"+ anyString(listLength(finalvars)));
 end getVariablesAfterExtraction;
 
 
@@ -505,7 +588,7 @@ protected
    list<Integer> vars;
    Integer eqnumber;
 algorithm
-   print("\n find constants:");
+   //print("\n find constants:");
    for i in mext loop
       (eqnumber,vars):=i;
       if(listLength(vars)==1) then
@@ -515,7 +598,7 @@ algorithm
          end for;
       end if;
    end for;
-   print("\n Final constant vars: =>" + anyString(constantvars));
+   //print("\n Final constant vars: =>" + anyString(constantvars));
 end getConstantVariables;
 
 public function VerifyDataReconciliation
@@ -526,47 +609,63 @@ public function VerifyDataReconciliation
    input ExtIncidenceMatrix mExt;
    input list<tuple<Integer,Integer>> solvedvar;
    input list<Integer> constantvars;
+   input list<tuple<Integer,list<Integer>>> invartree;
+   input list<tuple<Integer,list<Integer>>> ineqtree;
+   input BackendDAE.Variables allVars;
+   input BackendDAE.EquationArray allEqs;
 protected
    list<Integer> matchedeq,matchedknownssetc,matchedunknownssetc,matchedknownssets,matchedunknownssets;
    list<Integer> tmpunknowns,tmpknowns,tmplist1,tmplist2,tmplist3,tmplist1sets,setstmp;
    list<Integer> tmplistvar1,tmplistvar2,tmplistvar3,sets_eqs={},sets_vars={};
    Integer eqnumber,varnumber;
    String str,resstr;
+   list<BackendDAE.Var> var,convar;
 algorithm
 
-   print("\n\nAutomatic Verification Steps of DataReconciliation Algorithm"+ "\n" + UNDERLINE + "\n\n" + "-Known Variables:" + dumplistInteger(knowns) +"\n" + "-SET_C:"+ dumplistInteger(setc)+ "\n" + "-SET_S:" + dumplistInteger(sets) +"\n\n");
+   print("\n\nAutomatic Verification Steps of DataReconciliation Algorithm"+ "\n" + UNDERLINE + "\n");
 
+   var:=List.map1r(knowns,BackendVariable.getVarAt,allVars);
+   convar:=List.map1r(constantvars,BackendVariable.getVarAt,allVars);
+   BackendDump.dumpVarList(var,"knownVariables:"+dumplistInteger(knowns));
+   BackendDump.dumpVarList(convar,"ConstantVariables:"+dumplistInteger(constantvars));
+   print("-SET_C:"+ dumplistInteger(setc)+ "\n" + "-SET_S:" + dumplistInteger(sets) +"\n\n");
+
+   //depeqs:=List.map1r(eqs, BackendEquation.get, allEqs);
    //Condition-1
    matchedeq:=List.intersectionOnTrue(setc,sets,intEq);
    print("Condition-1 " + "\"SET_C and SET_S must not have no equations in common\"" + "\n" + UNDERLINE + "\n");
    if(listEmpty(matchedeq)) then
-       //print("-Passed"+"\n"+"-SET_C:"+ dumplistInteger(setc)+ "\n" + "-SET_S:"+ dumplistInteger(sets) +"\n\n");
        print("-Passed\n\n");
    else
-       resstr:=": Condition 1- Failed" + "\n" + "-The following equations are present in both SET_C and SET_S:" + dumplistInteger(matchedeq) + "\n\n";
-       Error.addMessage(Error.INTERNAL_ERROR, {resstr});
+       print("-Failed\n");
+       BackendDump.dumpEquationList(List.map1r(matchedeq, BackendEquation.get, allEqs),"-Equations Found in SET_C and SET_S:" +dumplistInteger(matchedeq));
+       Error.addMessage(Error.INTERNAL_ERROR, {": Condition 1- Failed"});
        return;
    end if;
 
    (matchedknownssetc,matchedunknownssetc):=getVariableOccurence(setc,mExt,knowns);
    (matchedknownssets,matchedunknownssets):=getVariableOccurence(sets,mExt,knowns);
-   print("\n TEST vars :=>" + intString(listLength(matchedknownssetc)) +
-   "   "+intString(listLength(matchedunknownssetc)) + "   " +intString(listLength(matchedknownssets)) + "   " + intString(listLength(matchedunknownssets)));
+
    // Condition -2
    print("Condition-2 " + "\"All variables of interest must be involved in SET_C or SET_S\"" + "\n" +UNDERLINE  +"\n");
    (tmplist1,tmplist2,tmplist3):=List.intersection1OnTrue(matchedknownssetc,knowns,intEq);
 
    if(listEmpty(tmplist3)) then
-         print("-Passed"+"\n" + "-SET_C equations contains all variables of interest:" + dumplistInteger(tmplist1)+"\n\n");
-   elseif(not listEmpty(tmplist3)) then  // check in sets
+         print("-Passed \n");
+         BackendDump.dumpVarList(List.map1r(tmplist1,BackendVariable.getVarAt,allVars),"-SET_C has all known variables:" +dumplistInteger(tmplist1));
+    // check in sets
+   elseif(not listEmpty(tmplist3)) then
          (tmplist1sets,tmplist2,_):=List.intersection1OnTrue(tmplist3,matchedknownssets,intEq);
          if(not listEmpty(tmplist2)) then
               str:=dumplistInteger(tmplist2);
-              resstr:=": Condition 2-Failed"+ "\n" + "-the following known variables are not present in both SET_C and SET_S equations:" + str + "\n\n";
-              Error.addMessage(Error.INTERNAL_ERROR, {resstr});
-              return;
+              print("-Failed\n");
+              BackendDump.dumpVarList(List.map1r(tmplist2,BackendVariable.getVarAt,allVars),"knownVariables not Found:" +dumplistInteger(tmplist2));
+              Error.addMessage(Error.INTERNAL_ERROR, {": Condition 2- Failed"});
+              //return;
          end if;
-         print("-Passed" + "\n" + "-SET_C equations contains known variables:" + dumplistInteger(tmplist1) + "\n" +"-SET_S equations contains known variables:" + dumplistInteger(tmplist1sets)+"\n\n");
+         print("-Passed \n");
+         BackendDump.dumpVarList(List.map1r(tmplist1,BackendVariable.getVarAt,allVars),"-SET_C has known variables:" +dumplistInteger(tmplist1));
+         BackendDump.dumpVarList(List.map1r(tmplist1sets,BackendVariable.getVarAt,allVars),"-SET_S has known variables:" +dumplistInteger(tmplist1sets));
    end if;
 
    //Condition-3
@@ -574,8 +673,8 @@ algorithm
    if(listLength(setc) < listLength(knowns)) then
        print("-Passed"+ "\n" + "-SET_C contains:" + intString(listLength(setc)) + " equations < " + intString(listLength(knowns))+" known variables \n\n");
    else
-       resstr:=": Condition 3-Failed"+ "\n" + "-SET_C contains:" + intString(listLength(setc)) + " equations  > " + intString(listLength(knowns)) +" known variables \n\n";
-       Error.addMessage(Error.INTERNAL_ERROR, {resstr});
+       resstr:="-Failed"+ "\n" + "-SET_C contains:" + intString(listLength(setc)) + " equations  > " + intString(listLength(knowns)) +" known variables \n\n";
+       Error.addMessage(Error.INTERNAL_ERROR, {": Condition 3-Failed"});
        return;
    end if;
 
@@ -587,18 +686,20 @@ algorithm
        print("-Passed"+"\n"+"-SET_C contains No Intermediate Variables \n\n");
        return;
    else
-       print("-SET_C contains "+ "\""+intString(listLength(matchedunknownssetc))+ "\"" +" intermediate variables :"+ dumplistInteger(matchedunknownssetc)+"\n");
+       BackendDump.dumpVarList(List.map1r(matchedunknownssetc,BackendVariable.getVarAt,allVars),"-SET_C has intermediate variables:" +dumplistInteger(matchedunknownssetc));
+
        if(listEmpty(tmplistvar2)) then
-           print("-SET_S contains the intermediate variables :"+ dumplistInteger(tmplistvar1)+ " which are involved in SET_C\n"+"-Passed"+ "\n\n");
+           BackendDump.dumpVarList(List.map1r(tmplistvar1,BackendVariable.getVarAt,allVars),"-SET_S has intermediate variables involved in SET_C:" +dumplistInteger(tmplistvar1));
+           print("-Passed\n\n");
        else
-           resstr:=": Condition 4-Failed\n" + "SET_S does not contains the intermediate variables :"+ dumplistInteger(tmplistvar2)+ " which are involved in SET_C\n" +"\n\n";
-           Error.addMessage(Error.INTERNAL_ERROR, {resstr});
+            BackendDump.dumpVarList(List.map1r(tmplistvar2,BackendVariable.getVarAt,allVars),"-SET_S does not have intermediate variables involved in SET_C:" +dumplistInteger(tmplistvar2));
+           Error.addMessage(Error.INTERNAL_ERROR, {": Condition 4-Failed"});
            return;
        end if;
    end if;
 
    //Condition-5
-   print("Condition-5 " +"\"SET_S must compute intermediate variables involved in SET_C\"" + "\n" + UNDERLINE +"\n");
+   print("Condition-5 " +"\"All leaves of the dependence tree are known variables or constants\"" + "\n" + UNDERLINE +"\n");
 
    if(listEmpty(sets)) then
        print("-Passed"+"\n"+"-SET_S contains 0 intermediate variables and 0 equations \n\n");
@@ -606,21 +707,25 @@ algorithm
    end if;
 
    if(not listEmpty(matchedunknownssetc)) then
-       for i in matchedunknownssetc loop
-           (eqnumber,varnumber):= getSolvedEquationNumber(i,solvedvar);
-           sets_eqs:=eqnumber::sets_eqs;
-           sets_vars:=varnumber::sets_vars;
-       end for;
-       BuildSquareSubSet(sets_eqs,sets_vars,knowns,mExt,solvedvar,constantvars);
-      (tmplist1,tmplist2,tmplist3):=List.intersection1OnTrue(sets_eqs,sets,intEq);
-      if(listEmpty(tmplist2)) then
-          print("-Passed\n" +"SET_C contains "+intString(listLength(matchedunknownssetc)) + " intermediate variable:" +
-          dumplistInteger(matchedunknownssetc) +"\n" +"SET_S contains "+ intString(listLength(tmplist1))+ " equations:" + dumplistInteger(tmplist1) + " which can compute intermediate variables:" + dumplistInteger(tmplistvar1));
-      else
-          resstr:=": Condition 5-Failed\n" +"SET_C contains "+intString(listLength(matchedunknownssetc)) + " intermediate variable \n" +"SET_S contains only "+ intString(listLength(tmplist1))+ " equations: "  +dumplistInteger(tmplist1)  +" which computes intermediate variables: " + dumplistInteger(tmplistvar1) +"\n"+ "SET_S cannot compute intermediate variable :"+
-          dumplistInteger(tmplistvar2)+"\n\n";
-          Error.addMessage(Error.INTERNAL_ERROR, {resstr});
-      end if;
+         BackendDump.dumpVarList(List.map1r(matchedunknownssetc,BackendVariable.getVarAt,allVars),"-SET_C has intermediate variables:" +dumplistInteger(matchedunknownssetc));
+
+         dumpDependencyTree(invartree,ineqtree,knowns,constantvars,allVars,allEqs);
+
+//       for i in matchedunknownssetc loop
+//           (eqnumber,varnumber):= getSolvedEquationNumber(i,solvedvar);
+//           sets_eqs:=eqnumber::sets_eqs;
+//           sets_vars:=varnumber::sets_vars;
+//       end for;
+//       //BuildSquareSubSet(sets_eqs,sets_vars,knowns,mExt,solvedvar,constantvars);
+//      (tmplist1,tmplist2,tmplist3):=List.intersection1OnTrue(listReverse(sets_eqs),sets,intEq);
+//      if(listEmpty(tmplist2)) then
+//          print("-Passed\n" +"SET_C contains "+intString(listLength(matchedunknownssetc)) + " intermediate variable:" +
+//          dumplistInteger(matchedunknownssetc) +"\n" +"SET_S contains "+ intString(listLength(tmplist1))+ " equations:" + dumplistInteger(tmplist1) + " which can compute intermediate variables:" + dumplistInteger(tmplistvar1));
+//      else
+//          resstr:=": Condition 5-Failed\n" +"SET_C contains "+intString(listLength(matchedunknownssetc)) + " intermediate variable \n" +"SET_S contains only "+ intString(listLength(tmplist1))+ " equations: "  +dumplistInteger(tmplist1)  +" which computes intermediate variables: " + dumplistInteger(tmplistvar1) +"\n"+ "SET_S cannot compute intermediate variable :"+
+//          dumplistInteger(tmplistvar2)+"\n\n";
+          Error.addMessage(Error.INTERNAL_ERROR, {": Condition 5-Failed"});
+      //end if;
    end if;
 end VerifyDataReconciliation;
 
@@ -648,20 +753,26 @@ algorithm
      equation
      (t1,t2,t3)=List.intersection1OnTrue(tmpvars,tmpknowns,intEq);
      (c1,c2,c3)=List.intersection1OnTrue(tmpvars,tmpconstantvars,intEq);
-     print("\n tempvars:=>"+anyString(tmpvars)+"t1:=>"+anyString(t1) +"t2:=>"+ anyString(t2) +"c1:=>" + anyString(c1) + "c2:=>" + anyString (c2));
-     if(not listEmpty(t1) or not listEmpty(c1)) then
-         print("\n knownvariables found:=>" + anyString(t1));
-         if(not listEmpty(c1)) then
-             (tempsolvedeqs,_)=BuildSquareSubSetHelper1(c1,tmpsolveeqvar,tempsolvedeqs);
-         end if;
+     //print("\n tempvars:=>"+anyString(tmpvars)+"t1:=>"+anyString(t1) +"t2:=>"+ anyString(t2) +"c1:=>" + anyString(c1) + "c2:=>" + anyString (c2));
+     if(not listEmpty(c1)) then
+         //print("\n constant leaf found:=>" + anyString(c1));
+        (tempsolvedeqs,_)=BuildSquareSubSetHelper1(c1,tmpsolveeqvar,tempsolvedeqs);
+        tempsolvedvars=listAppend(tempsolvedvars,c1);
+        found=true;
+        //print("\n Final subset Equations:" + anyString(tempsolvedeqs));
+     end if;
+     if(not listEmpty(t1)) then
+         //print("\n known leaf found:=>" + anyString(t1));
+        (tempsolvedeqs,_)=BuildSquareSubSetHelper1(t1,tmpsolveeqvar,tempsolvedeqs);
+         tempsolvedvars=listAppend(tempsolvedvars,t1);
          found=true;
-         print("\n Final subset Equations:" + anyString(tempsolvedeqs));
+         //print("\n Final subset Equations:" + anyString(tempsolvedeqs));
      end if;
      if(found==false) then
          tempsolvedvars=listAppend(tempsolvedvars,t2);
-         print("\n false loop" + anyString(tempsolvedvars) +" "+ anyString(t2));
+         //print("\n false loop" + anyString(tempsolvedvars) +" "+ anyString(t2));
          (tempsolvedeqs,tempeqs)=BuildSquareSubSetHelper1(t2,solvedeqvar,tempsolvedeqs);
-         print("\n false loop-1" + anyString(tempsolvedeqs) +" "+ anyString(tempeqs));
+         //print("\n false loop-1" + anyString(tempsolvedeqs) +" "+ anyString(tempeqs));
          (tempvars1,tempvars2)=getVariableOccurence(tempeqs,mExt,knowns);
          allvars=List.unique(listAppend(tempvars1,tempvars2));
          (tmp1,tmp2,tmp3)=List.intersection1OnTrue(allvars,solvedvars,intEq);
@@ -696,33 +807,40 @@ end BuildSquareSubSetHelper1;
 
 
 public function BuildSquareSubSet
-  input list<Integer> ineqs;
-  input list<Integer> invars;
-  input list<Integer> knowns;
-  input ExtIncidenceMatrix mExt;
-  input list<tuple<Integer,Integer>> solvedeqvar;
-  input list<Integer> constantvars;
-  output list<Integer> solvedvars={};
-  output list<Integer> solvedeqs={};
+    input list<Integer> ineqs;
+    input list<Integer> invars;
+    input list<Integer> knowns;
+    input ExtIncidenceMatrix mExt;
+    input list<tuple<Integer,Integer>> solvedeqvar;
+    input list<Integer> constantvars;
+    input list<Integer> approximatedEquations;
+    output list<Integer> solvedvars={};
+    output list<Integer> solvedeqs={};
+    output list<tuple<Integer,list<Integer>>> dependency_variables_tree={};
+    output list<tuple<Integer,list<Integer>>> dependency_equation_tree={};
 protected
-  list<Integer> tempvars1,tempvars2,allvars,tempeqs,t1,t2,t3,e1,e2,e3,tmpvars,tmpeqs;
-  Integer eqnumber,varnumber;
+    list<Integer> tempvars1,tempvars2,allvars,tempeqs,t1,t2,t3,e1,e2,e3,tmpvars,tmpeqs;
+    Integer eqnumber,varnumber,count=1;
 algorithm
-  //solvedvars:=invars;
-  //solvedeqs:=ineqs;
-  for i in ineqs loop
-     (tempvars1,tempvars2):=getVariableOccurence({i},mExt,knowns);
-     allvars:=List.unique(listAppend(tempvars1,tempvars2));
-     print("\n in loop =>"+ anyString(i)+" =>" + anyString(allvars));
-     (t1,t2,t3):=List.intersection1OnTrue(allvars,invars,intEq);
-     (tmpvars,tmpeqs):=BuildSquareSubSetHelper(t2,knowns,mExt,solvedeqvar,invars,ineqs,constantvars);
-     solvedvars:=listAppend(solvedvars,tmpvars);
-     solvedeqs:=listAppend(solvedeqs,tmpeqs);
-     print("\n recursion finished :=> " + anyString(solvedeqs));
-  end for;
-  solvedvars:=List.unique(solvedvars);
-  solvedeqs:=List.unique(solvedeqs);
-  print("\n for loop finished:=>"+anyString(solvedeqs));
+    for i in ineqs loop
+       (tempvars1,tempvars2):=getVariableOccurence({i},mExt,knowns);
+       varnumber:=listGet(invars,count);
+       allvars:=List.unique(listAppend(tempvars1,tempvars2));
+       (t1,t2,t3):=List.intersection1OnTrue(allvars,invars,intEq);
+       (tmpvars,tmpeqs):=BuildSquareSubSetHelper(t2,knowns,mExt,solvedeqvar,{varnumber},{i},constantvars);
+       solvedvars:=listAppend(solvedvars,tmpvars);
+       solvedeqs:=listAppend(solvedeqs,tmpeqs);
+       dependency_variables_tree:=(varnumber,List.unique(tmpvars))::dependency_variables_tree;
+       tmpeqs:=List.setDifferenceOnTrue(tmpeqs,approximatedEquations,intEq);
+       dependency_equation_tree:=(i,List.unique(tmpeqs))::dependency_equation_tree;
+       //print("\n recursion finished :=> "+ "vars:=>"+ anyString(solvedvars) + "eqs:=>" +anyString(solvedeqs));
+       count:=count+1;
+    end for;
+    solvedvars:=List.unique(solvedvars);
+    solvedeqs:=List.unique(solvedeqs);
+//    print("\n dependency var tree:=>" + anyString(dependency_variables_tree));
+//    print("\n dependency equation tree:=>" + anyString(dependency_equation_tree));
+//    print("\n for loop finished:=>"+anyString(solvedeqs));
 end BuildSquareSubSet;
 
 public function dumpListList
@@ -1222,7 +1340,6 @@ protected
 algorithm
    for e in inlist loop
      s:=listGet(instringList,count);
-
      if(valueEq(s,"knowns")) then
         setc:=e::setc;
      else
@@ -1326,7 +1443,7 @@ algorithm
    outstring:=listReverse(outstring);
 end checkBlueOrRedSquareBlocks;
 
-
+/* function which gives solvedvars based on the equation */
 public function getSolvedVariableNumber
   input Integer eqnumber;
   input list<tuple<Integer,Integer>> inlist;
@@ -1343,6 +1460,7 @@ algorithm
    end for;
 end getSolvedVariableNumber;
 
+/* function which gives solvedeqs based on the variables */
 public function getSolvedEquationNumber
   input Integer varnumber;
   input list<tuple<Integer,Integer>> inlist;

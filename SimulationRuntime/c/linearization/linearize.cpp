@@ -280,11 +280,35 @@ int functionJacBD_num(DATA* data, threadData_t *threadData, double *matrixB, dou
     return 0;
 }
 
+int functionJacDataReconciliation(DATA* data, threadData_t *threadData, double* jac){
+  printf("\n inside data reconciliation\n");
+  //const int index = data->callback->INDEX_JAC_F;
+  //printf("%d",index);
+  //printf("\n");
+  int cols=data->simulationInfo->analyticJacobians[-1].sizeCols;
+  printf("\n Column F_value is:");
+  printf("%d",cols);
+  printf("\n Column_A_value is:");
+
+  printf("%d",data->simulationInfo->analyticJacobians[-1].sizeCols);
+  printf("\n");
+  printf("\n inside data reconciliation_end\n");
+    unsigned int i,j,k;
+  k = 0;
+
+  return 0;
+}
 
 /*  Calculate the jacobian matrix by analytical finite difference */
 int functionJacA(DATA* data, threadData_t *threadData, double* jac){
 
   const int index = data->callback->INDEX_JAC_A;
+  printf("inside functionJAC_A:\n");
+  printf("%d",index);
+  printf("\n");
+  int cols=data->simulationInfo->analyticJacobians[index].sizeCols;
+  printf("\n Column value is:");
+  printf("%d",cols);
   unsigned int i,j,k;
   k = 0;
   for(i=0; i < data->simulationInfo->analyticJacobians[index].sizeCols; i++)
@@ -326,6 +350,8 @@ int functionJacA(DATA* data, threadData_t *threadData, double* jac){
 int functionJacB(DATA* data, threadData_t *threadData, double* jac){
 
   const int index = data->callback->INDEX_JAC_B;
+  printf("inside functionJAC_B:\n");
+  printf("%d",index);
   unsigned int i,j,k;
   k = 0;
   for(i=0; i < data->simulationInfo->analyticJacobians[index].sizeCols; i++)
@@ -366,6 +392,8 @@ int functionJacB(DATA* data, threadData_t *threadData, double* jac){
 int functionJacC(DATA* data, threadData_t *threadData, double* jac){
 
   const int index = data->callback->INDEX_JAC_C;
+  printf("inside functionJAC_C:\n");
+  printf("%d",index);
   unsigned int i,j,k;
   k = 0;
   for(i=0; i < data->simulationInfo->analyticJacobians[index].sizeCols; i++)
@@ -404,6 +432,8 @@ int functionJacC(DATA* data, threadData_t *threadData, double* jac){
 int functionJacD(DATA* data, threadData_t *threadData, double* jac){
 
   const int index = data->callback->INDEX_JAC_D;
+  printf("inside functionJAC_D:\n");
+  printf("%d",index);
   unsigned int i,j,k;
   k = 0;
   for(i=0; i < data->simulationInfo->analyticJacobians[index].sizeCols; i++)
@@ -458,15 +488,16 @@ int linearize(DATA* data, threadData_t *threadData)
     double* matrixB = (double*)calloc(size_A*size_Inputs,sizeof(double));
     double* matrixC = (double*)calloc(size_Outputs*size_A,sizeof(double));
     double* matrixD = (double*)calloc(size_Outputs*size_Inputs,sizeof(double));
+    double* matrix_jac = (double*)calloc(1*3,sizeof(double));
     double* matrixCz = 0;
     double* matrixDz = 0;
     string strA, strB, strC, strD, strCz, strDz, strX, strU, strZ0, filename;
-
     assertStreamPrint(threadData,0!=matrixA,"calloc failed");
     assertStreamPrint(threadData,0!=matrixB,"calloc failed");
     assertStreamPrint(threadData,0!=matrixC,"calloc failed");
     assertStreamPrint(threadData,0!=matrixD,"calloc failed");
 
+	functionJacDataReconciliation(data, threadData, matrix_jac);
     if(do_data_recovery > 0){
         matrixCz = (double*)calloc(size_z*size_A,sizeof(double));
         matrixDz = (double*)calloc(size_z*size_Inputs,sizeof(double));
@@ -486,6 +517,7 @@ int linearize(DATA* data, threadData_t *threadData)
     /* Can currently only extract data recovery matrices Cz and Dz numerically, so we do this first if necessary */
     if(do_data_recovery > 0 || data->simulationInfo->analyticJacobians[data->callback->INDEX_JAC_A].sizeTmpVars == 0){
         /* Calculate numeric Jacobian */
+		printf("\n inside analyticJacobians test1\n");
         if(functionJacAC_num(data, threadData, matrixA, matrixC, matrixCz))
         {
             throwStreamPrint(threadData, "Error, can not get Matrix A or C ");
@@ -504,6 +536,7 @@ int linearize(DATA* data, threadData_t *threadData)
     if (data->simulationInfo->analyticJacobians[data->callback->INDEX_JAC_A].sizeTmpVars > 0){
         /* Retrieve symbolic Jacobian */
         /* Determine Matrix A */
+		printf("\n inside analyticJacobians test2\n");
         if(!data->callback->initialAnalyticJacobianA(data, threadData)){
             assertStreamPrint(threadData,0==functionJacA(data, threadData, matrixA),"Error, can not get Matrix A ");
         }

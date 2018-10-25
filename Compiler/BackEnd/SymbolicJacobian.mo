@@ -2437,18 +2437,18 @@ algorithm
     end match for component in inComps);
 end calculateJacobiansComponents;
 
-protected function prepareTornStrongComponentData
-  input BackendDAE.Variables inVars;
-  input BackendDAE.EquationArray inEqns;
-  input list<Integer> inIterationvarsInts;
-  input list<Integer> inResidualequations;
-  input BackendDAE.InnerEquations innerEquations;
-  input DAE.FunctionTree funcTree;
-  output BackendDAE.Variables outDiffVars;
-  output BackendDAE.Variables outResidualVars;
-  output BackendDAE.Variables outOtherVars;
-  output BackendDAE.EquationArray outResidualEqns;
-  output BackendDAE.EquationArray outOtherEqns;
+public function prepareTornStrongComponentData
+  input BackendDAE.Variables inVars;   // all vars
+  input BackendDAE.EquationArray inEqns;  // all equations
+  input list<Integer> inIterationvarsInts; // index of known variables
+  input list<Integer> inResidualequations; // index of set-c equation
+  input BackendDAE.InnerEquations innerEquations;  // set-S equations tranform to inner equations
+  input DAE.FunctionTree funcTree; // used it from shared object
+  output BackendDAE.Variables outDiffVars;  //
+  output BackendDAE.Variables outResidualVars; //
+  output BackendDAE.Variables outOtherVars; //
+  output BackendDAE.EquationArray outResidualEqns; //
+  output BackendDAE.EquationArray outOtherEqns; //
 protected
   list<BackendDAE.Var> iterationvars, resVarsLst, ovarsLst;
   list<BackendDAE.Equation> reqns, otherEqnsLst;
