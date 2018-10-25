@@ -42,7 +42,7 @@ void allocateThreadLocalJacobians(DATA* data, ANALYTIC_JACOBIAN** jacColumns);
 
 /** Generic parallel computation of the colored Jacobian for IDA and Dassl.
  *
- * Since, the procedure of Jacobian computation for IDA and Dassl differ only in the matrix storage format, a
+ * Since, the procedure of colored Jacobian computation for IDA and Dassl differ only in the matrix storage format, a
  * generic method can be used. By doing so, the maintainability is increased while redundant code is reduced.
  *
  * The computation of the different columns are independent from each other and have been parallelised using OpenMP.
