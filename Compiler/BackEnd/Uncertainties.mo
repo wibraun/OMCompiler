@@ -316,14 +316,19 @@ algorithm
       list<Integer> approximatedEquations,approximatedEquations_one,constantvars,extractedvars,extractedeqs;
       list<BackendDAE.Equation> setC_eq,setS_eq;
       list<BackendDAE.EqSystem> eqsyslist;
-      BackendDAE.Variables allVars,knownVariables,unknownVariables,globalKnownVars,finalvars,inDiffVars,inResVars,inotherVars,tmpglobalKnownVars;
+      BackendDAE.Variables allVars,knownVariables,unknownVariables,globalKnownVars,
+      finalvars,inDiffVars,inResVars,inotherVars,tmpglobalKnownVars;
+
       BackendDAE.EquationArray allEqs,newEqs,inResEquations,inotherEquations;
       list<BackendDAE.Var> knownvarlist,knvarlst, states, inputvars, paramvars,newfinalvars;
-      list<Integer> variables,knowns,unknowns,directlyLinked,indirectlyLinked,inputvar,outputvars,fullvars,finalvarlist;
+      list<Integer> variables,knowns,unknowns,directlyLinked,indirectlyLinked,inputvar,outputvars,
+      fullvars,finalvarlist;
+
       BackendDAE.Shared shared;
       BackendDAE.EqSystem currentSystem;
       ExtIncidenceMatrix mExt;
-      list<Integer> setS,setC,tempsetS,tempsetC,removedequationsquared,matchedknownssetc,matchedunknownssetc,inputvarlist;
+      list<Integer> setS,setC,tempsetS,tempsetC,removedequationsquared,
+      matchedknownssetc,matchedunknownssetc,inputvarlist;
       array<list<Integer>> mapEqnIncRow;
       array<Integer> mapIncRowEqn, match1,match2;
       list<list<Integer>> bltblocks,blockstofind;
@@ -333,7 +338,9 @@ algorithm
       list<BackendDAE.Var> tempvar;
       list<tuple<list<Integer>,list<tuple<list<Integer>,Integer>>,list<tuple<list<String>,Integer>>>> blocktargetinfo;
       list<Boolean> blocksqstatus;
-      list<Integer> removedequationssolvedvar,outputblocks,removedequationvars,approximated_eq_solvar,sets_eqs,sets_vars;
+      list<Integer> removedequationssolvedvar,outputblocks,removedequationvars,approximated_eq_solvar,
+      sets_eqs,sets_vars;
+
       mapBlocks initblocks;
       list<tuple<list<Integer>,list<String>,Boolean,Integer,Boolean>> blockdata;
       String modelname;
@@ -345,10 +352,12 @@ algorithm
       BackendDAE.SparseColoring outSparseColoring;
       SimCode.JacobianMatrix jacmatrix;
       list<SimCodeVar.SimVar> simcodevars;
+
       list<tuple<Integer,list<Integer>>> var_dependencytree,eq_dependencytree;
       BackendDAE.Variables outDiffVars,outResidualVars,outOtherVars;
       BackendDAE.EquationArray outResidualEqns,outOtherEqns;
       list<BackendDAE.InnerEquation> sets_inner_equations;
+
     case(dae)
        equation
         BackendDAE.DAE(currentSystem::eqsyslist,shared) = dae;
@@ -357,7 +366,6 @@ algorithm
         BackendDAE.EXTRA_INFO(fileNamePrefix=modelname)= einfo;
         (m,_,mapEqnIncRow,mapIncRowEqn) = BackendDAEUtil.incidenceMatrixScalar(currentSystem,BackendDAE.NORMAL(),NONE());
         print("\nModelInfo: " + modelname + "\n" + UNDERLINE + "\n\n");
-        //BackendDump.dumpVariables(globalKnownVars,"globalKnownVars");
         BackendDump.dumpEquationArray(allEqs,"orderedEquation");
         BackendDump.dumpVariables(allVars,"orderedVariables");
         (match1,match2) = Matching.PerfectMatching(m);
@@ -394,7 +402,6 @@ algorithm
         (blocksqstatus,blockdata)=findSquareAndNonSquareBlocks(blocktargetinfo,var,mExt,initblocks);
         //Step-4 of algorithm
         (tempsetC,_,_)=ExtractEquationsfromBlocks(blockdata,approximatedEquations);
-
         tempsetC=List.setDifferenceOnTrue(tempsetC,approximatedEquations,intEq);
 
         // find intermediate variables in SET-C
@@ -426,6 +433,7 @@ algorithm
         setC_eq = List.map1r(setC, BackendEquation.get, allEqs);
         setS_eq = List.map1r(setS, BackendEquation.get, allEqs);
 
+        // Prepare the new DAE components
         finalvars=BackendVariable.listVar(List.map1r(finalvarlist,BackendVariable.getVarAt,allVars));
         tempvar= List.map1r(inputvarlist,BackendVariable.getVarAt,allVars);
         tmpglobalKnownVars=BackendVariable.listVar(List.map1(tempvar,BackendVariable.setVarDirection,DAE.INPUT()));
@@ -434,15 +442,14 @@ algorithm
         currentSystem=BackendDAEUtil.setEqSystVars(currentSystem,finalvars);
         currentSystem=BackendDAEUtil.setEqSystEqs(currentSystem,newEqs);
         shared = BackendDAEUtil.setSharedGlobalKnownVars(shared,BackendVariable.mergeVariables(globalKnownVars, tmpglobalKnownVars));
-        BackendDump.dumpVariables(shared.globalKnownVars,"AFter_globalKnownVars");
 
+        //BackendDump.dumpVariables(shared.globalKnownVars,"AFter_globalKnownVars");
         //BackendDump.dumpEquationArray(currentSystem.orderedEqs,"After_data_RECONCIALTION_EQUATIONS");
         //BackendDump.dumpVariables(currentSystem.orderedVars,"After_data_RECONCIALTION_VARIABLES");
 
         BackendDump.dumpEquationList(setC_eq,"SET_C");
         BackendDump.dumpEquationList(setS_eq,"SET_S");
 
-        //dumpDependencyTree(var_dependencytree,eq_dependencytree,allVars,allEqs);
         VerifyDataReconciliation(tempsetC,tempsetS,knowns,unknowns,mExt,var,constantvars,var_dependencytree,eq_dependencytree,allVars,allEqs);
 
         outDae = BackendDAE.DAE({currentSystem}, shared);
@@ -460,14 +467,6 @@ algorithm
         print("\n prepare torn systems_end");
 
 (simcodejacobian,shared)=SymbolicJacobian.getSymbolicJacobian(outDiffVars,outResidualEqns,outResidualVars,outOtherEqns,outOtherVars,shared,BackendVariable.listVar(List.map1r(extractedvars,BackendVariable.getVarAt,allVars)),"F",false);
-
-
-        //(outJacobian, outFunctionTree, outSparsePattern, outSparseColoring) =   SymbolicJacobian.generateGenericJacobian(outDae,knownvarlist,BackendVariable.emptyVars(),BackendVariable.emptyVars(),BackendVariable.emptyVars(),inResVars,newfinalvars,"_datareconc",false);
-
-        //simcodejacobian=BackendDAE.GENERIC_JACOBIAN(outJacobian,outSparsePattern,outSparseColoring);
-        // put also new generated function into the functionTree
-        //shared = BackendDAEUtil.setSharedFunctionTree(shared, outFunctionTree);
-
         // put the jacobian also into shared object
         shared.dataReconciliationData = SOME(BackendDAE.DATA_RECON(symbolicJacobian=simcodejacobian));
         outDae=BackendDAE.DAE({currentSystem}, shared);
@@ -485,14 +484,12 @@ public function createInnerEquations
 protected
    Integer eqnumber,varnumber;
 algorithm
-   print("\ninside inner equations:");
    for i in sets loop
       (eqnumber,varnumber):=getSolvedVariableNumber(i,solvedeqvar);
       print(anyString(eqnumber)+"=>"+ anyString(varnumber));
       outequations:=BackendDAE.INNEREQUATION(eqnumber,{varnumber})::outequations;
    end for;
    outequations:=listReverse(outequations);
-   print("\n finished loop:"+anyString(outequations));
 end createInnerEquations;
 
 public function dumpDependencyTree
@@ -510,8 +507,7 @@ protected
    list<Integer> kn1,kn2,kn3,c1,c2,c3;
    Boolean flag=false;
 algorithm
-   //print("\n dependency var tree:=>"+anyString(invartree) +"\n depedency equation tree:=>" + anyString(ineqtree) +"\n\n");
-   for i in invartree loop
+     for i in invartree loop
        (varnumber,varlist):=i;
        (_,eqs):=listGet(ineqtree,count);
        var:=List.map1r({varnumber},BackendVariable.getVarAt,allVars);
@@ -631,6 +627,7 @@ algorithm
    print("-SET_C:"+ dumplistInteger(setc)+ "\n" + "-SET_S:" + dumplistInteger(sets) +"\n\n");
 
    //depeqs:=List.map1r(eqs, BackendEquation.get, allEqs);
+
    //Condition-1
    matchedeq:=List.intersectionOnTrue(setc,sets,intEq);
    print("Condition-1 " + "\"SET_C and SET_S must not have no equations in common\"" + "\n" + UNDERLINE + "\n");
@@ -700,32 +697,15 @@ algorithm
 
    //Condition-5
    print("Condition-5 " +"\"All leaves of the dependence tree are known variables or constants\"" + "\n" + UNDERLINE +"\n");
-
    if(listEmpty(sets)) then
        print("-Passed"+"\n"+"-SET_S contains 0 intermediate variables and 0 equations \n\n");
        return;
    end if;
 
    if(not listEmpty(matchedunknownssetc)) then
-         BackendDump.dumpVarList(List.map1r(matchedunknownssetc,BackendVariable.getVarAt,allVars),"-SET_C has intermediate variables:" +dumplistInteger(matchedunknownssetc));
-
-         dumpDependencyTree(invartree,ineqtree,knowns,constantvars,allVars,allEqs);
-
-//       for i in matchedunknownssetc loop
-//           (eqnumber,varnumber):= getSolvedEquationNumber(i,solvedvar);
-//           sets_eqs:=eqnumber::sets_eqs;
-//           sets_vars:=varnumber::sets_vars;
-//       end for;
-//       //BuildSquareSubSet(sets_eqs,sets_vars,knowns,mExt,solvedvar,constantvars);
-//      (tmplist1,tmplist2,tmplist3):=List.intersection1OnTrue(listReverse(sets_eqs),sets,intEq);
-//      if(listEmpty(tmplist2)) then
-//          print("-Passed\n" +"SET_C contains "+intString(listLength(matchedunknownssetc)) + " intermediate variable:" +
-//          dumplistInteger(matchedunknownssetc) +"\n" +"SET_S contains "+ intString(listLength(tmplist1))+ " equations:" + dumplistInteger(tmplist1) + " which can compute intermediate variables:" + dumplistInteger(tmplistvar1));
-//      else
-//          resstr:=": Condition 5-Failed\n" +"SET_C contains "+intString(listLength(matchedunknownssetc)) + " intermediate variable \n" +"SET_S contains only "+ intString(listLength(tmplist1))+ " equations: "  +dumplistInteger(tmplist1)  +" which computes intermediate variables: " + dumplistInteger(tmplistvar1) +"\n"+ "SET_S cannot compute intermediate variable :"+
-//          dumplistInteger(tmplistvar2)+"\n\n";
-          Error.addMessage(Error.INTERNAL_ERROR, {": Condition 5-Failed"});
-      //end if;
+       BackendDump.dumpVarList(List.map1r(matchedunknownssetc,BackendVariable.getVarAt,allVars),"-SET_C has intermediate variables:" +dumplistInteger(matchedunknownssetc));
+       dumpDependencyTree(invartree,ineqtree,knowns,constantvars,allVars,allEqs);
+       //Error.addMessage(Error.INTERNAL_ERROR, {": Condition 5-Failed"});
    end if;
 end VerifyDataReconciliation;
 
@@ -1340,6 +1320,7 @@ protected
 algorithm
    for e in inlist loop
      s:=listGet(instringList,count);
+
      if(valueEq(s,"knowns")) then
         setc:=e::setc;
      else
@@ -1459,6 +1440,7 @@ algorithm
       end if;
    end for;
 end getSolvedVariableNumber;
+
 
 /* function which gives solvedeqs based on the variables */
 public function getSolvedEquationNumber
