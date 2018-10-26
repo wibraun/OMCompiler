@@ -4663,6 +4663,7 @@ match sparsepattern
       let colorString = genSPColors(colorList, "data->simulationInfo->analyticJacobians[index].sparsePattern.colorCols")
       let indexColumn = (jacobianColumn |> JAC_COLUMN(numberOfResultVars=n) => '<%n%>';separator="\n")
       let tmpvarsSize = (jacobianColumn |> JAC_COLUMN(columnVars=vars) => listLength(vars);separator="\n")
+      let columnCall = '<%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_column'
       let columnCalls = (jacobianColumn |> JAC_COLUMN(columnCalls=columnCalls) => 
         match columnCalls case {} then 'NULL' case _ then '<%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_columnColor'
         ;separator="")
@@ -4693,6 +4694,7 @@ match sparsepattern
         data->simulationInfo->analyticJacobians[index].sparsePattern.colorCols = (unsigned int*) malloc(<%index_%>*sizeof(int));
         data->simulationInfo->analyticJacobians[index].sparsePattern.maxColors = <%maxColor%>;
         data->simulationInfo->analyticJacobians[index].jacobian = NULL;
+        data->simulationInfo->analyticJacobians[index].columnCall = <%columnCall%>;
         data->simulationInfo->analyticJacobians[index].columnColor = <%columnCalls%>;
         data->simulationInfo->analyticJacobians[index].constantEqns = <%constantEqns%>;
 

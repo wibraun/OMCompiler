@@ -153,6 +153,7 @@ typedef struct ANALYTIC_JACOBIAN
   modelica_real* tmpVars;
   modelica_real* resultVars;
   modelica_real* jacobian;
+  int (*columnCall)(void* data, threadData_t *threadData);
   int (*columnColor)(void* data, threadData_t *threadData, int color);
   int (*constantEqns)(void* data, threadData_t *threadData);
 }ANALYTIC_JACOBIAN;

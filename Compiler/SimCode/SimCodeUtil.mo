@@ -4032,15 +4032,6 @@ algorithm
                                       (sparsepatternComRefs, sparsepatternComRefsT, (_, _), _),
                                       sparseColoring), uniqueEqIndex, tempvars)
       equation
-        if Flags.isSet(Flags.JAC_DUMP2) then
-          print("analytical Jacobians -> creating SimCode equations for Matrix " + name + " time: " + realString(clock()) + "\n");
-        end if;
-        (allEquations, _, constantEqns, uniqueEqIndex, tempvars) = getSimEqSystemForJacobians(systs, shared, uniqueEqIndex, tempvars);
-        allEquations = listAppend(constantEqns, allEquations);
-        if Flags.isSet(Flags.JAC_DUMP2) then
-          print("analytical Jacobians -> created all SimCode equations for Matrix " + name +  " time: " + realString(clock()) + "\n");
-        end if;
-
         // create SimCodeVar.SimVars from jacobian vars
         dummyVar = ("dummyVar" + name);
         x = DAE.CREF_IDENT(dummyVar, DAE.T_REAL_DEFAULT, {});
@@ -4095,7 +4086,15 @@ algorithm
           print("analytical Jacobians -> transformed to SimCode for Matrix " + name + " time: " + realString(clock()) + "\n");
         end if;
 
-      then (SOME(SimCode.JAC_MATRIX({SimCode.JAC_COLUMN(allEquations, columnVars, nRows, columnEquations, {})}, seedVars, name, sparseInts, sparseIntsT, coloring, maxColor, -1, 0)), uniqueEqIndex, tempvars);
+        if Flags.isSet(Flags.JAC_DUMP2) then
+          print("analytical Jacobians -> creating SimCode equations for Matrix " + name + " time: " + realString(clock()) + "\n");
+        end if;
+        (allEquations, columnEquations, constantEqns, uniqueEqIndex, tempvars) = getSimEqSystemDepForJacobians(systs, shared, sparsepatternComRefs, sparseColoring, BackendVariable.listVar1(dependentVarsLst), name, uniqueEqIndex, tempvars);
+        if Flags.isSet(Flags.JAC_DUMP2) then
+          print("analytical Jacobians -> created all SimCode equations for Matrix " + name +  " time: " + realString(clock()) + "\n");
+        end if;
+
+      then (SOME(SimCode.JAC_MATRIX({SimCode.JAC_COLUMN(allEquations, columnVars, nRows, columnEquations, constantEqns)}, seedVars, name, sparseInts, sparseIntsT, coloring, maxColor, -1, 0)), uniqueEqIndex, tempvars);
 
     else
       equation
@@ -4179,8 +4178,7 @@ algorithm
   //First system contain the main differentiatet direction derivative,
   //while the other contain equations which are considered to be constant
   syst::rest := inSysts;
-  BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps)) := syst; 
-  //(allEquations, columnEquations, uniqueEqIndex, tempvars) := createEquations(false, false, true, false, syst, inShared, comps, uniqueEqIndex, tempvars);
+  BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps)) := syst;
   (allEquations, columnCalls, uniqueEqIndex, tempvars) := createDependendEquations(syst, inShared, comps, sparsePatternCrefs, sparseColoring, inAllVars, inMatrix, uniqueEqIndex, tempvars);
   for eq in rest loop
     BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps)) := eq;
@@ -4448,7 +4446,7 @@ algorithm
         // generate also discrete equations, they might be introduced by wrapFunctionCalls
         //(columnEquations, _, uniqueEqIndex, _) = createEquations(false, false, true, false, syst, shared, comps, iuniqueEqIndex, {});
         //(allEquations, columnEquations, uniqueEqIndex, _) = createDependendEquations(syst, shared, comps, sparsepattern, colsColors, BackendVariable.listVar1(alldiffedVars), name, iuniqueEqIndex, {});
-        (allEquations, _, constantEqns, uniqueEqIndex, _) = getSimEqSystemDepForJacobians(systs, shared, sparsepattern, colsColors, BackendVariable.listVar1(alldiffedVars), name, uniqueEqIndex, {});
+        (allEquations, columnEquations, constantEqns, uniqueEqIndex, _) = getSimEqSystemDepForJacobians(systs, shared, sparsepattern, colsColors, BackendVariable.listVar1(alldiffedVars), name, uniqueEqIndex, {});
 
         if Flags.isSet(Flags.JAC_DUMP2) then
           print("analytical Jacobians -> created all SimCode equations for Matrix " + name +  " time: " + realString(clock()) + "\n");
