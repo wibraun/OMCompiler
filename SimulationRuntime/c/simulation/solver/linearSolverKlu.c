@@ -159,7 +159,7 @@ int getAnalyticalJacobian(DATA* data, threadData_t *threadData, int sysNumber)
       if (symbolicJacobian->sparsePattern.colorCols[j]-1 == i)
         symbolicJacobian->seedVars[j] = 0;
     };
-
+  }
   return 0;
 }
 
