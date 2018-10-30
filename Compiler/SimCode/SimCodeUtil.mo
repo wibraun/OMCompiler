@@ -467,12 +467,14 @@ algorithm
     SymbolicJacsNLS := listAppend(SymbolicJacsTemp, SymbolicJacsNLS);
     (inlineEquations, modelInfo, SymbolicJacsTemp) := addAlgebraicLoopsModelInfo(inlineEquations, modelInfo);
     SymbolicJacsNLS := listAppend(SymbolicJacsTemp, SymbolicJacsNLS);
-    
+
     //if Flags.isSet(Flags.UNCERTAINTIES) then
       if Util.isSome(shared.dataReconciliationData) then
         BackendDAE.DATA_RECON(dataReconJac) := Util.getOption(shared.dataReconciliationData);
         (SOME(dataReconSimJac), uniqueEqIndex, tempvars) := createSymbolicSimulationJacobian(dataReconJac, uniqueEqIndex, tempvars);
-        SymbolicJacsNLS := dataReconSimJac::SymbolicJacsNLS;
+        ({dataReconSimJac}, modelInfo, SymbolicJacsTemp) := addAlgebraicLoopsModelInfoSymJacs({dataReconSimJac}, modelInfo);
+        SymbolicJacsNLS := listAppend(SymbolicJacsTemp, SymbolicJacsNLS);
+       SymbolicJacsNLS := dataReconSimJac::SymbolicJacsNLS;
       end if;
     //end if;
 
