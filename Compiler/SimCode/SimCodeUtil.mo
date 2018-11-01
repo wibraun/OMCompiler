@@ -1743,6 +1743,7 @@ algorithm
     end for;
 end appendSccIdxRange;
 
+// MS: Hier gehts los
 protected function createDependendEquations
   input BackendDAE.EqSystem inSyst;
   input BackendDAE.Shared shared;
@@ -1754,13 +1755,13 @@ protected function createDependendEquations
   input Integer iuniqueEqIndex;
   input list<SimCodeVar.SimVar> itempvars;
   output list<SimCode.SimEqSystem> allEquations = {};
-  output list<list<SimCode.SimEqSystem>> columnCalls = {};
+  output list<list<Integer>> columnCallInts = {};
   output Integer ouniqueEqIndex = iuniqueEqIndex;
   output list<SimCodeVar.SimVar> otempvars = itempvars;
 protected
   list<list<SimCode.SimEqSystem>> accEquations = {};
   list<SimCode.SimEqSystem> equations;
-  array<list<SimCode.SimEqSystem>> columns = arrayCreate(listLength(sparseColoring), {});
+  array<list<Integer>> columnInts = arrayCreate(listLength(sparseColoring), {});
   list<tuple<DAE.ComponentRef, array<Integer>>> spDepEqnsVars = {};
   list<list<DAE.ComponentRef>> joinedSparseDeps;
   Integer i;
@@ -1802,18 +1803,20 @@ algorithm
   for comp in comps loop
     (equations, _, ouniqueEqIndex, otempvars) := createEquationsWork(false, false, true, false, syst, shared, comp, ouniqueEqIndex, otempvars, {});
     accEquations := equations::accEquations;
-    
+
     (compEqns, _) := BackendDAETransform.getEquationAndSolvedVarIndxes(comp);
     i := 1;
     for e in spDepEqnsVars loop
       (cr, marks) := e;
       b := Util.boolAndList(list(arrayGet(marks, eqn) == 1 for eqn in compEqns));
-      // print("add comp: " + intString(i) + "for  "+ ComponentReference.printComponentRefStr(Util.tuple21(e)) + "\n");
+      //print("add comp: " + intString(i) + "for  "+ ComponentReference.printComponentRefStr(Util.tuple21(e)) + "\n");
       //for eqn in compEqns loop
       //  print("eqn: " + intString(eqn) + " " + boolString(arrayGet(marks, eqn) == 1) + "\n");
       //end for;
       if b then
-        columns := Array.appendToElement(i, equations, columns);
+        columnInts := Array.appendToElement(i, list(1 for i in equations), columnInts);
+      else
+        columnInts := Array.appendToElement(i, list(0 for i in equations), columnInts);
       end if;
       i := i+1;
     end for;
@@ -1824,7 +1827,7 @@ algorithm
   end for;
 
   allEquations := List.flattenReverse(accEquations);
-  columnCalls := arrayList(columns);
+  columnCallInts := arrayList(columnInts);
 end createDependendEquations;
 
 protected function joinSparseColorDep
@@ -3978,7 +3981,8 @@ algorithm
     Integer maxColor, uniqueEqIndex, nonZeroElements, nRows;
 
     list<SimCode.SimEqSystem> allEquations = {}, constantEqns = {};
-    list<list<SimCode.SimEqSystem>> columnEquations = {}, accEqns = {};
+    list<list<Integer>> columnEquations = {};
+    list<list<SimCode.SimEqSystem>> accEqns = {};
     list<SimCodeVar.SimVar> columnVars;
     list<SimCodeVar.SimVar> varsSeedIndex, seedVars, indexVars;
 
@@ -4131,7 +4135,7 @@ protected function getSimEqSystemForJacobians
   input Integer iuniqueEqIndex;
   input list<SimCodeVar.SimVar> itempvars;
   output list<SimCode.SimEqSystem> allEquations = {};
-  output list<list<SimCode.SimEqSystem>> columnCalls = {};
+  output list<list<Integer>> columnCalls = {};
   output list<SimCode.SimEqSystem> constantEqns = {};
   output Integer uniqueEqIndex = iuniqueEqIndex;
   output list<SimCodeVar.SimVar> tempvars = itempvars;
@@ -4139,7 +4143,8 @@ protected
   BackendDAE.StrongComponents comps;
   BackendDAE.EqSystems rest;
   BackendDAE.EqSystem syst;
-  list<list<SimCode.SimEqSystem>> columnEquations = {}, accEqns = {};
+  // list<list<Integer>> columnEquations = {};
+  list<list<SimCode.SimEqSystem>> accEqns = {};
 algorithm
   //First system contain the main differentiatet direction derivative,
   //while the other contain equations which are considered to be constant
@@ -4165,7 +4170,7 @@ protected function getSimEqSystemDepForJacobians
   input Integer iuniqueEqIndex;
   input list<SimCodeVar.SimVar> itempvars;
   output list<SimCode.SimEqSystem> allEquations = {};
-  output list<list<SimCode.SimEqSystem>> columnCalls = {};
+  output list<list<Integer>> columnCalls = {};
   output list<SimCode.SimEqSystem> constantEqns = {};
   output Integer uniqueEqIndex = iuniqueEqIndex;
   output list<SimCodeVar.SimVar> tempvars = itempvars;
@@ -4173,7 +4178,8 @@ protected
   BackendDAE.StrongComponents comps;
   BackendDAE.EqSystems rest;
   BackendDAE.EqSystem syst;
-  list<list<SimCode.SimEqSystem>> columnEquations = {}, accEqns = {};
+  //list<list<SimCode.SimEqSystem>> columnEquations = {};
+  list<list<SimCode.SimEqSystem>> accEqns = {};
 algorithm
   //First system contain the main differentiatet direction derivative,
   //while the other contain equations which are considered to be constant
@@ -4257,7 +4263,8 @@ algorithm
 
       SimCodeVar.SimVars simvars;
       list<SimCode.SimEqSystem> allEquations = {}, constantEqns = {};
-      list<list<SimCode.SimEqSystem>> columnEquations = {}, accEqns = {};
+      list<list<Integer>> columnEquations = {};
+      list<list<SimCode.SimEqSystem>> accEqns = {};
       list<SimCodeVar.SimVar> columnVars, otherColumnVars;
       list<SimCodeVar.SimVar> columnVarsKn, tempvars;
       list<SimCodeVar.SimVar> seedVars, indexVars, seedIndexVars;

@@ -294,7 +294,7 @@ package SimCode
       list<SimEqSystem> columnEqns;
       list<SimCodeVar.SimVar> columnVars;
       Integer numberOfResultVars;
-      list<list<SimEqSystem>> columnCalls;
+      list<list<Integer>> columnCalls;
       list<SimEqSystem> constantEqns;
     end JAC_COLUMN;
   end JacobianColumn;

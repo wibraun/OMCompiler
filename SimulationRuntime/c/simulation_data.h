@@ -156,6 +156,7 @@ typedef struct ANALYTIC_JACOBIAN
   int (*columnCall)(void* data, threadData_t *threadData);
   int (*columnColor)(void* data, threadData_t *threadData, int color);
   int (*constantEqns)(void* data, threadData_t *threadData);
+  int* callEqns;
 }ANALYTIC_JACOBIAN;
 
 /* EXTERNAL_INPUT
