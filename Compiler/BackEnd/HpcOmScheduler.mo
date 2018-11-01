@@ -3569,7 +3569,7 @@ algorithm
   (jacOut,tplOut) := matchcontinue(jacIn,tplIn)
     local
       list<SimCode.SimEqSystem> simEqs, constEqns;
-      list<list<SimCode.SimEqSystem>> columnCalls;
+      list<list<Integer>> columnCalls;
       list<SimCodeVar.SimVar> simVars;
       Integer rowLen;
       array<Integer> ass;

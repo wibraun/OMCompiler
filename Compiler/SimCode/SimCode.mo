@@ -74,7 +74,7 @@ uniontype JacobianColumn
     list<SimEqSystem> columnEqns;       // column equations equals in size to column vars
     list<SimCodeVar.SimVar> columnVars; // all column vars, none results vars index -1, the other corresponding to rows index
     Integer numberOfResultVars;         // corresponds to the number of rows
-    list<list<SimEqSystem>> columnCalls;// column calls eval every column only related rows
+    list<list<Integer>> columnCalls;    // column calls eval every column only related rows
     list<SimEqSystem> constantEqns;     // be needed evaluate only once
   end JAC_COLUMN;
 end JacobianColumn;
