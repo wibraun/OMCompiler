@@ -4866,7 +4866,6 @@ template functionJacDepCalls(list<SimEqSystem> jacEquations, list<list<Integer>>
   <%(jacEquations |> eq =>
     equation_impl(partIdx, eq, createJacContext(jacHT), modelNamePrefix); separator="\n")%>
 
-  <% jacColorColumns %>
   OMC_DISABLE_OPT
   int <%symbolName(modelNamePrefix,"functionJac")%><%matrixName%>_constantEqns(void* inData, threadData_t *threadData, ANALYTIC_JACOBIAN *jacobian, ANALYTIC_JACOBIAN *parentJacobian)
   {
