@@ -3970,7 +3970,6 @@ algorithm
     list<tuple<DAE.ComponentRef, list<DAE.ComponentRef>>> sparsepatternComRefs, sparsepatternComRefsT;
     list<tuple<Integer, list<Integer>>> sparseInts, sparseIntsT;
 
-    BackendDAE.BackendDAE bdae;
     list<BackendDAE.EqSystem> systs;
     BackendDAE.EqSystem syst;
     BackendDAE.Shared shared;
