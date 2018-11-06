@@ -4705,7 +4705,10 @@ match sparsepattern
       let numEqs = (jacobianColumn |> JAC_COLUMN(columnEqns=eqs) => '<%listLength(eqs)%>';separator="\n")
       let tmpvarsSize = (jacobianColumn |> JAC_COLUMN(columnVars=vars) => listLength(vars);separator="\n")
       let columnCall = '<%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_column'
-      let columnCalls = '<%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_columnColor'
+      let columnCalls = if stringEq(Config.generateSparseColoredJacobianEvaluation(), "true") then
+                         <<<%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_columnColor>>
+                        else
+                         <<NULL>>
       let constantEqns = (jacobianColumn |> JAC_COLUMN(constantEqns=constantEqns) =>
         match constantEqns case {} then 'NULL' case _ then '<%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_constantEqns'
         ;separator="")
@@ -4808,30 +4811,41 @@ template generateMatrix(list<JacobianColumn> jacobianColumn, list<SimVar> seedVa
   end match
 end generateMatrix;
 
+template generateConstantEqns(list<SimEqSystem> constantEqns, String matrixName, String modelNamePrefix)
+::=
+  //if stringEq(Config.generateSparseColoredJacobianEvaluation(), "true") then
+    <<
+    OMC_DISABLE_OPT
+    int <%symbolName(modelNamePrefix,"functionJac")%><%matrixName%>_constantEqns(void* inData, threadData_t *threadData, ANALYTIC_JACOBIAN *jacobian, ANALYTIC_JACOBIAN *parentJacobian)
+    {
+      TRACE_PUSH
+
+      DATA* data = ((DATA*)inData);
+      int index = <%symbolName(modelNamePrefix,"INDEX_JAC_")%><%matrixName%>;
+
+      <%(constantEqns |> eq => equation_callJacobian(eq, modelNamePrefix); separator="")%>
+
+      TRACE_POP
+      return 0;
+    }
+    >>
+  //else <<>>
+end generateConstantEqns;
+
 template functionJac(list<SimEqSystem> jacEquations, list<SimEqSystem> constantEqns, Integer partIdx, String matrixName, Option<HashTableCrefSimVar.HashTable> jacHT, String modelNamePrefix) "template functionJac
   This template generates functions for each column of a single jacobian.
   This is a helper of generateMatrix."
 ::=
-
+  let constantEqns2 = generateConstantEqns(constantEqns, matrixName, modelNamePrefix)
   <<
   /* constant equations */
   <%(constantEqns |> eq =>
-    equation_impl(partIdx, eq,  createJacContext(jacHT), modelNamePrefix); separator="\n")%>
+    equation_impl(partIdx, eq, createJacContext(jacHT), modelNamePrefix); separator="\n")%>
   /* dynamic equations */
   <%(jacEquations |> eq =>
     equation_impl(partIdx, eq, createJacContext(jacHT), modelNamePrefix); separator="\n")%>
-  int <%symbolName(modelNamePrefix,"functionJac")%><%matrixName%>_constantEqns(void* inData, threadData_t *threadData, ANALYTIC_JACOBIAN *jacobian, ANALYTIC_JACOBIAN *parentJacobian)
-  {
-    TRACE_PUSH
 
-    DATA* data = ((DATA*)inData);
-    int index = <%symbolName(modelNamePrefix,"INDEX_JAC_")%><%matrixName%>;
-
-    <%(constantEqns |> eq => equation_callJacobian(eq, modelNamePrefix); separator="")%>
-
-    TRACE_POP
-    return 0;
-  }
+  <%constantEqns2%>
 
   int <%symbolName(modelNamePrefix,"functionJac")%><%matrixName%>_column(void* inData, threadData_t *threadData, ANALYTIC_JACOBIAN *jacobian, ANALYTIC_JACOBIAN *parentJacobian)
   {
@@ -4850,6 +4864,7 @@ template functionJacDepCalls(list<SimEqSystem> jacEquations, list<list<Integer>>
   This template generates functions for each column of a single jacobian.
   This is a helper of generateMatrix."
 ::=
+  let constantEqns2 = generateConstantEqns(constantEqns, matrixName, modelNamePrefix)
   let jacCallsSwitch = (eqCalls |> callLst hasindex color =>
                 <<
                 /* color <%color%> */
@@ -4858,6 +4873,7 @@ template functionJacDepCalls(list<SimEqSystem> jacEquations, list<list<Integer>>
                   break;
                 >>;
                separator="\n")
+
   <<
   /* constant equations */
   <%(constantEqns |> eq =>
@@ -4866,19 +4882,7 @@ template functionJacDepCalls(list<SimEqSystem> jacEquations, list<list<Integer>>
   <%(jacEquations |> eq =>
     equation_impl(partIdx, eq, createJacContext(jacHT), modelNamePrefix); separator="\n")%>
 
-  OMC_DISABLE_OPT
-  int <%symbolName(modelNamePrefix,"functionJac")%><%matrixName%>_constantEqns(void* inData, threadData_t *threadData, ANALYTIC_JACOBIAN *jacobian, ANALYTIC_JACOBIAN *parentJacobian)
-  {
-    TRACE_PUSH
-
-    DATA* data = ((DATA*)inData);
-    int index = <%symbolName(modelNamePrefix,"INDEX_JAC_")%><%matrixName%>;
-
-    <%(constantEqns |> eq => equation_callJacobian(eq, modelNamePrefix); separator="")%>
-
-    TRACE_POP
-    return 0;
-  }
+  <%constantEqns2%>
 
   int <%symbolName(modelNamePrefix,"functionJac")%><%matrixName%>_column(void* inData, threadData_t *threadData, ANALYTIC_JACOBIAN *jacobian, ANALYTIC_JACOBIAN *parentJacobian)
   {
