@@ -1743,7 +1743,6 @@ algorithm
     end for;
 end appendSccIdxRange;
 
-// MS: Hier gehts los
 protected function createDependendEquations
   input BackendDAE.EqSystem inSyst;
   input BackendDAE.Shared shared;
@@ -4089,14 +4088,18 @@ algorithm
           print("analytical Jacobians -> transformed to SimCode for Matrix " + name + " time: " + realString(clock()) + "\n");
         end if;
 
-        if Flags.isSet(Flags.JAC_DUMP2) then
-          print("analytical Jacobians -> creating SimCode equations for Matrix " + name + " time: " + realString(clock()) + "\n");
+        // Sparse evaluation of coloredJacobian
+        if Flags.getConfigBool(Flags.GENERATE_SYMJAC_SPARSE_EVAL) then
+          if Flags.isSet(Flags.JAC_DUMP2) then
+            print("analytical Jacobians -> creating SimCode equations for Matrix " + name + " time: " + realString(clock()) + "\n");
+          end if;
+          (allEquations, columnEquations, constantEqns, uniqueEqIndex, tempvars) = getSimEqSystemDepForJacobians(systs, shared, sparsepatternComRefs, sparseColoring, BackendVariable.listVar1(dependentVarsLst), name, uniqueEqIndex, tempvars);
+          if Flags.isSet(Flags.JAC_DUMP2) then
+            print("analytical Jacobians -> created all SimCode equations for Matrix " + name +  " time: " + realString(clock()) + "\n");
+          end if;
+        else
+          (allEquations, columnEquations, constantEqns, uniqueEqIndex, tempvars) = getSimEqSystemForJacobians(systs, shared, uniqueEqIndex, tempvars);
         end if;
-        (allEquations, columnEquations, constantEqns, uniqueEqIndex, tempvars) = getSimEqSystemDepForJacobians(systs, shared, sparsepatternComRefs, sparseColoring, BackendVariable.listVar1(dependentVarsLst), name, uniqueEqIndex, tempvars);
-        if Flags.isSet(Flags.JAC_DUMP2) then
-          print("analytical Jacobians -> created all SimCode equations for Matrix " + name +  " time: " + realString(clock()) + "\n");
-        end if;
-
       then (SOME(SimCode.JAC_MATRIX({SimCode.JAC_COLUMN(allEquations, columnVars, nRows, columnEquations, constantEqns)}, seedVars, name, sparseInts, sparseIntsT, coloring, maxColor, -1, 0)), uniqueEqIndex, tempvars);
 
     else
@@ -4365,7 +4368,6 @@ algorithm
            (sparsepattern, sparsepatternT, (diffCompRefs, diffedCompRefs), _), colsColors))::rest,
                   _, uniqueEqIndex, _::restnames)
       equation
-
         // create SimCodeVar.SimVars from jacobian vars
         dummyVar = ("dummyVar" + name);
         x = DAE.CREF_IDENT(dummyVar, DAE.T_REAL_DEFAULT, {});
@@ -4426,8 +4428,8 @@ algorithm
         seedVars = rewriteIndex(seedVars, 0);
         indexVars = rewriteIndex(indexVars, 0);
         seedIndexVars = listAppend(seedVars, indexVars);
-        sparseInts = sortSparsePattern(seedIndexVars, sparsepattern, false);
         sparseIntsT = sortSparsePattern(seedIndexVars, sparsepatternT, false);
+        sparseInts = sortSparsePattern(seedIndexVars, sparsepattern, false);
 
         maxColor = listLength(colsColors);
         nRows =  listLength(diffedVars);
@@ -4446,25 +4448,28 @@ algorithm
         seedVars = List.map1(seedVars, setSimVarKind, BackendDAE.SEED_VAR());
         seedVars = List.map1(seedVars, setSimVarMatrixName, SOME(name));
 
-        if Flags.isSet(Flags.JAC_DUMP2) then
-          print("analytical Jacobians -> creating SimCode equations for Matrix " + name + " time: " + realString(clock()) + "\n");
+        // Sparse evaluation of coloredJacobian
+        if Flags.getConfigBool(Flags.GENERATE_SYMJAC_SPARSE_EVAL) then
+          if Flags.isSet(Flags.JAC_DUMP2) then
+            print("analytical Jacobians -> creating SimCode equations for Matrix " + name + " time: " + realString(clock()) + "\n");
+          end if;
+          (allEquations, columnEquations, constantEqns, uniqueEqIndex, _) = getSimEqSystemDepForJacobians(systs, shared, sparsepattern, colsColors, BackendVariable.listVar1(alldiffedVars), name, uniqueEqIndex, {});
+
+          if Flags.isSet(Flags.JAC_DUMP2) then
+            print("analytical Jacobians -> created all SimCode equations for Matrix " + name +  " time: " + realString(clock()) + "\n");
+          end if;
+
+          tmpJac = SimCode.JAC_MATRIX({SimCode.JAC_COLUMN(allEquations, columnVars, nRows, columnEquations, constantEqns)}, seedVars, name, sparseInts, sparseIntsT, coloring, maxColor, -1, 0);
+          linearModelMatrices = tmpJac::inJacobianMatrixes;
+          (linearModelMatrices, uniqueEqIndex) = createSymbolicJacobianssSimCode(rest, inSimVarHT, uniqueEqIndex, restnames, linearModelMatrices);
+        else
+          (allEquations, columnEquations, constantEqns, uniqueEqIndex, _) = getSimEqSystemForJacobians(systs, shared, uniqueEqIndex, {});
+          tmpJac = SimCode.JAC_MATRIX({SimCode.JAC_COLUMN(allEquations, columnVars, nRows, columnEquations, constantEqns)}, seedVars, name, sparseInts, sparseIntsT, coloring, maxColor, -1, 0);
+          linearModelMatrices = tmpJac::inJacobianMatrixes;
+          (linearModelMatrices, uniqueEqIndex) = createSymbolicJacobianssSimCode(rest, inSimVarHT, uniqueEqIndex, restnames, linearModelMatrices);
         end if;
-        // generate also discrete equations, they might be introduced by wrapFunctionCalls
-        //(columnEquations, _, uniqueEqIndex, _) = createEquations(false, false, true, false, syst, shared, comps, iuniqueEqIndex, {});
-        //(allEquations, columnEquations, uniqueEqIndex, _) = createDependendEquations(syst, shared, comps, sparsepattern, colsColors, BackendVariable.listVar1(alldiffedVars), name, iuniqueEqIndex, {});
-        (allEquations, columnEquations, constantEqns, uniqueEqIndex, _) = getSimEqSystemDepForJacobians(systs, shared, sparsepattern, colsColors, BackendVariable.listVar1(alldiffedVars), name, uniqueEqIndex, {});
-
-        if Flags.isSet(Flags.JAC_DUMP2) then
-          print("analytical Jacobians -> created all SimCode equations for Matrix " + name +  " time: " + realString(clock()) + "\n");
-        end if;
-
-        tmpJac = SimCode.JAC_MATRIX({SimCode.JAC_COLUMN(allEquations, columnVars, nRows, columnEquations, constantEqns)}, seedVars, name, sparseInts, sparseIntsT, coloring, maxColor, -1, 0);
-        linearModelMatrices = tmpJac::inJacobianMatrixes;
-        (linearModelMatrices, uniqueEqIndex) = createSymbolicJacobianssSimCode(rest, inSimVarHT, uniqueEqIndex, restnames, linearModelMatrices);
-
      then
-        (linearModelMatrices, uniqueEqIndex);
-
+      (linearModelMatrices, uniqueEqIndex);
     else
       equation
         Error.addInternalError("Generation of symbolic matrix SimCode (SimCode.createSymbolicJacobianssSimCode) failed", sourceInfo());
