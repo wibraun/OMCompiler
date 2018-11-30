@@ -1203,7 +1203,7 @@ int solveSystemWithTotalPivotSearch(int n, double* x, double* A, int* indRow, in
 
 /*! \fn linearSolverWrapper
  */
-int linearSolverWrapper(int n, double* x, double* A, int* indRow, int* indCol, int *pos, int *rank, int method, int casualTearingSet)
+int linearSolverWrapper(int n, double* x, double* A, int* indRow, int* indCol, int *pos, int *rank, int method, int casualTearingSet, int nz)
 {
   /* First try to use lapack and if it fails then
    * use solveSystemWithTotalPivotSearch */
@@ -1270,6 +1270,32 @@ int linearSolverWrapper(int n, double* x, double* A, int* indRow, int* indCol, i
         vecScalarMult(n, x, -1, x);
         returnValue = 0;
       }
+      break;
+    case NLS_LS_KLU://Input is A(n)x(n+1) matrix; solution x; nnz; dim n; need to set Ap, Ai, and Ax
+      //add function for solve here!!!!!!
+
+      //allocate data
+      int ok;
+      int Ap[n+1], Ai[nz];
+      double Ax[nz];
+      klu_symbolic *Symbolic;
+      klu_numeric *Numeric;
+      klu_common Common;
+      klu_defaults(&Common);
+      //Initialisierung sparse compressed column form
+
+      //do the lu fact.
+      Symbolic=klu_analyze(n,Ap,Ai,&Common);
+      Numeric=klu_factor(Ap,Ai,Ax,Symbolic,&Common);
+      ok=klu_solve(Symbolic,Numeric,lda,nrhs,x,&Common);
+
+      //free data
+      klu_free_symbolic(&Symbolic, &Common);
+      klu_free_numeric(&Numeric,&Common);
+
+      //solution is in x-----what to do with it??
+
+
       break;
     default:
       throwStreamPrint(0, "Non-Linear solver try to run with a unknown linear solver (%d).", method);
@@ -1341,7 +1367,7 @@ static int newtonAlgorithm(DATA_HOMOTOPY* solverData, double* x)
 
     /* solve jacobian and function value (both stored in hJac, last column is fvec), side effects: jacobian matrix is changed */
     if (numberOfIterations>1)
-      solverinfo = linearSolverWrapper(solverData->n, solverData->dy0, solverData->fJac, solverData->indRow, solverData->indCol, &pos, &rank, linearSolverMethod, solverData->casualTearingSet);
+      solverinfo = linearSolverWrapper(solverData->n, solverData->dy0, solverData->fJac, solverData->indRow, solverData->indCol, &pos, &rank, linearSolverMethod, solverData->casualTearingSet,solverData->data->simulationInfo->nonlinearSystemData[solverData->data->simulationInfo->currentNonlinearSystemIndex].sparsePattern.numberOfNoneZeros);
 
     if (solverinfo == -1)
     {
