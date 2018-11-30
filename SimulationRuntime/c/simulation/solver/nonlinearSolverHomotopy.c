@@ -56,6 +56,9 @@
 #include "nonlinearSolverHomotopy.h"
 #include "nonlinearSolverHybrd.h"
 
+#include "suitesparse/Include/amd.h"
+#include "suitesparse/Include/klu.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
