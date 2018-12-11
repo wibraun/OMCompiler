@@ -4309,13 +4309,13 @@ algorithm
         crefToSimVarHTJacobian = List.fold(seedVars, addSimVarToHashTable, crefToSimVarHTJacobian);
         crefToSimVarHTJacobian = List.fold(columnVars, addSimVarToHashTable, crefToSimVarHTJacobian);
 
-        seedCrefs = list(v.name for v in seedVars);
-        jacColumns = createFullSysts(syst, seedCrefs);
+        //jacColumns = createFullSysts(syst, seedVars, columnVars, nRows, );
 
-        (columnEquations, _, uniqueEqIndex, _) = createEquations(false, false, true, false, syst, shared, comps, iuniqueEqIndex, {});
         if Flags.isSet(Flags.JAC_DUMP2) then
           print("analytical Jacobians -> created all SimCode equations for Matrix " + name +  " time: " + realString(clock()) + "\n");
         end if;
+
+        (columnEquations, _, uniqueEqIndex, _) = createEquations(false, false, true, false, syst, shared, comps, iuniqueEqIndex, {});
 
         tmpJac = SimCode.JAC_MATRIX({SimCode.JAC_COLUMN(columnEquations, columnVars, nRows)}, seedVars, name, sparseInts, sparseIntsT, coloring, maxColor, -1, 0, SOME(crefToSimVarHTJacobian));
 
@@ -4330,49 +4330,6 @@ algorithm
         fail();
   end matchcontinue;
 end createSymbolicJacobianssSimCode;
-
-
-protected function createFullSysts
-  input BackendDAE.EqSystem inSyst;
-  input list<DAE.ComponentRef> inDiffCrefs;
-  output list<SimCode.JacobianColumn> outJacColumns = {};
-protected
-  BackendDAE.EqSystem tmpSyst;
-  list<DAE.ComponentRef> tmpVars;
-  list<DAE.Exp> tmpExps;
-  BackendVarTransform.VariableReplacements repl;
-algorithm
-  //
-
-  for cref in inDiffCrefs loop
-    tmpSyst := BackendDAEUtil.copyEqSystem(inSyst);
-    tmpExps := list(if ComponentReference.crefEqual(cref, c) then DAE.RCONST(1.0) else DAE.RCONST(0.0) for c in inDiffCrefs);
-    repl := BackendVarTransform.emptyReplacements();
-    repl := List.threadFold1(inDiffCrefs, tmpExps, wrapaddReplacement, NONE(), repl);
-    //print("\nDump replacements: ");
-    BackendVarTransform.dumpReplacements(repl);
-    
-    // replace protected and output variables in function body
-    tmpSyst := BackendVarTransform.performReplacementsEqSystem(tmpSyst, repl);
-    //BackendDump.printEqSystem(tmpSyst);
-
-  end for;
-end createFullSysts;
-
-
-protected function wrapaddReplacement
-  input DAE.ComponentRef inElement1;
-  input DAE.Exp inElement2;
-  input Option<FuncTypeExp_ExpToBoolean> inFuncTypeExpExpToBooleanOption;
-  input BackendVarTransform.VariableReplacements inFoldArg;
-  output BackendVarTransform.VariableReplacements outFoldArg;
-  partial function FuncTypeExp_ExpToBoolean
-    input DAE.Exp inExp;
-    output Boolean outBoolean;
-  end FuncTypeExp_ExpToBoolean;
-algorithm
-  outFoldArg := BackendVarTransform.addReplacement(inFoldArg, inElement1, inElement2, inFuncTypeExpExpToBooleanOption);
-end wrapaddReplacement;
 
 public function getSimVars2Crefs
   input list<DAE.ComponentRef> inCrefs;

@@ -9551,5 +9551,30 @@ algorithm
   end match;
 end containsHomotopyCall2;
 
+public function filterMatchedEquationsVars
+  input output BackendDAE.EqSystem syst;
+  input list<BackendDAE.Var> inVarList;
+  output list<BackendDAE.Equation> removedEqns;
+protected
+  BackendDAE.Matching matching;
+  array<Integer> ass1;
+  list<Integer> delEqns, varIndecies;
+  BackendDAE.EquationArray orderedEqs;
+  BackendDAE.Variables orderedVars;
+algorithm
+  try
+    matching as BackendDAE.MATCHING(ass1=ass1) := syst.matching;
+    varIndecies := BackendVariable.getVarIndexFromVars(inVarList, syst.orderedVars);
+    delEqns := list(ass1[i] for i in varIndecies);
+    removedEqns := BackendEquation.getList(delEqns, syst.orderedEqs);
+    orderedEqs := BackendEquation.deleteList(syst.orderedEqs, delEqns);
+    orderedVars := syst.orderedVars;
+    syst := BackendDAEUtil.createEqSystem(BackendVariable.emptyVars(orderedVars.numberOfVars), orderedEqs);
+  else
+    print("filterMatchedEquationsVars failed\n");
+  end try;
+end filterMatchedEquationsVars;
+
+
 annotation(__OpenModelica_Interface="backend");
 end BackendDAEUtil;

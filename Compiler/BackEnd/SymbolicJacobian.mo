@@ -95,6 +95,10 @@ algorithm
   else
     outDAE := detectSparsePatternODE(inDAE);
   end if;
+
+  if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
+    outDAE := generateSymbolicHessian(outDAE);
+  end if; 
 end symbolicJacobian;
 
 // =============================================================================
@@ -2219,6 +2223,8 @@ algorithm
       // d(ordered vars)/d(dummyVar)
       diffVars = BackendVariable.varList(orderedVars);
       derivedVariables = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
+      print("Jac Derived Variables:\n");
+      BackendDump.printVarList(derivedVariables);
 
       jacOrderedVars = BackendVariable.listVar1(derivedVariables);
       // known vars: all variable from original system + seed
@@ -2297,14 +2303,14 @@ algorithm
         currVar := ComponentReference.crefPrefixDer(currVar);
         derivedCref := ComponentReference.createDifferentiatedCrefName(currVar, cref, inMatrixName);
         r1 := BackendVariable.copyVarNewName(derivedCref, v);
-        r1 := BackendVariable.setVarKind(r1, BackendDAE.STATE_DER());
+        r1 := BackendVariable.setVarKind(r1, BackendDAE.JAC_DIFF_VAR());
         r1.unreplaceable := true;
         index := index + 1;
       else
         currVar := ComponentReference.crefPrefixDer(currVar);
         derivedCref := ComponentReference.createDifferentiatedCrefName(currVar, cref, inMatrixName);
         r1 := BackendVariable.copyVarNewName(derivedCref, v);
-        r1 := BackendVariable.setVarKind(r1, BackendDAE.STATE_DER());
+        r1 := BackendVariable.setVarKind(r1, BackendDAE.JAC_VAR());
       end try;
     then
       createAllDiffedVarsWork(restVar, cref, inAllVars, index, inMatrixName, r1::iVars);
@@ -2314,13 +2320,13 @@ algorithm
         (_, _) := BackendVariable.getVarSingle(currVar, inAllVars);
         derivedCref := ComponentReference.createDifferentiatedCrefName(currVar, cref, inMatrixName);
         r1 := BackendVariable.copyVarNewName(derivedCref, v);
-        r1 := BackendVariable.setVarKind(r1, BackendDAE.VARIABLE());
+        r1 := BackendVariable.setVarKind(r1, BackendDAE.JAC_DIFF_VAR());
         r1.unreplaceable := true;
         index := index + 1;
       else
         derivedCref := ComponentReference.createDifferentiatedCrefName(currVar, cref, inMatrixName);
         r1 := BackendVariable.copyVarNewName(derivedCref, v);
-        r1 := BackendVariable.setVarKind(r1, BackendDAE.VARIABLE());
+        r1 := BackendVariable.setVarKind(r1, BackendDAE.JAC_VAR());
       end try;
     then
       createAllDiffedVarsWork(restVar, cref, inAllVars, index, inMatrixName, r1::iVars);
@@ -3754,6 +3760,158 @@ algorithm
     fail();
   end try;
 end checkForNonLinearStrongComponents_work;
+
+// =============================================================================
+// Hessian generation
+// =============================================================================
+
+
+public function generateSymbolicHessian
+  input BackendDAE.BackendDAE inBackendDAE;
+  output BackendDAE.BackendDAE outBackendDAE = inBackendDAE;
+protected
+  BackendDAE.SymbolicJacobian symDerStatesInputs;
+  DAE.FunctionTree funcs;
+  BackendDAE.EqSystem eqSyst, constEqSyst;
+  BackendDAE.EqSystems eqSysts;
+  BackendDAE.Shared shared;
+  String name;
+  list<BackendDAE.Var> diffVars, diffedVars, allVars, seedVars, jacHelperVars, jacDiffVars, constVars;
+  list<DAE.ComponentRef> diffVarCrefs, seedCrefs;
+  BackendDAE.BackendDAE outBDAE;
+  list<BackendDAE.Equation> constEqns;
+algorithm
+  ({(SOME(symDerStatesInputs), _, _)}, funcs) := createFMIModelDerivatives(inBackendDAE);
+  (BackendDAE.DAE({eqSyst}, shared), name, diffVars, diffedVars, allVars) := symDerStatesInputs;
+
+  BackendDump.printEqSystem(eqSyst);
+  print("DiffVars: \n");  
+  BackendDump.printVarList(diffVars);
+  print("DiffedVars: \n");
+  BackendDump.printVarList(diffedVars);
+
+  diffVarCrefs := List.map(diffVars, BackendVariable.varCref);
+  seedVars := List.map1(diffVarCrefs, createSeedVars, name);
+
+  jacHelperVars := BackendVariable.getVarsOntrue(eqSyst.orderedVars, BackendVariable.isJacobianVar);
+  jacDiffVars := BackendVariable.getVarsOntrue(eqSyst.orderedVars, BackendVariable.isJacobianDiffVar);
+  constVars := BackendVariable.getVarsOntrue(eqSyst.orderedVars, BackendVariable.isNonStateVar);
+  print("jac help vars: \n");  
+  BackendDump.printVarList(jacHelperVars);
+  print("jac diff vars: \n");
+  BackendDump.printVarList(jacDiffVars);
+  //Filter constant variables
+  (eqSyst, constEqns) := BackendDAEUtil.filterMatchedEquationsVars(eqSyst, constVars);
+  print("filtered equations: \n");
+  BackendDump.printEqSystem(eqSyst);
+  
+  eqSysts := createFullSysts(eqSyst, seedVars, jacDiffVars, jacHelperVars, constVars);
+  constEqSyst := BackendDAEUtil.createEqSystem(BackendVariable.listVar1(constVars), BackendEquation.listEquation(constEqns));
+  //BackendDump.printEqSystem(constEqSyst);
+  eqSysts := constEqSyst::eqSysts;
+  
+  outBDAE := BackendDAEOptimize.collapseIndependentBlocks(BackendDAE.DAE(eqSysts, shared));
+  BackendDump.printBackendDAE(outBDAE);
+  
+end generateSymbolicHessian;
+
+
+protected function createFullSysts
+  input BackendDAE.EqSystem inSyst;
+  input list<BackendDAE.Var> inSeedVars;
+  input list<BackendDAE.Var> inJacVars;
+  input list<BackendDAE.Var> inJacHelpVars;
+  input list<BackendDAE.Var> inOtherVars;
+  output list<BackendDAE.EqSystem> outSyst = {};
+protected
+  BackendDAE.EqSystem tmpSyst;
+  DAE.ComponentRef lambdaCref, resCref, tempCref;
+  list<DAE.ComponentRef> tmpCrefs, seedCrefs, jacCrefs, jacHelpCrefs, lambdaCrefs;
+  list<DAE.Exp> tmpExps;
+  list<BackendDAE.Var> tmpVars, jacVars = {}, lambdaVars, resVars;
+  BackendVarTransform.VariableReplacements repl;
+  constant Boolean debug = false;
+  String tmpName;
+  Integer i = 1;
+  DAE.Exp sumExp;
+  list<BackendDAE.Equation> resEqns = {};
+algorithm
+  seedCrefs := list(v.varName for v in inSeedVars);
+  jacCrefs := list(v.varName for v in inJacVars);
+  jacHelpCrefs := list(v.varName for v in inJacHelpVars);
+
+  // create lambda variables
+  lambdaCref := ComponentReference.makeCrefIdent("lambda", DAE.T_REAL_DEFAULT , {});
+  lambdaVars := list( BackendVariable.copyVarNewName(ComponentReference.appendStringCref(intString(i), lambdaCref), v) threaded for v in inJacVars, i in 1:listLength(inJacVars));
+  lambdaCrefs := list(v.varName for v in lambdaVars);
+
+  // create residual variables
+  resCref := ComponentReference.makeCrefIdent("res", DAE.T_REAL_DEFAULT , {});
+  resVars := list( BackendVariable.copyVarNewName(ComponentReference.appendStringCref(intString(i), resCref), v) threaded for v in inJacVars, i in 1:listLength(inJacVars));
+
+  for cref in seedCrefs loop
+    tmpName := intString(i);
+    tmpSyst := BackendDAEUtil.copyEqSystem(inSyst);
+    tmpExps := list(if ComponentReference.crefEqual(cref, c) then DAE.RCONST(1.0) else DAE.RCONST(0.0) for c in seedCrefs);
+    repl := BackendVarTransform.emptyReplacements();
+    repl := List.threadFold1(seedCrefs, tmpExps, wrapaddReplacement, NONE(), repl);
+
+    tmpExps := list(Expression.crefExp(ComponentReference.appendStringCref(tmpName, c)) for c in jacCrefs);
+    repl := List.threadFold1(jacCrefs, tmpExps, wrapaddReplacement, NONE(), repl);
+
+    tmpExps := list(Expression.crefExp(ComponentReference.appendStringCref(tmpName, c)) for c in jacHelpCrefs);
+    repl := List.threadFold1(jacHelpCrefs, tmpExps, wrapaddReplacement, NONE(), repl);
+
+    if debug then
+      BackendVarTransform.dumpReplacements(repl);
+    end if;
+
+    // replace protected and output variables in function body
+    tmpSyst := BackendVarTransform.performReplacementsEqSystem(tmpSyst, repl);
+
+    // add jacobian variables
+    tmpVars := list(BackendVariable.copyVarNewName(ComponentReference.appendStringCref(tmpName, v.varName ), v) for v in inJacVars);
+    tmpSyst := BackendVariable.addVarsDAE(tmpVars, tmpSyst);
+    jacVars := listAppend(tmpVars, jacVars);
+    tmpVars := list(BackendVariable.copyVarNewName(ComponentReference.appendStringCref(tmpName, v.varName ), v) for v in inJacHelpVars);
+    tmpSyst := BackendVariable.addVarsDAE(tmpVars, tmpSyst);
+
+    // add lambda equations
+    sumExp := Expression.makeSum(  list(Expression.expMul(Expression.crefExp(c1), Expression.crefExp(c2)) threaded for c1 in lambdaCrefs, c2 in jacCrefs));
+    tempCref := ComponentReference.appendStringCref(tmpName, resCref);
+    resEqns := BackendEquation.generateEquation(Expression.crefExp(tempCref), sumExp)::resEqns;
+
+    if debug then
+      BackendDump.printEqSystem(tmpSyst);
+    end if;
+
+    outSyst := tmpSyst::outSyst;
+    i := i+1;
+  end for;
+  tmpSyst := BackendDAEUtil.createEqSystem(BackendVariable.listVar1(resVars), BackendEquation.listEquation(resEqns));
+  outSyst := tmpSyst::outSyst;
+
+  if debug then
+    BackendDump.printEqSystem(tmpSyst);
+  end if;
+
+end createFullSysts;
+
+protected function wrapaddReplacement
+  input DAE.ComponentRef inElement1;
+  input DAE.Exp inElement2;
+  input Option<FuncTypeExp_ExpToBoolean> inFuncTypeExpExpToBooleanOption;
+  input BackendVarTransform.VariableReplacements inFoldArg;
+  output BackendVarTransform.VariableReplacements outFoldArg;
+  partial function FuncTypeExp_ExpToBoolean
+    input DAE.Exp inExp;
+    output Boolean outBoolean;
+  end FuncTypeExp_ExpToBoolean;
+algorithm
+  outFoldArg := BackendVarTransform.addReplacement(inFoldArg, inElement1, inElement2, inFuncTypeExpExpToBooleanOption);
+end wrapaddReplacement;
+
+
 
 annotation(__OpenModelica_Interface="backend");
 end SymbolicJacobian;
