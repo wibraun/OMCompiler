@@ -1747,6 +1747,14 @@ algorithm
   // referenceUpdate(inVar, 2, new_kind);
 end setVarKind;
 
+public function setVarKindTpl 
+"Sets the BackendDAE.VarKind of a variable"
+  input output BackendDAE.Var inVar;
+  input output BackendDAE.VarKind inVarKind;
+algorithm
+  inVar.varKind := inVarKind;
+end setVarKindTpl;
+
 public function setVarTS "Sets the BackendDAE.TearingSelect of a variable"
   input BackendDAE.Var inVar;
   input Option<BackendDAE.TearingSelect> inTS;

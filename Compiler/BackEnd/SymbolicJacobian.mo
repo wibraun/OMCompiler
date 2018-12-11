@@ -95,10 +95,6 @@ algorithm
   else
     outDAE := detectSparsePatternODE(inDAE);
   end if;
-
-  if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
-    outDAE := generateSymbolicHessian(outDAE);
-  end if; 
 end symbolicJacobian;
 
 // =============================================================================
@@ -1707,6 +1703,8 @@ protected
   FCore.Graph graph;
 algorithm
 try
+
+  backendDAE := inBackendDAE;
   // for now perform on collapsed system
   backendDAE := BackendDAEUtil.copyBackendDAE(inBackendDAE);
   backendDAE := BackendDAEOptimize.collapseIndependentBlocks(backendDAE);
@@ -1734,6 +1732,22 @@ try
 
   // dependent varibales der(states) + outputs
   depVars := listAppend(states, outputvars);
+
+  if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
+    Flags.setConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN, false);
+    //backendDAE := BackendDAEOptimize.introduceDerAlias(backendDAE);
+    print("Done introduceDerAlias\n");
+    
+    backendDAE := generateSymbolicHessian(backendDAE);
+    backendDAE := BackendDAEUtil.transformBackendDAE(backendDAE,SOME((BackendDAE.NO_INDEX_REDUCTION(),BackendDAE.EXACT())),NONE(),NONE());
+    
+    // overwrite some variables
+    eqSyst::{} := backendDAE.eqs;
+    v := eqSyst.orderedVars;
+    varlst := BackendVariable.varList(v);
+    outputvars := List.select(varlst, BackendVariable.isOutputVar);
+    depVars := outputvars;
+  end if; 
 
   // Generate sparse pattern for matrices states
   // prepare more needed variables
@@ -2018,7 +2032,8 @@ algorithm
         diffedVars = BackendVariable.varList(inDifferentiatedVars);
         comref_differentiatedVars = List.map(diffedVars, BackendVariable.varCref);
 
-        reducedDAE = BackendDAEUtil.reduceEqSystemsInDAE(inBackendDAE, diffedVars);
+        //reducedDAE = BackendDAEUtil.reduceEqSystemsInDAE(inBackendDAE, diffedVars);
+        reducedDAE = inBackendDAE;
 
         comref_vars = List.map(inDiffVars, BackendVariable.varCref);
         seedlst = List.map1(comref_vars, createSeedVars, inName);
@@ -2236,6 +2251,7 @@ algorithm
       jacKnownVars = BackendVariable.addVariables(globalKnownVars, jacKnownVars);
       jacKnownVars = BackendVariable.addVariables(inSeedVars, jacKnownVars);
       (jacKnownVars,_) = BackendVariable.traverseBackendDAEVarsWithUpdate(jacKnownVars, BackendVariable.setVarDirectionTpl, (DAE.INPUT()));
+      (jacKnownVars,_) = BackendVariable.traverseBackendDAEVarsWithUpdate(jacKnownVars, BackendVariable.setVarKindTpl, (BackendDAE.PARAM()));
       jacOrderedEqs = BackendEquation.listEquation(derivedEquations);
 
 
@@ -3776,7 +3792,7 @@ protected
   BackendDAE.EqSystems eqSysts;
   BackendDAE.Shared shared;
   String name;
-  list<BackendDAE.Var> diffVars, diffedVars, allVars, seedVars, jacHelperVars, jacDiffVars, constVars;
+  list<BackendDAE.Var> diffVars, diffedVars, allVars, seedVars, jacHelperVars, jacDiffVars, constVars, lambdaVars;
   list<DAE.ComponentRef> diffVarCrefs, seedCrefs;
   BackendDAE.BackendDAE outBDAE;
   list<BackendDAE.Equation> constEqns;
@@ -3805,13 +3821,22 @@ algorithm
   print("filtered equations: \n");
   BackendDump.printEqSystem(eqSyst);
   
-  eqSysts := createFullSysts(eqSyst, seedVars, jacDiffVars, jacHelperVars, constVars);
+  (eqSysts, lambdaVars) := createFullSysts(eqSyst, seedVars, jacDiffVars, jacHelperVars, constVars);
   constEqSyst := BackendDAEUtil.createEqSystem(BackendVariable.listVar1(constVars), BackendEquation.listEquation(constEqns));
   //BackendDump.printEqSystem(constEqSyst);
   eqSysts := constEqSyst::eqSysts;
+  constEqSyst := BackendDAEUtil.createEqSystem(BackendVariable.listVar1(BackendVariable.equationSystemsVarsLst(inBackendDAE.eqs)),
+                                               BackendEquation.listEquation(BackendEquation.equationSystemsEqnsLst(inBackendDAE.eqs)));
+  BackendDump.printEqSystem(constEqSyst);
+  eqSysts := constEqSyst::eqSysts;
+
+  shared := List.fold(lambdaVars, BackendVariable.addGlobalKnownVarDAE, shared);
   
-  outBDAE := BackendDAEOptimize.collapseIndependentBlocks(BackendDAE.DAE(eqSysts, shared));
-  BackendDump.printBackendDAE(outBDAE);
+  //outBDAE := BackendDAEOptimize.collapseIndependentBlocks(BackendDAE.DAE(eqSysts, shared));
+  //BackendDump.printBackendDAE(outBDAE);
+  outBackendDAE := BackendDAE.DAE(eqSysts, shared);
+  outBackendDAE := BackendDAEOptimize.collapseIndependentBlocks(outBackendDAE);
+  BackendDump.printBackendDAE(outBackendDAE);
   
 end generateSymbolicHessian;
 
@@ -3823,12 +3848,13 @@ protected function createFullSysts
   input list<BackendDAE.Var> inJacHelpVars;
   input list<BackendDAE.Var> inOtherVars;
   output list<BackendDAE.EqSystem> outSyst = {};
+  output list<BackendDAE.Var> lambdaVars = {};
 protected
   BackendDAE.EqSystem tmpSyst;
   DAE.ComponentRef lambdaCref, resCref, tempCref;
   list<DAE.ComponentRef> tmpCrefs, seedCrefs, jacCrefs, jacHelpCrefs, lambdaCrefs;
   list<DAE.Exp> tmpExps;
-  list<BackendDAE.Var> tmpVars, jacVars = {}, lambdaVars, resVars;
+  list<BackendDAE.Var> tmpVars, jacVars = {}, resVars;
   BackendVarTransform.VariableReplacements repl;
   constant Boolean debug = false;
   String tmpName;
@@ -3843,11 +3869,15 @@ algorithm
   // create lambda variables
   lambdaCref := ComponentReference.makeCrefIdent("lambda", DAE.T_REAL_DEFAULT , {});
   lambdaVars := list( BackendVariable.copyVarNewName(ComponentReference.appendStringCref(intString(i), lambdaCref), v) threaded for v in inJacVars, i in 1:listLength(inJacVars));
+  lambdaVars := List.map1(lambdaVars, BackendVariable.setVarKind, BackendDAE.PARAM());
+  lambdaVars := List.map1(lambdaVars, BackendVariable.setVarDirection, DAE.BIDIR());
   lambdaCrefs := list(v.varName for v in lambdaVars);
 
   // create residual variables
   resCref := ComponentReference.makeCrefIdent("res", DAE.T_REAL_DEFAULT , {});
   resVars := list( BackendVariable.copyVarNewName(ComponentReference.appendStringCref(intString(i), resCref), v) threaded for v in inJacVars, i in 1:listLength(inJacVars));
+  resVars := List.map1(resVars, BackendVariable.setVarKind, BackendDAE.VARIABLE());
+  resVars := List.map1(resVars, BackendVariable.setVarDirection, DAE.OUTPUT());
 
   for cref in seedCrefs loop
     tmpName := intString(i);
@@ -3871,13 +3901,15 @@ algorithm
 
     // add jacobian variables
     tmpVars := list(BackendVariable.copyVarNewName(ComponentReference.appendStringCref(tmpName, v.varName ), v) for v in inJacVars);
+    tmpVars := List.map1(tmpVars, BackendVariable.setVarKind, BackendDAE.VARIABLE());
+    tmpVars := List.map1(tmpVars, BackendVariable.setVarDirection, DAE.BIDIR());
     tmpSyst := BackendVariable.addVarsDAE(tmpVars, tmpSyst);
     jacVars := listAppend(tmpVars, jacVars);
     tmpVars := list(BackendVariable.copyVarNewName(ComponentReference.appendStringCref(tmpName, v.varName ), v) for v in inJacHelpVars);
     tmpSyst := BackendVariable.addVarsDAE(tmpVars, tmpSyst);
 
     // add lambda equations
-    sumExp := Expression.makeSum(  list(Expression.expMul(Expression.crefExp(c1), Expression.crefExp(c2)) threaded for c1 in lambdaCrefs, c2 in jacCrefs));
+    sumExp := Expression.makeSum(  list(Expression.expMul(Expression.crefExp(c1), Expression.crefExp(v.varName)) threaded for c1 in lambdaCrefs, v in tmpVars));
     tempCref := ComponentReference.appendStringCref(tmpName, resCref);
     resEqns := BackendEquation.generateEquation(Expression.crefExp(tempCref), sumExp)::resEqns;
 

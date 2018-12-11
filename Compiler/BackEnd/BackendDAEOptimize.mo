@@ -5228,13 +5228,17 @@ algorithm
   osyst := match inSyst
     local
       BackendDAE.EqSystem syst;
+      list<BackendDAE.Var> varStates;
     case syst as BackendDAE.EQSYSTEM(orderedVars=vars, orderedEqs=eqns)
       algorithm
         (eqns, (vars, eqnsList, _, _)) :=
               BackendEquation.traverseEquationArray_WithUpdate( eqns, traverserintroduceDerAliasEquation,
                                                                 (vars, {}, shared, true) );
         eqns := BackendEquation.addList(eqnsList, eqns);
+        varStates := BackendVariable.getAllStateVarFromVariables(vars);
+        vars := BackendVariable.deleteVars(BackendVariable.listVar1(varStates), vars);
         syst.orderedEqs := eqns; syst.orderedVars := vars;
+        oshared := List.fold(varStates, BackendVariable.addGlobalKnownVarDAE, oshared);
       then syst;
   end match;
 end introduceDerAliasWork;
@@ -5317,7 +5321,7 @@ algorithm
       if addVar then
         numVars = BackendVariable.varsSize(vars);
         vars = BackendVariable.addVar(v1, vars);
-        eqnLst = if numVars < BackendVariable.varsSize(vars) then BackendDAE.EQUATION(inExp, outExp, DAE.emptyElementSource, BackendDAE.EQ_ATTR_DEFAULT_DYNAMIC)::eqnLst else eqnLst;
+        //eqnLst = if numVars < BackendVariable.varsSize(vars) then BackendDAE.EQUATION(inExp, outExp, DAE.emptyElementSource, BackendDAE.EQ_ATTR_DEFAULT_DYNAMIC)::eqnLst else eqnLst;
       end if;
     then (outExp, (vars, eqnLst, shared, addVar, true));
 
