@@ -34,6 +34,11 @@
 #ifndef _OMC_SPARSE_MATRIX_H_
 #define _OMC_SPARSE_MATRIX_H_
 
+typedef enum {
+    ROW_WISE,
+    COLUMN_WISE
+} omc_matrix_orientation;
+
 typedef struct omc_sparse_matrix{
   int* index;
   int* ptr;
@@ -42,6 +47,8 @@ typedef struct omc_sparse_matrix{
   unsigned int size_rows;
   unsigned int size_cols;
   unsigned int nnz;
+
+  omc_matrix_orientation orientation = COLUMN_WISE;
 };
 
 
