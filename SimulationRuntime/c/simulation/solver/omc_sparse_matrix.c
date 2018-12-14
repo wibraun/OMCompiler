@@ -46,19 +46,24 @@
 #include omc_spares_matrix.h
 
 omc_sparse_matrix*
-allocate_sparse_matrix(int size_rows, int size_cols, int nnz)
+allocate_sparse_matrix(int size_rows, int size_cols, int nnz, omc_matrix_orientation orientation)
 {
   omc_spare_matrix* A = (omc_sparse_matrix*) malloc(sizeof(omc_sparse_matrix));
-  assertStreamPrint(NULL, 0 != data, "Could not allocate data for sparse matrix.");
-
-  //Sparse Column ??????? How to set it?????????????????
-  A->ptr = (int*) calloc((size_rows+1),sizeof(int));
-  //Sparse Row
-  A->ptr = (int*) calloc((size_cols+1),sizeof(int));
+  assertStreamPrint(NULL, 0 != A, "Could not allocate data for sparse matrix.");
+  /*CSR*/
+  if(ROW_WISE==orientation)
+  {
+    A->orientation = ROW_WISE;
+    A->ptr = (int*) calloc((size_row+1),sizeof(int));
+  }
+  /*CSC*/
+  else
+  {
+    A->ptr = (int*) calloc((size_col+1),sizeof(int));
+  }
 
   A->index = (int*) calloc(nnz,sizeof(int));
   A->data= (double*) calloc(nnz,sizeof(double));
-
   A->size_rows=size_rows;
   A->size_cols=size_cols;
   A->nnz=nnz;
@@ -84,32 +89,29 @@ set_zero_sparse_matrix(omc_sparse_matrix* A)
 
   if(COLUMN_WISE==A->orientation)
   {
-    memset(A->ptr,0,(A->size_rows+1)*sizeof(int));
+    memset(A->ptr,0,(A->size_cols+1)*sizeof(int));
   }
   else
   {
-    memset(A->ptr,0,(A->size_cols+1)*sizeof(int));
+    memset(A->ptr,0,(A->size_rows+1)*sizeof(int));
   }
-
 }
 
 omc_sparse_matrix*
 copy_sparse_matrix(omc_sparse_matrix* A)
 {
-  omc_sparse_matrix* B = allocate_sparse_matrix(A->size_rows, A->size_cols; A->nnz);
-  if(COLUMN_WISE==A->orientation)
+  omc_sparse_matrix* B = allocate_sparse_matrix(A->size_rows, A->size_cols; A->nnz; A->orientation);
+  if(COLUMN_WISE == A->orientation)
   {
-    memcpy(A->ptr, B->ptr, sizeof(int)*(A->size_rows));
-    memcpy(A->index, B->index, sizeof(int)*(A->nnz));
-    memcpy(A->data, B->data, sizeof(double)*(A->nnz));
+    memcpy(A->ptr, B->ptr, sizeof(int)*(A->size_cols));
   }
   else
   {
-  B->orientation=ROW_WISE;
-  memcpy(A->ptr, B->ptr, sizeof(int)*(A->size_cols));
+    memcpy(A->ptr, B->ptr, sizeof(int)*(A->size_rows));
+  }
+
   memcpy(A->index, B->index, sizeof(int)*(A->nnz));
   memcpy(A->data, B->data, sizeof(double)*(A->nnz));
-}
 
   return(B);
 }
@@ -124,7 +126,7 @@ set_sparse_matrix_element(omc_sparse_matrix* A, int row, int col, int nth, int c
         A->ptr[col]==nth;
       }
     }
-    A->index[nth]=row;
+    A->index[nth]=col;
   }
   else
   {
@@ -133,10 +135,9 @@ set_sparse_matrix_element(omc_sparse_matrix* A, int row, int col, int nth, int c
         A->ptr[row]==nth;
       }
     }
-    A->index[nth]=col;
+    A->index[nth]=row;
   }
-
-  A-data[nth]=value;
+  A->data[nth]=value;
 }
 
 double
@@ -155,7 +156,11 @@ get_sparse_matrix_element(omc_sparse_matrix* A, int row, int col)
 void
 scale_sparse_matrix(omc_sparse_matrix* A, double scalar)
 {
-
+  int i;
+  for (i= 0; i<A->nnz; i++)
+  {
+    A->data[i] = scalar*(A->data[i]);
+  }
 }
 
 void

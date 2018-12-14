@@ -52,7 +52,7 @@ typedef struct omc_sparse_matrix{
 };
 
 
-omc_sparse_matrix* allocate_sparse_matrix(int size_rows, int size_cols, int nnz);
+omc_sparse_matrix* allocate_sparse_matrix(int size_rows, int size_cols, int nnz, omc_matrix_orientation orientation);
 void free_sparse_matrix(omc_sparse_matrix* A);
 
 void set_zero_sparse_matrix(omc_sparse_matrix* A);
