@@ -34,10 +34,7 @@
 #ifndef _OMC_SPARSE_MATRIX_H_
 #define _OMC_SPARSE_MATRIX_H_
 
-typedef enum {
-    ROW_WISE,
-    COLUMN_WISE
-} omc_matrix_orientation;
+#include "matrix.h"
 
 typedef struct omc_sparse_matrix{
   int* index;

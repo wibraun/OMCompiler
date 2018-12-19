@@ -43,7 +43,7 @@
 #include "util/varinfo.h"
 #include "model_help.h"
 
-#include omc_spares_matrix.h
+#include "omc_spares_matrix.h"
 
 omc_sparse_matrix*
 allocate_sparse_matrix(int size_rows, int size_cols, int nnz, omc_matrix_orientation orientation)
