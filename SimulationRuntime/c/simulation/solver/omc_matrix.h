@@ -34,6 +34,7 @@
 #ifndef _OMC_MATRIX_H_
 #define _OMC_MATRIX_H_
 
+
 typedef enum {
     ROW_WISE,
     COLUMN_WISE
@@ -58,7 +59,7 @@ void set_zero_sparse_matrix(omc_matrix* A);
 omc_sparse_matrix* copy_sparse_matrix(omc_matrix* A);
 
 void set_sparse_matrix_element(omc_matrix* A, int row, int col, int nth, double value);
-double get_sparse_matrix_element(omc_sparse_matrix* A, int row, int col);
+double get_sparse_matrix_element(omc_matrix* A, int row, int col);
 
 void scale_sparse_matrix(omc_matrix* A, double scalar);
 

@@ -46,3 +46,56 @@
 #include "omc_math.h"
 #include "omc_matrix.h"
 
+/**
+ * Allocates memory for specific matrix and identifies the type of matrix.
+ *
+ * \param [in,out]  general_matrix_data     Matrix instance.
+ * \return          omc_Matrix
+ *                                          .
+ */
+omc_matrix*
+allocate_sparse_matrix(int size_rows, int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type;)
+{
+
+}
+
+void
+free_sparse_matrix(omc_matrix* A)
+{
+
+}
+
+void
+set_zero_sparse_matrix(omc_matrix* A)
+{
+
+}
+
+omc_sparse_matrix*
+copy_sparse_matrix(omc_matrix* A)
+{
+  }
+
+void
+set_sparse_matrix_element(omc_matrix* A, int row, int col, int nth, double value)
+{
+
+}
+
+double
+get_sparse_matrix_element(omc_matrix* A, int row, int col)
+{
+
+}
+
+void scale_sparse_matrix(omc_matrix* A, double scalar)
+{
+
+}
+
+void print_sparse_matrix(omc_matrix* A)
+{
+
+}
+
+
