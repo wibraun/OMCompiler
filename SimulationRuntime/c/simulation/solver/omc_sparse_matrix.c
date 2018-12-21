@@ -81,7 +81,7 @@ free_sparse_matrix(omc_sparse_matrix* A)
   free(A);
 }
 
-void
+omc_sparse_matrix*
 set_zero_sparse_matrix(omc_sparse_matrix* A)
 {
   memset(A->index,0,(A->nnz)*sizeof(int));
@@ -95,6 +95,7 @@ set_zero_sparse_matrix(omc_sparse_matrix* A)
   {
     memset(A->ptr,0,(A->size_rows+1)*sizeof(int));
   }
+  return(A);
 }
 
 omc_sparse_matrix*
@@ -117,7 +118,7 @@ copy_sparse_matrix(omc_sparse_matrix* A)
 }
 
 void
-set_sparse_matrix_element(omc_sparse_matrix* A, int row, int col, int nth, int col)
+set_sparse_matrix_element(omc_sparse_matrix* A, int row, int col, int nth, int value)
 {
   if (COLUMN_WISE==A->orientation)
   {
@@ -149,11 +150,11 @@ get_sparse_matrix_element(omc_sparse_matrix* A, int row, int col)
   }
   else
   {
-    return(A->data[A->ptr[row]])
+    return(A->data[A->ptr[row]]);
   }
 }
 
-void
+omc_sparse_matrix*
 scale_sparse_matrix(omc_sparse_matrix* A, double scalar)
 {
   int i;
@@ -161,6 +162,7 @@ scale_sparse_matrix(omc_sparse_matrix* A, double scalar)
   {
     A->data[i] = scalar*(A->data[i]);
   }
+  return(A);
 }
 
 void

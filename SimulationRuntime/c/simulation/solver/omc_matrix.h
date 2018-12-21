@@ -54,16 +54,15 @@ typedef struct {
 
 /* memory management matrix */
 omc_matrix* allocate_matrix(const unsigned int size_rows, const unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type;);
-omc_matrix* copy_matrix(omc_matrix* A);
 void free_sparse_matrix(omc_matrix* A);
 
 /* get and set vector */
 double get_matrix_element(omc_matrix* A, int row, int col);
-void set_zero_matrix(omc_matrix* A);
 void set_matrix_element(omc_matrix* A, int row, int col, int nth, double value);
 
 /* matrix operations */
 void scale_matrix(omc_matrix* A, double scalar);
+void set_zero_matrix(omc_matrix* A);
 
 /* print functions */
 void print_matrix(omc_matrix* A);
