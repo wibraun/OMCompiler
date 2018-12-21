@@ -79,6 +79,32 @@ allocate_matrix(const unsigned int size_rows, const unsigned int size_cols, int 
 }
 
 /**
+ * Copies omc_matrix.
+ *
+ * \param [ref]     omc_sparse_matrix           Original Matrix.
+ * \param [out]     omc_sparse_matrix           Copied Matrix.
+ */
+omc_matrix*
+copy_matrix(omc_matrix* A)
+{
+  omc_matrix* mat = (omc_matrix*) malloc(sizeof(omc_matrix));
+  mat->orientation = A->orientation;
+  mat->type = A->type;
+  switch (A->type)
+    {
+    case DENSE_MATRIX:
+      mat->matrix = _omc_copyMatrix((_omc_dense_matrix*)A->matrix);
+      break;
+    case SPARSE_MATRIX:
+      mat->matrix = copy_sparse_matrix((omc_sparse_matrix*)A-->matrix);
+      break;
+    default:
+      break;
+    }
+  return(mat);
+}
+
+/**
  * Deallocates memory for specific matrix.
  *
  * \param [ref]    omc_matrix           Structure.

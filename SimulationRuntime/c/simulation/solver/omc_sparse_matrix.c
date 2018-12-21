@@ -230,7 +230,7 @@ print_sparse_matrix(omc_sparse_matrix* A)
   {
     char **buffer = (char**)malloc(sizeof(char*)*n);
     for (l=0; l<n; l++)
-    {
+    {omc_matrix* copy_matrix(omc_matrix* A);
       buffer[l] = (char*)malloc(sizeof(char)*n*20);
       buffer[l][0] = 0;
     }

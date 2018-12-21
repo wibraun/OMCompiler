@@ -46,7 +46,6 @@ typedef enum {
 } omc_matrix_type;
 
 typedef struct {
-
   void* matrix;
   omc_matrix_orientation orientation;
   omc_matrix_type type;
@@ -55,6 +54,7 @@ typedef struct {
 /* memory management matrix */
 omc_matrix* allocate_matrix(const unsigned int size_rows, const unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type;);
 void free_sparse_matrix(omc_matrix* A);
+omc_matrix* copy_matrix(omc_matrix* A);
 
 /* get and set vector */
 double get_matrix_element(omc_matrix* A, int row, int col);
