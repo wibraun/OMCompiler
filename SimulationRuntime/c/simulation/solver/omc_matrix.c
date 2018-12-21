@@ -49,53 +49,136 @@
 /**
  * Allocates memory for specific matrix and identifies the type of matrix.
  *
- * \param [in,out]  general_matrix_data     Matrix instance.
- * \return          omc_Matrix
- *                                          .
+ * \param [in]     size_rows            Size of Rows in Matrix.
+ * \param [in]     size_cols            Size of Columns in Matrix.
+ * \param [in]     nnz                  Number of nonzero elements in Matrix.
+ * \param [in]     orientation          Matrix initialisation, Row wise or Column wise
+ * \param [in]     type                 Dense or Sparse Matrix
+ * \param [out]    omc_matrix           Structur
  */
 omc_matrix*
 allocate_sparse_matrix(int size_rows, int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type;)
 {
+  switch (type)
+    {
+    case DENSE_MATRIX:
 
+      break;
+    case SPARSE_MATRIX:
+
+      break;
+    default:
+      break;
+    }
 }
 
 void
 free_sparse_matrix(omc_matrix* A)
 {
+  switch (type)
+    {
+    case DENSE_MATRIX:
 
+      break;
+    case SPARSE_MATRIX:
+
+      break;
+    default:
+      break;
+    }
 }
 
 void
 set_zero_sparse_matrix(omc_matrix* A)
 {
+  switch (type)
+    {
+    case DENSE_MATRIX:
 
+      break;
+    case SPARSE_MATRIX:
+
+      break;
+    default:
+      break;
+    }
 }
 
 omc_sparse_matrix*
 copy_sparse_matrix(omc_matrix* A)
 {
-  }
+  switch (type)
+    {
+    case DENSE_MATRIX:
+
+      break;
+    case SPARSE_MATRIX:
+
+      break;
+    default:
+      break;
+    }
+}
 
 void
 set_sparse_matrix_element(omc_matrix* A, int row, int col, int nth, double value)
 {
+  switch (type)
+    {
+    case DENSE_MATRIX:
 
+      break;
+    case SPARSE_MATRIX:
+
+      break;
+    default:
+      break;
+    }
 }
 
 double
 get_sparse_matrix_element(omc_matrix* A, int row, int col)
 {
+  switch (type)
+    {
+    case DENSE_MATRIX:
 
+      break;
+    case SPARSE_MATRIX:
+
+      break;
+    default:
+      break;
+    }
 }
 
 void scale_sparse_matrix(omc_matrix* A, double scalar)
 {
+  switch (type)
+    {
+    case DENSE_MATRIX:
 
+      break;
+    case SPARSE_MATRIX:
+
+      break;
+    default:
+      break;
+    }
 }
 
 void print_sparse_matrix(omc_matrix* A)
 {
+  switch (type)
+    {
+    case DENSE_MATRIX:
 
+      break;
+    case SPARSE_MATRIX:
+
+      break;
+    default:
+      break;
+    }
 }
-
 

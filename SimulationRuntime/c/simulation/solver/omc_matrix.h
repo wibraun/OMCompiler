@@ -48,22 +48,25 @@ typedef enum {
 typedef struct omc_matrix{
 
   void* matrix; //Void pointer to sparse/dense Matrix
-  omc_matrix_orientation orientation = COLUMN_WISE; //What is the orientation of the matrix??
+  omc_matrix_orientation orientation; //What is the orientation of the matrix??
   omc_matrix_type type;
 };
 
-omc_matrix* allocate_sparse_matrix(int size_rows, int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type;);
+/* memory management matrix */
+omc_matrix* allocate_matrix(int size_rows, int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type;);
+omc_matrix* copy_matrix(omc_matrix* A);
 void free_sparse_matrix(omc_matrix* A);
 
-void set_zero_sparse_matrix(omc_matrix* A);
-omc_sparse_matrix* copy_sparse_matrix(omc_matrix* A);
+/* get and set vector */
+double get_matrix_element(omc_matrix* A, int row, int col);
+void set_zero_matrix(omc_matrix* A);
+void set_matrix_element(omc_matrix* A, int row, int col, int nth, double value);
 
-void set_sparse_matrix_element(omc_matrix* A, int row, int col, int nth, double value);
-double get_sparse_matrix_element(omc_matrix* A, int row, int col);
+/* matrix operations */
+void scale_matrix(omc_matrix* A, double scalar);
 
-void scale_sparse_matrix(omc_matrix* A, double scalar);
-
-void print_sparse_matrix(omc_matrix* A);
+/* print functions */
+void print_matrix(omc_matrix* A);
 
 
 #endif
