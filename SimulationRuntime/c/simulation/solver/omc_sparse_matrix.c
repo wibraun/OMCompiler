@@ -45,18 +45,27 @@
 
 #include "omc_spares_matrix.h"
 
+/**
+ * Allocates memory for omc_sparse matrix, depending on its orientation.
+ *
+ * \param [in]     size_rows            Size of Rows in Matrix.
+ * \param [in]     size_cols            Size of Columns in Matrix.
+ * \param [in]     nnz                  Number of nonzero elements in Matrix.
+ * \param [in]     orientation          Matrix initialization, Row wise or Column wise
+ * \return         omc_sparse_matrix    Structure
+ */
 omc_sparse_matrix*
 allocate_sparse_matrix(const unsigned int size_rows, const unsigned int size_cols, int nnz, omc_matrix_orientation orientation)
 {
   omc_spare_matrix* A = (omc_sparse_matrix*) malloc(sizeof(omc_sparse_matrix));
   assertStreamPrint(NULL, 0 != A, "Could not allocate data for sparse matrix.");
-  /*CSR*/
+  /*Uses the CSR-Format*/
   if(ROW_WISE==orientation)
   {
     A->orientation = ROW_WISE;
     A->ptr = (int*) calloc((size_row+1),sizeof(int));
   }
-  /*CSC*/
+  /*Uses the CSC-Format*/
   else
   {
     A->ptr = (int*) calloc((size_col+1),sizeof(int));
@@ -71,6 +80,11 @@ allocate_sparse_matrix(const unsigned int size_rows, const unsigned int size_col
   return(A);
 }
 
+/**
+ * Deallocates memory for omc_sparse_matrix.
+ *
+ * \param [ref]    omc_sparse_matrix           Structure.
+ */
 void
 free_sparse_matrix(omc_sparse_matrix* A)
 {
@@ -81,6 +95,12 @@ free_sparse_matrix(omc_sparse_matrix* A)
   free(A);
 }
 
+/**
+ * Set all Elements in an omc_sparse_matrix to Zero.
+ *
+ * \param [ref]     omc_sparse_matrix           Structure.
+ * \param [out]     omc_sparse_matrix           Structure.
+ */
 omc_sparse_matrix*
 set_zero_sparse_matrix(omc_sparse_matrix* A)
 {
@@ -98,6 +118,12 @@ set_zero_sparse_matrix(omc_sparse_matrix* A)
   return(A);
 }
 
+/**
+ * Copies an omc_sparse_matrix.
+ *
+ * \param [ref]     omc_sparse_matrix           Original Matrix.
+ * \param [out]     omc_sparse_matrix           Copied Matrix.
+ */
 omc_sparse_matrix*
 copy_sparse_matrix(omc_sparse_matrix* A)
 {
@@ -117,6 +143,16 @@ copy_sparse_matrix(omc_sparse_matrix* A)
   return(B);
 }
 
+/**
+ * Sets the (i,j) Element in an omc_sparse_matrix.
+ *
+ * \param [ref]     omc_sparse_matrix    Structure.
+ * \param [in]      row                  Index Row.
+ * \param [in]      col                  Index Column.
+ * \param [in]      nth                  Position in Array.
+ * \param [in]      value                Value that is set.
+ * \param [ref]     omc_sparse_matrix    Structure.
+ */
 void
 set_sparse_matrix_element(omc_sparse_matrix* A, int row, int col, int nth, int value)
 {
@@ -141,6 +177,14 @@ set_sparse_matrix_element(omc_sparse_matrix* A, int row, int col, int nth, int v
   A->data[nth]=value;
 }
 
+/**
+ * Gets the (i,j) Element in the omc_sparse_matrix.
+ *
+ * \param [ref]     omc_sparse_matrix    Structure.
+ * \param [in]      row                  Index Row.
+ * \param [in]      col                  Index Column.
+ * \return          double               Element A(i,j).
+ */
 double
 get_sparse_matrix_element(omc_sparse_matrix* A, int row, int col)
 {
@@ -154,6 +198,13 @@ get_sparse_matrix_element(omc_sparse_matrix* A, int row, int col)
   }
 }
 
+/**
+ * Scales the omc_sparse_matrix with a constant Scaling Factor.
+ *
+ * \param [ref]     omc_sparse_matrix    Structure.
+ * \param [in]      scalar               Scaling-Factor.
+ * \return          omc_sparse_matrix    Structure.
+ */
 omc_sparse_matrix*
 scale_sparse_matrix(omc_sparse_matrix* A, double scalar)
 {
@@ -165,6 +216,11 @@ scale_sparse_matrix(omc_sparse_matrix* A, double scalar)
   return(A);
 }
 
+/**
+ * Print the omc_sparse_matrix.
+ *
+ * \param [ref]     omc_sparse_matrix     Structure.
+ */
 void
 print_sparse_matrix(omc_sparse_matrix* A)
 {

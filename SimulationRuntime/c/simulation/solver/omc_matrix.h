@@ -47,8 +47,8 @@ typedef enum {
 
 typedef struct {
 
-  void* matrix; //Void pointer to sparse/dense Matrix
-  omc_matrix_orientation orientation; //What is the orientation of the matrix??
+  void* matrix;
+  omc_matrix_orientation orientation;
   omc_matrix_type type;
 }omc_matrix;
 
