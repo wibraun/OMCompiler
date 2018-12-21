@@ -46,7 +46,7 @@
 #include "omc_spares_matrix.h"
 
 omc_sparse_matrix*
-allocate_sparse_matrix(int size_rows, int size_cols, int nnz, omc_matrix_orientation orientation)
+allocate_sparse_matrix(const unsigned int size_rows, const unsigned int size_cols, int nnz, omc_matrix_orientation orientation)
 {
   omc_spare_matrix* A = (omc_sparse_matrix*) malloc(sizeof(omc_sparse_matrix));
   assertStreamPrint(NULL, 0 != A, "Could not allocate data for sparse matrix.");

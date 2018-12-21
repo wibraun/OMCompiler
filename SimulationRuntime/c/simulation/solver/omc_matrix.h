@@ -45,15 +45,15 @@ typedef enum {
     SPARSE_MATRIX
 } omc_matrix_type;
 
-typedef struct omc_matrix{
+typedef struct {
 
   void* matrix; //Void pointer to sparse/dense Matrix
   omc_matrix_orientation orientation; //What is the orientation of the matrix??
   omc_matrix_type type;
-};
+}omc_matrix;
 
 /* memory management matrix */
-omc_matrix* allocate_matrix(int size_rows, int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type;);
+omc_matrix* allocate_matrix(const unsigned int size_rows, const unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type;);
 omc_matrix* copy_matrix(omc_matrix* A);
 void free_sparse_matrix(omc_matrix* A);
 

@@ -39,8 +39,8 @@ typedef double _omc_scalar;
 typedef int _omc_integer;
 typedef unsigned int _omc_size;
 #else
-typedef long int _omc_integer;
-typedef unsigned long int _omc_size;
+typedef int _omc_integer;
+typedef unsigned int _omc_size;
 #endif
 
 typedef struct
