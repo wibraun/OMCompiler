@@ -42,7 +42,7 @@
 #include "util/varinfo.h"
 #include "model_help.h"
 
-#include "omc_spares_matrix.h"
+#include "omc_sparse_matrix.h"
 #include "omc_math.h"
 #include "omc_matrix.h"
 
@@ -57,18 +57,18 @@
  * \param [ref]    omc_matrix           Structure
  */
 omc_matrix*
-allocate_matrix(const unsigned int size_rows, const unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type;)
+allocate_matrix(unsigned int size_rows, unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type)
 {
+  omc_matrix* A = (omc_matrix*) malloc(sizeof(omc_matrix));
+
   switch (type)
     {
     case DENSE_MATRIX:
-      omc_matrix* A = (omc_matrix*) malloc(sizeof(omc_matrix));
-      A->matrix = _omc_allocateMatrixData(size rows, size cols);
+      A->matrix = _omc_allocateMatrixData(size_rows, size_cols);
       A->orientation = orientation;
       A->type = type;
       break;
     case SPARSE_MATRIX:
-      omc_matrix* A = (omc_matrix*) malloc(sizeof(omc_matrix));
       A->matrix = allocate_sparse_matrix(size_rows, size_cols, nnz, orientation);
       A->orientation = orientation;
       A->type = type;
@@ -76,6 +76,8 @@ allocate_matrix(const unsigned int size_rows, const unsigned int size_cols, int 
     default:
       break;
     }
+
+  return (A);
 }
 
 /**
@@ -96,7 +98,7 @@ copy_matrix(omc_matrix* A)
       mat->matrix = _omc_copyMatrix((_omc_dense_matrix*)A->matrix);
       break;
     case SPARSE_MATRIX:
-      mat->matrix = copy_sparse_matrix((omc_sparse_matrix*)A-->matrix);
+      mat->matrix = copy_sparse_matrix((omc_sparse_matrix*)A->matrix);
       break;
     default:
       break;
@@ -144,7 +146,7 @@ set_zero_matrix(omc_matrix* A)
       A->matrix = _omc_fillMatrix((_omc_dense_matrix*)A->matrix, 0.0);
       break;
     case SPARSE_MATRIX:
-      A->matrix = set_zero_sparse_matrix((omc_sparse_matrix*)A->matrix));
+      A->matrix = set_zero_sparse_matrix((omc_sparse_matrix*)A->matrix);
       break;
     default:
       break;
@@ -190,7 +192,7 @@ get_matrix_element(omc_matrix* A, int row, int col)
   switch (A->type)
     {
     case DENSE_MATRIX:
-       return(_omc_getMatrixElement((_omc_dense_matrix*)->A->matrix , row, col));
+       return(_omc_getMatrixElement((_omc_dense_matrix*)A->matrix , row, col));
       break;
     case SPARSE_MATRIX:
       return(get_sparse_matrix_element((omc_sparse_matrix*)A->matrix, row, col));
@@ -227,7 +229,8 @@ scale_matrix(omc_matrix* A, double scalar)
  *
  * \param [ref]     omc_matrix           Structure.
  */
-void print_matrix(omc_matrix* A, const char* name, const int logLevel)
+void
+print_matrix(omc_matrix* A, const char* name, const int logLevel)
 {
   switch (A->type)
     {
@@ -235,7 +238,7 @@ void print_matrix(omc_matrix* A, const char* name, const int logLevel)
      _omc_printMatrix((_omc_dense_matrix*)A->matrix, name, logLevel);
       break;
     case SPARSE_MATRIX:
-      print_sparse_matrix((omc_sparse_matrix*)A->matrix);
+      print_sparse_matrix((omc_sparse_matrix*)A->matrix, logLevel);
       break;
     default:
       break;

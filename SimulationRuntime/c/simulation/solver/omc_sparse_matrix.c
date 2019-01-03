@@ -43,7 +43,7 @@
 #include "util/varinfo.h"
 #include "model_help.h"
 
-#include "omc_spares_matrix.h"
+#include "omc_sparse_matrix.h"
 
 /**
  * Allocates memory for omc_sparse matrix, depending on its orientation.
@@ -55,20 +55,21 @@
  * \return         omc_sparse_matrix    Structure
  */
 omc_sparse_matrix*
-allocate_sparse_matrix(const unsigned int size_rows, const unsigned int size_cols, int nnz, omc_matrix_orientation orientation)
+allocate_sparse_matrix(unsigned int size_rows, unsigned int size_cols, int nnz, omc_matrix_orientation orientation)
 {
-  omc_spare_matrix* A = (omc_sparse_matrix*) malloc(sizeof(omc_sparse_matrix));
+  omc_sparse_matrix* A = (omc_sparse_matrix*) malloc(sizeof(omc_sparse_matrix));
   assertStreamPrint(NULL, 0 != A, "Could not allocate data for sparse matrix.");
   /*Uses the CSR-Format*/
   if(ROW_WISE==orientation)
   {
     A->orientation = ROW_WISE;
-    A->ptr = (int*) calloc((size_row+1),sizeof(int));
+    A->ptr = (int*) calloc((size_rows+1),sizeof(int));
   }
   /*Uses the CSC-Format*/
   else
   {
-    A->ptr = (int*) calloc((size_col+1),sizeof(int));
+    A->orientation = COLUMN_WISE;
+    A->ptr = (int*) calloc((size_cols+1),sizeof(int));
   }
 
   A->index = (int*) calloc(nnz,sizeof(int));
@@ -127,7 +128,7 @@ set_zero_sparse_matrix(omc_sparse_matrix* A)
 omc_sparse_matrix*
 copy_sparse_matrix(omc_sparse_matrix* A)
 {
-  omc_sparse_matrix* B = allocate_sparse_matrix(A->size_rows, A->size_cols; A->nnz; A->orientation);
+  omc_sparse_matrix* B = allocate_sparse_matrix(A->size_rows, A->size_cols, A->nnz, A->orientation);
   if(COLUMN_WISE == A->orientation)
   {
     memcpy(A->ptr, B->ptr, sizeof(int)*(A->size_cols));
@@ -154,13 +155,13 @@ copy_sparse_matrix(omc_sparse_matrix* A)
  * \param [ref]     omc_sparse_matrix    Structure.
  */
 void
-set_sparse_matrix_element(omc_sparse_matrix* A, int row, int col, int nth, int value)
+set_sparse_matrix_element(omc_sparse_matrix* A, int row, int col, int nth, double value)
 {
   if (COLUMN_WISE==A->orientation)
   {
     if (col>0){
-      if(A->ptr[col]==0){
-        A->ptr[col]==nth;
+      if(0==A->ptr[col]){
+        A->ptr[col]=nth;
       }
     }
     A->index[nth]=col;
@@ -168,8 +169,8 @@ set_sparse_matrix_element(omc_sparse_matrix* A, int row, int col, int nth, int v
   else
   {
     if (row>0){
-      if (A->ptr[row]==0){
-        A->ptr[row]==nth;
+      if (0==A->ptr[row]){
+        A->ptr[row]=nth;
       }
     }
     A->index[nth]=row;
@@ -190,7 +191,7 @@ get_sparse_matrix_element(omc_sparse_matrix* A, int row, int col)
 {
   if (COLUMN_WISE==A->orientation)
   {
-    return(A->data[A->ptr[col]])
+    return(A->data[A->ptr[col]]);
   }
   else
   {
@@ -217,69 +218,73 @@ scale_sparse_matrix(omc_sparse_matrix* A, double scalar)
 }
 
 /**
- * Print the omc_sparse_matrix.
+ * Print the omc_sparse_matrix. Just for size_rows==size_cols!
  *
  * \param [ref]     omc_sparse_matrix     Structure.
  */
 void
-print_sparse_matrix(omc_sparse_matrix* A)
+print_sparse_matrix(omc_sparse_matrix* A, const int logLevel)
 {
-  int i,j,k,l;
-
-  if (COLUMN_WISE==A->orientation)
+  if (ACTIVE_STREAM(logLevel))
   {
-    char **buffer = (char**)malloc(sizeof(char*)*n);
-    for (l=0; l<n; l++)
-    {omc_matrix* copy_matrix(omc_matrix* A);
-      buffer[l] = (char*)malloc(sizeof(char)*n*20);
-      buffer[l][0] = 0;
-    }
+    int i,j,k,l;
+    int n = A->size_cols;
 
-    k = 0;
-    for (i = 0; i < n; i++)
+    if (COLUMN_WISE==A->orientation)
     {
-      for (j = 0; j < n; j++)
+      char **buffer = (char**)malloc(sizeof(char*)*n);
+      for (l=0; l<n; l++)
+      {omc_matrix* copy_matrix(omc_matrix* A);
+        buffer[l] = (char*)malloc(sizeof(char)*n*20);
+        buffer[l][0] = 0;
+      }
+
+      k = 0;
+      for (i = 0; i < n; i++)
       {
-        if ((k < A->ptr[i + 1]) && (A->index[k] == j))
+        for (j = 0; j < n; j++)
         {
-          sprintf(buffer[j], "%s %5g ", buffer[j], A->data[k]);
-          k++;
-        }
-        else
-        {
-          sprintf(buffer[j], "%s %5g ", buffer[j], 0.0);
+          if ((k < A->ptr[i + 1]) && (A->index[k] == j))
+          {
+            sprintf(buffer[j], "%s %5g ", buffer[j], A->data[k]);
+            k++;
+          }
+          else
+          {
+            sprintf(buffer[j], "%s %5g ", buffer[j], 0.0);
+          }
         }
       }
-    }
-    for (l = 0; l < n; l++)
-    {
-      infoStreamPrint(logLevel, 1, "%s", buffer[l]);
-      free(buffer[l]);
-    }
-    free(buffer);
-  }
-  else
-  {
-    char *buffer = (char*)malloc(sizeof(char)*n*15);
-    k = 0;
-    for (i = 0; i < n; i++)
-    {
-      buffer[0] = 0;
-      for (j = 0; j < n; j++)
+      for (l = 0; l < n; l++)
       {
-        if ((k < A->ptr[i + 1]) && (A->index[k] == j))
-        {
-          sprintf(buffer, "%s %5.2g ", buffer, A->data[k]);
-          k++;
-        }
-        else
-        {
-          sprintf(buffer, "%s %5.2g ", buffer, 0.0);
-        }
+        infoStreamPrint(logLevel, 1, "%s", buffer[l]);
+        free(buffer[l]);
       }
-      infoStreamPrint(logLevel, 1, "%s", buffer);
+      free(buffer);
     }
-    free(buffer);
+    else
+    {
+      char *buffer = (char*)malloc(sizeof(char)*n*15);
+      k = 0;
+      for (i = 0; i < n; i++)
+      {
+        buffer[0] = 0;
+        for (j = 0; j < n; j++)
+        {
+          if ((k < A->ptr[i + 1]) && (A->index[k] == j))
+          {
+            sprintf(buffer, "%s %5.2g ", buffer, A->data[k]);
+            k++;
+          }
+          else
+          {
+            sprintf(buffer, "%s %5.2g ", buffer, 0.0);
+          }
+        }
+        infoStreamPrint(logLevel, 1, "%s", buffer);
+      }
+      free(buffer);
+    }
   }
 }
 

@@ -36,20 +36,20 @@
 
 #include "omc_matrix.h"
 
-typedef struct omc_sparse_matrix{
-  int* index;
-  int* ptr;
-  double* data;
+typedef struct {
+ int* index;
+ int* ptr;
+ double* data;
 
- const unsigned int size_rows;
- const unsigned int size_cols;
-  unsigned int nnz;
+ unsigned int size_rows;
+ unsigned int size_cols;
+ unsigned int nnz;
 
-  omc_matrix_orientation orientation = COLUMN_WISE;
-};
+ omc_matrix_orientation orientation;
+} omc_sparse_matrix;
 
 /* memory management matrix */
-omc_sparse_matrix* allocate_sparse_matrix(const unsigned int size_rows, const unsigned int size_cols, int nnz, omc_matrix_orientation orientation);
+omc_sparse_matrix* allocate_sparse_matrix(unsigned int size_rows, unsigned int size_cols, int nnz, omc_matrix_orientation orientation);
 void free_sparse_matrix(omc_sparse_matrix* A);
 omc_sparse_matrix* copy_sparse_matrix(omc_sparse_matrix* A);
 
@@ -62,7 +62,7 @@ omc_sparse_matrix* scale_sparse_matrix(omc_sparse_matrix* A, double scalar);
 omc_sparse_matrix* set_zero_sparse_matrix(omc_sparse_matrix* A);
 
 /* print functions */
-void print_sparse_matrix(omc_sparse_matrix* A);
+void print_sparse_matrix(omc_sparse_matrix* A, const int logLevel);
 
 
 #endif
