@@ -211,23 +211,25 @@ scale_sparse_matrix(omc_sparse_matrix* A, double scalar)
  * \param [ref]     omc_sparse_matrix     Structure.
  * \param [in]      const int             Log Level.
  */
+
 void
 print_sparse_matrix(omc_sparse_matrix* A, const int logLevel)
 {
   if (ACTIVE_STREAM(logLevel)){
-    int i,j,k,l;
+    int i,j,k,l,s;
     int n = A->size_cols;
+    int m = A->size_rows;
+    s = (n > m)?n:m;
 
-    if (COLUMN_WISE==A->orientation){
-      char **buffer = (char**)malloc(sizeof(char*)*n);
-      for (l=0; l<n; l++){
-        buffer[l] = (char*)malloc(sizeof(char)*n*20);
+    if (COLUMN_WISE == A->orientation){
+      char **buffer = (char**)malloc(sizeof(char*)*s);
+      for (l=0; l<s; l++){
+        buffer[l] = (char*)malloc(sizeof(char)*s*20);
         buffer[l][0] = 0;
       }
-
       k = 0;
       for (i = 0; i < n; i++){
-        for (j = 0; j < n; j++){
+        for (j = 0; j < m; j++){
           if ((k < A->ptr[i + 1]) && (A->index[k] == j)){
             sprintf(buffer[j], "%s %5g ", buffer[j], A->data[k]);
             k++;
@@ -237,16 +239,16 @@ print_sparse_matrix(omc_sparse_matrix* A, const int logLevel)
           }
         }
       }
-      for (l = 0; l < n; l++){
+      for (l = 0; l < s; l++){
         infoStreamPrint(logLevel, 1, "%s", buffer[l]);
         free(buffer[l]);
       }
       free(buffer);
     }
     else{
-      char *buffer = (char*)malloc(sizeof(char)*n*15);
+      char *buffer = (char*)malloc(sizeof(char)*s*20);
       k = 0;
-      for (i = 0; i < n; i++){
+      for (i = 0; i < m; i++){
         buffer[0] = 0;
         for (j = 0; j < n; j++){
           if ((k < A->ptr[i + 1]) && (A->index[k] == j)){
