@@ -48,12 +48,12 @@ typedef struct {
  omc_matrix_orientation orientation;
 } omc_sparse_matrix;
 
-/* memory management matrix */
+/* memory management */
 omc_sparse_matrix* allocate_sparse_matrix(unsigned int size_rows, unsigned int size_cols, int nnz, omc_matrix_orientation orientation);
 void free_sparse_matrix(omc_sparse_matrix* A);
 omc_sparse_matrix* copy_sparse_matrix(omc_sparse_matrix* A);
 
-/* get and set matrix */
+/* get and set functions */
 void set_sparse_matrix_element(omc_sparse_matrix* A, int row, int col, int nth, double value);
 double get_sparse_matrix_element(omc_sparse_matrix* A, int row, int col);
 

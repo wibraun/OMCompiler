@@ -51,12 +51,12 @@ typedef struct {
   omc_matrix_type type;
 }omc_matrix;
 
-/* memory management matrix */
+/* memory management */
 omc_matrix* allocate_matrix(unsigned int size_rows, unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type);
 void free_matrix(omc_matrix* A);
 omc_matrix* copy_matrix(omc_matrix* A);
 
-/* get and set vector */
+/* get and set functions */
 double get_matrix_element(omc_matrix* A, int row, int col);
 void set_matrix_element(omc_matrix* A, int row, int col, int nth, double value);
 
