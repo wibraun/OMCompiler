@@ -42,9 +42,9 @@
 #include "util/varinfo.h"
 #include "model_help.h"
 
+#include "omc_matrix.h"
 #include "omc_sparse_matrix.h"
 #include "omc_math.h"
-#include "omc_matrix.h"
 
 /**
  * Allocates memory for specific matrix and identifies the type of matrix.
@@ -61,8 +61,7 @@ allocate_matrix(unsigned int size_rows, unsigned int size_cols, int nnz, omc_mat
 {
   omc_matrix* A = (omc_matrix*) malloc(sizeof(omc_matrix));
 
-  switch (type)
-    {
+  switch (type){
     case DENSE_MATRIX:
       A->matrix = _omc_allocateMatrixData(size_rows, size_cols);
       A->orientation = orientation;
@@ -76,7 +75,6 @@ allocate_matrix(unsigned int size_rows, unsigned int size_cols, int nnz, omc_mat
     default:
       break;
     }
-
   return (A);
 }
 
@@ -92,8 +90,7 @@ copy_matrix(omc_matrix* A)
   omc_matrix* mat = (omc_matrix*) malloc(sizeof(omc_matrix));
   mat->orientation = A->orientation;
   mat->type = A->type;
-  switch (A->type)
-    {
+  switch (A->type){
     case DENSE_MATRIX:
       mat->matrix = _omc_copyMatrix((_omc_dense_matrix*)A->matrix);
       break;
@@ -114,8 +111,7 @@ copy_matrix(omc_matrix* A)
 void
 free_matrix(omc_matrix* A)
 {
-  switch (A->type)
-    {
+  switch (A->type){
     case DENSE_MATRIX:
       _omc_deallocateMatrixData((_omc_dense_matrix*)A->matrix);
       free(A->matrix);
@@ -140,8 +136,7 @@ free_matrix(omc_matrix* A)
 void
 set_zero_matrix(omc_matrix* A)
 {
-  switch (A->type)
-    {
+  switch (A->type){
     case DENSE_MATRIX:
       A->matrix = _omc_fillMatrix((_omc_dense_matrix*)A->matrix, 0.0);
       break;
@@ -166,8 +161,7 @@ set_zero_matrix(omc_matrix* A)
 void
 set_matrix_element(omc_matrix* A, int row, int col, int nth, double value)
 {
-  switch (A->type)
-    {
+  switch (A->type){
     case DENSE_MATRIX:
       _omc_setMatrixElement((_omc_dense_matrix*)A->matrix, row, col, value);
       break;
@@ -178,6 +172,7 @@ set_matrix_element(omc_matrix* A, int row, int col, int nth, double value)
       break;
     }
 }
+
 /**
  * Gets the (i,j) Element in the Matrix.
  *
@@ -189,8 +184,7 @@ set_matrix_element(omc_matrix* A, int row, int col, int nth, double value)
 double
 get_matrix_element(omc_matrix* A, int row, int col)
 {
-  switch (A->type)
-    {
+  switch (A->type){
     case DENSE_MATRIX:
        return(_omc_getMatrixElement((_omc_dense_matrix*)A->matrix , row, col));
       break;
@@ -201,6 +195,7 @@ get_matrix_element(omc_matrix* A, int row, int col)
       break;
     }
 }
+
 /**
  * Scales the Matrix with a constant Scaling Factor.
  *
@@ -211,8 +206,7 @@ get_matrix_element(omc_matrix* A, int row, int col)
 void
 scale_matrix(omc_matrix* A, double scalar)
 {
-  switch (A->type)
-    {
+  switch (A->type){
     case DENSE_MATRIX:
       A->matrix = _omc_multiplyScalarMatrix((_omc_dense_matrix*)A->matrix, scalar);
       break;
@@ -232,8 +226,7 @@ scale_matrix(omc_matrix* A, double scalar)
 void
 print_matrix(omc_matrix* A, const char* name, const int logLevel)
 {
-  switch (A->type)
-    {
+  switch (A->type){
     case DENSE_MATRIX:
      _omc_printMatrix((_omc_dense_matrix*)A->matrix, name, logLevel);
       break;
@@ -244,4 +237,3 @@ print_matrix(omc_matrix* A, const char* name, const int logLevel)
       break;
     }
 }
-
