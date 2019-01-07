@@ -128,9 +128,6 @@ static int functionDAE_residual(double *t, double *x, double *xprime, double *cj
 static int function_ZeroCrossingsDASSL(int *neqm, double *t, double *y, double *yp,
         int *ng, double *gout, double *rpar, int* ipar);
 
-/* Allocate thread local Jacobians in case of OpenMP-parallel Jacobian computation (symbolical only).*/
-//static void allocateThreadLocalJacobians(DATA* data, DASSL_DATA *dasslData);
-
 
 int dassl_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo, DASSL_DATA *dasslData)
 {
@@ -1012,7 +1009,58 @@ int jacA_symColored(double *t, double *y, double *yprime, double *delta, double 
   unsigned int columns = jac->sizeCols;
   unsigned int rows = jac->sizeRows;
   unsigned int sizeTmpVars = jac->sizeTmpVars;
+<<<<<<< HEAD
   //X1 SPARSE_PATTERN spp = jac->sparsePattern;
+=======
+  SPARSE_PATTERN spp = jac->sparsePattern;
+
+// All columns can be evaluated independently from each other, I think.
+#pragma omp parallel default(none) firstprivate(columns, rows, sizeTmpVars) shared(i, matrixA, data, threadData, spp)
+{
+  // Thread-local stuff
+  // allocate memory for every thread (local)
+  ANALYTIC_JACOBIAN* t_jac = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
+  t_jac->sizeCols = columns;
+  t_jac->sizeRows = rows;
+  t_jac->sizeTmpVars = sizeTmpVars;
+  t_jac->tmpVars    = (double*) calloc(t_jac->sizeTmpVars, sizeof(double));
+  t_jac->resultVars = (double*) calloc(t_jac->sizeRows, sizeof(double));
+  t_jac->seedVars   = (double*) calloc(t_jac->sizeCols, sizeof(double));
+
+  // Todo: Use thread local copy of SparseStructure. Will this be faster?
+  // Currently, we use spp as global struct since there is only read access to it (no writes).
+  //  t_jac->sparsePattern.sizeOfIndex = spp->sizeOfIndex;
+  //  t_jac->sparsePattern.maxColors = spp->maxColors;
+  //  t_jac->sparsePattern.leadindex = (unsigned int*) malloc(sizeof(unsigned int)*t_jac->sparsePattern.sizeOfIndex);
+  unsigned int ii, j, l, k;
+
+#pragma omp for schedule(runtime)
+  for(i=0; i < spp.maxColors; i++)
+  {
+	//infoStreamPrint(LOG_STATS_V, 0, "Thread-ID %d, color i = %i\n", omp_get_thread_num(), i);
+    for(ii=0; ii < columns; ii++)
+    {
+      if(spp.colorCols[ii]-1 == i)
+        t_jac->seedVars[ii] = 1;
+    }
+
+    data->callback->functionJacA_column(data, threadData, t_jac);
+
+    for(j = 0; j < columns; j++)
+    {
+      if(t_jac->seedVars[j] == 1)
+      {
+        ii = spp.leadindex[j];
+        while(ii < spp.leadindex[j+1])
+        {
+          l  = spp.index[ii];
+          k  = j*rows + l;
+          matrixA[k] = t_jac->resultVars[l];
+          ii++;
+        };
+      }
+    }
+>>>>>>> 26edf9ad7265714d71f1bd2b6e1b1a138bd261b3
 
   SPARSE_PATTERN* spp = &(jac->sparsePattern);
   ANALYTIC_JACOBIAN* jacColumns = (dasslData->jacColumns);
@@ -1051,7 +1099,7 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   //printf("index= %d, t_jac->sizeCols= %d, t_jac->sizeRows = %d, t_jac->sizeTmpVars = %d \n",index, t_jac->sizeCols , t_jac->sizeRows, t_jac->sizeTmpVars);
 
   unsigned int j;
-#pragma omp for
+#pragma omp for schedule(runtime)
   for(i=0; i < columns; i++)
   {
     t_jac->seedVars[i] = 1.0;
