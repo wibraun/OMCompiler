@@ -55,4 +55,7 @@ void genericParallelColoredSymbolicJacobianEvaluation(int rows, int columns, SPA
                                                       threadData_t* threadData,
                                                       void (*f)(int, int, int, double, void*, int));
 
+/** Free ANALYTIC_JACOBIAN struct */
+void freeAnalyticalJacobian(ANALYTIC_JACOBIAN* jacobian);
+
 #endif

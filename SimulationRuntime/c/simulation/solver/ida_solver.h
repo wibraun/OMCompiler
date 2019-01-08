@@ -124,7 +124,7 @@ ida_solver_step(DATA* simData, threadData_t *threadData, SOLVER_INFO* solverInfo
 int
 ida_event_update(DATA* data, threadData_t *threadData);
 
-static void setJacElementKluSparse_neu(int row, int col, int nth, double value, void* spJac);
+static void setJacElementKluSparse_neu(int row, int col, int nth, double value, void* spJac, int rows);
 #endif
 
 #endif

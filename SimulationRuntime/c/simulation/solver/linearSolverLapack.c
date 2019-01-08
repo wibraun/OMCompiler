@@ -31,6 +31,10 @@
 /*! \file nonlinear_solver.c
  */
 
+#ifdef _OPENMP
+  #include <omp.h>
+#endif
+
 #include <math.h>
 #include <stdlib.h>
 #include <string.h> /* memcpy */
@@ -41,6 +45,7 @@
 #include "omc_math.h"
 #include "util/varinfo.h"
 #include "model_help.h"
+#include "jacobianSymbolical.h"
 
 #include "linearSystem.h"
 #include "linearSolverLapack.h"
@@ -117,11 +122,11 @@ int getAnalyticalJacobianLapack(DATA* data, threadData_t *threadData, double* ja
 
   memset(jac, 0, (systemData->size)*(systemData->size)*sizeof(double));
 
-  for(i=0; i < jacobian->sparsePattern.maxColors; i++)
+  for(i=0; i < jacobian->sparsePattern->maxColors; i++)
   {
     /* activate seed variable for the corresponding color */
     for(ii=0; ii < jacobian->sizeCols; ii++)
-      if(jacobian->sparsePattern.colorCols[ii]-1 == i)
+      if(jacobian->sparsePattern->colorCols[ii]-1 == i)
         jacobian->seedVars[ii] = 1;
 
     ((systemData->analyticalJacobianColumn))(data, threadData, jacobian, systemData->parentJacobian);
@@ -130,17 +135,17 @@ int getAnalyticalJacobianLapack(DATA* data, threadData_t *threadData, double* ja
     {
       if(jacobian->seedVars[j] == 1)
       {
-        ii = jacobian->sparsePattern.leadindex[j];
-        while(ii < jacobian->sparsePattern.leadindex[j+1])
+        ii = jacobian->sparsePattern->leadindex[j];
+        while(ii < jacobian->sparsePattern->leadindex[j+1])
         {
-          l  = jacobian->sparsePattern.index[ii];
+          l  = jacobian->sparsePattern->index[ii];
           k  = j*jacobian->sizeRows + l;
           jac[k] = -jacobian->resultVars[l];
           ii++;
         };
       }
       /* de-activate seed variable for the corresponding color */
-      if(jacobian->sparsePattern.colorCols[j]-1 == i)
+      if(jacobian->sparsePattern->colorCols[j]-1 == i)
         jacobian->seedVars[j] = 0;
     }
   }
@@ -194,7 +199,7 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
          eqSystemNumber, (int) systemData->size,
          data->localData[0]->timeValue);
 
-  allocateLapackData(systemData->size, &solverData);
+  allocateLapackData(systemData->size, (void**) &solverData);
   /* set data */
   _omc_setVectorData(solverData->x, aux_x);
   _omc_setVectorData(solverData->b, systemData->b);
@@ -358,7 +363,7 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
       messageClose(LOG_LS_V);
     }
   }
-  freeLapackData(&solverData);
+  freeLapackData((void**)&solverData);
 #ifdef _OPENMP
   infoStreamPrint(LOG_LS_V, 1,"----- Thread %i finishes solveLapack.\n", omp_get_thread_num());
 #endif

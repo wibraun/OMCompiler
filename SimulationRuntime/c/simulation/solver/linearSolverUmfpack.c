@@ -43,6 +43,7 @@
 #include "util/omc_error.h"
 #include "util/varinfo.h"
 #include "model_help.h"
+#include "jacobianSymbolical.h"
 
 #include "linearSystem.h"
 #include "linearSolverUmfpack.h"
@@ -140,7 +141,7 @@ int getAnalyticalJacobianUmfPack(DATA* data, threadData_t *threadData, int sysNu
   ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[systemData->jacobianIndex]);
 
   int nth = 0;
-  int nnz = jacobian->sparsePattern.numberOfNoneZeros;
+  int nnz = jacobian->sparsePattern->numberOfNoneZeros;
 
   for(i=0; i < jacobian->sizeRows; i++)
   {
@@ -152,10 +153,10 @@ int getAnalyticalJacobianUmfPack(DATA* data, threadData_t *threadData, int sysNu
     {
       if(jacobian->seedVars[j] == 1)
       {
-        ii = jacobian->sparsePattern.leadindex[j];
-        while(ii < jacobian->sparsePattern.leadindex[j+1])
+        ii = jacobian->sparsePattern->leadindex[j];
+        while(ii < jacobian->sparsePattern->leadindex[j+1])
         {
-          l  = jacobian->sparsePattern.index[ii];
+          l  = jacobian->sparsePattern->index[ii];
           /* infoStreamPrint(LOG_LS_V, 0, "set on Matrix A (%d, %d)(%d) = %f", i, l, nth, -jacobian->resultVars[l]); */
           systemData->setAElement(i, l, -jacobian->resultVars[l], nth, (void*) systemData, threadData);
           nth++;
