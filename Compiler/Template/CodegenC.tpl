@@ -1557,6 +1557,54 @@ template symJacDefinition(list<JacobianMatrix> JacobianMatrixes, String modelNam
   >>
 end symJacDefinition;
 
+template variableDefinitionsJacobians2(Integer indexJacobian, list<JacobianColumn> jacobianColumn, list<SimVar> seedVars, String name) "template variableDefinitionsJacobians2
+  Generates Matrixes for Linear Model."
+::=
+  let seedVarsResult = (seedVars |> var hasindex index0 =>
+    jacobianVarDefine(var, indexJacobian, index0, name)
+    ;separator="\n")
+  let columnVarsResult = (jacobianColumn |> JAC_COLUMN(columnVars=vars) =>
+    (vars |> var hasindex index0 => jacobianVarDefine(var, indexJacobian, index0, name);separator="\n")
+    ;separator="\n\n")
+  /* generate at least one print command to have the same index and avoid the strange side effect */
+  <<
+  /* <%name%> */
+  <%seedVarsResult%>
+  <%columnVarsResult%>
+  >>
+end variableDefinitionsJacobians2;
+
+template jacobianVarDefine(SimVar simVar, Integer indexJac, Integer index0, String matrixName) "template jacobianVarDefine
+  "
+::=
+  match simVar
+    case SIMVAR(arrayCref=arrayCref,aliasvar=NOALIAS(),name=name,index=index) then
+      let crefName = crefDefine(name)
+      let typeName = match varKind
+                       case BackendDAE.JAC_VAR() then 'resultVars[<%index%>]'
+                       case BackendDAE.JAC_DIFF_VAR() then 'tmpVars[<%index%>]'
+                       case BackendDAE.SEED_VAR() then 'seedVars[<%index0%>]'
+                       else 'UNKNOWN KIND'
+      let arrayCrefString = if Util.isSome(arrayCref) then cref(Util.getOption(arrayCref)) else ''
+      let arrayDefine =  if Util.isSome(arrayCref) then
+        <<
+        /* array <%arrayCrefString%> */
+        #define _<%arrayCrefString%>(i) jacobian-><%typeName%>
+        #define <%arrayCrefString%> _<%arrayCrefString%>(0)
+        >> else ''
+      <<
+      <%arrayDefine%>
+      /* <%crefName%> */
+      #define _<%crefName%>(i) jacobian-><%typeName%>
+      #define <%crefName%> _<%crefName%>(0)
+      <%if stringEq('<%crefName%>', '$P<%BackendDAE.optimizationMayerTermName%>$P$pDERC$PdummyVarC') then "\n"+'#define <%crefName%>$indexdiffed <%index%>'
+      %><%if stringEq('<%crefName%>', '$P<%BackendDAE.optimizationLagrangeTermName%>$P$pDERB$PdummyVarB') then "\n"+'#define <%crefName%>$indexdiffed <%index%>'
+      %><%if stringEq('<%crefName%>', '$P<%BackendDAE.optimizationLagrangeTermName%>$P$pDERC$PdummyVarC') then "\n"+'#define <%crefName%>$indexdiffed <%index%>'%>
+      >>
+  end match
+end jacobianVarDefine;
+>>>>>>> newParJac
+
 template aliasVarNameType(AliasVariable var)
   "Generates type of alias."
 ::=
@@ -2063,7 +2111,13 @@ template functionSetupLinearSystemsTemp(list<SimEqSystem> linearSystems, String 
          DATA *data = (DATA*) ((void**)dataIn[0]);
          threadData_t *threadData = (threadData_t*) ((void**)dataIn[1]);
          const int equationIndexes[2] = {1,<%ls.index%>};
-         <% if ls.partOfJac then 'ANALYTIC_JACOBIAN* parentJacobian = data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].parentJacobian;'%>
+         <% if ls.partOfJac then
+         '#ifdef _OPENMP
+           ANALYTIC_JACOBIAN* parentJacobian = data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].parentJacobian[omp_get_thread_num()];
+         #else
+           ANALYTIC_JACOBIAN* parentJacobian = data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].parentJacobian;
+         #endif'
+         %>
          ANALYTIC_JACOBIAN* jacobian = NULL;
          <%varDeclsRes%>
          <% if profileAll() then 'SIM_PROF_TICK_EQ(<%ls.index%>);' %>
@@ -5303,9 +5357,17 @@ case e as SES_LINEAR(lSystem=ls as LINEARSYSTEM(__), alternativeTearing = at) th
     messageClose(LOG_DT);
   }
   <% if profileSome() then 'SIM_PROF_TICK_EQ(modelInfoGetEquation(&data->modelData->modelDataXml,<%ls.index%>).profileBlockIndex);' %>
-  <% if ls.partOfJac then 'data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].parentJacobian = jacobian;'%>
+  <% if ls.partOfJac then
+  '#ifdef _OPENMP
+     data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].parentJacobian[omp_get_thread_num()] = jacobian;
+   #else
+     data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].parentJacobian = jacobian;
+   #endif'
+  %>
+
   retValue = solve_linear_system(data, threadData, <%ls.indexLinearSystem%>, &aux_x[0]);
 
+  retValue = solve_linear_system(data, threadData, <%ls.indexLinearSystem%>, aux_x);
   /* check if solution process was successful */
   if (retValue > 0){
     const int indexes[2] = {1,<%ls.index%>};
