@@ -438,7 +438,7 @@ algorithm
     local
       Integer i,j;
       DAE.Statement stmt;
-      list<SimCode.SimEqSystem> eqs,jeqs;
+      list<SimCode.SimEqSystem> eqs,jeqs,constantEqns;
       SimCode.LinearSystem lSystem, atL;
       SimCode.NonlinearSystem nlSystem, atNL;
       BackendDAE.WhenOperator whenOp;
@@ -552,7 +552,7 @@ algorithm
       end if;
 
       jeqs = match lSystem.jacobianMatrix
-        case SOME(SimCode.JAC_MATRIX(columns={SimCode.JAC_COLUMN(columnEqns=jeqs)})) then SimCodeUtil.sortEqSystems(jeqs);
+        case SOME(SimCode.JAC_MATRIX(columns={SimCode.JAC_COLUMN(columnEqns=jeqs,constantEqns=constantEqns)})) then SimCodeUtil.sortEqSystems(listAppend(jeqs,constantEqns));
         else {};
       end match;
       if not listEmpty(jeqs) then
@@ -610,7 +610,7 @@ algorithm
       end if;
 
       jeqs = match lSystem.jacobianMatrix
-        case SOME(SimCode.JAC_MATRIX(columns={SimCode.JAC_COLUMN(columnEqns=jeqs)})) then SimCodeUtil.sortEqSystems(jeqs);
+        case SOME(SimCode.JAC_MATRIX(columns={SimCode.JAC_COLUMN(columnEqns=jeqs,constantEqns=constantEqns)})) then SimCodeUtil.sortEqSystems(listAppend(jeqs,constantEqns));
         else {};
       end match;
       if not listEmpty(jeqs) then
@@ -665,7 +665,7 @@ algorithm
       end if;
 
       jeqs = match atL.jacobianMatrix
-        case SOME(SimCode.JAC_MATRIX(columns={SimCode.JAC_COLUMN(columnEqns=jeqs)})) then SimCodeUtil.sortEqSystems(jeqs);
+        case SOME(SimCode.JAC_MATRIX(columns={SimCode.JAC_COLUMN(columnEqns=jeqs,constantEqns=constantEqns)})) then SimCodeUtil.sortEqSystems(listAppend(jeqs,constantEqns));
         else {};
       end match;
       if not listEmpty(jeqs) then
@@ -766,7 +766,7 @@ algorithm
       min(serializeEquation(file,e,section,withOperations,parent=nlSystem.index,assign_type=if nlSystem.tornSystem then 1 else 0) for e in List.rest(eqs));
 
       jeqs = match nlSystem.jacobianMatrix
-        case SOME(SimCode.JAC_MATRIX(columns={SimCode.JAC_COLUMN(columnEqns=jeqs)})) then SimCodeUtil.sortEqSystems(jeqs);
+        case SOME(SimCode.JAC_MATRIX(columns={SimCode.JAC_COLUMN(columnEqns=jeqs,constantEqns=constantEqns)})) then SimCodeUtil.sortEqSystems(listAppend(jeqs,constantEqns));
         else {};
       end match;
       if not listEmpty(jeqs) then
@@ -807,7 +807,7 @@ algorithm
       min(serializeEquation(file,e,section,withOperations,parent=nlSystem.index,assign_type=if nlSystem.tornSystem then 1 else 0) for e in List.rest(eqs));
 
       jeqs = match nlSystem.jacobianMatrix
-        case SOME(SimCode.JAC_MATRIX(columns={SimCode.JAC_COLUMN(columnEqns=jeqs)})) then SimCodeUtil.sortEqSystems(jeqs);
+        case SOME(SimCode.JAC_MATRIX(columns={SimCode.JAC_COLUMN(columnEqns=jeqs,constantEqns=constantEqns)})) then SimCodeUtil.sortEqSystems(listAppend(jeqs,constantEqns));
         else {};
       end match;
       if not listEmpty(jeqs) then
@@ -845,7 +845,7 @@ algorithm
       min(serializeEquation(file,e,section,withOperations,parent=atNL.index,assign_type=if atNL.tornSystem then 1 else 0) for e in List.rest(eqs));
 
       jeqs = match atNL.jacobianMatrix
-        case SOME(SimCode.JAC_MATRIX(columns={SimCode.JAC_COLUMN(columnEqns=jeqs)})) then SimCodeUtil.sortEqSystems(jeqs);
+        case SOME(SimCode.JAC_MATRIX(columns={SimCode.JAC_COLUMN(columnEqns=jeqs,constantEqns=constantEqns)})) then SimCodeUtil.sortEqSystems(listAppend(jeqs,constantEqns));
         else {};
       end match;
       if not listEmpty(jeqs) then

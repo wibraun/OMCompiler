@@ -1826,6 +1826,7 @@ algorithm
     spDepEqnsVars := (DAE.CREF_IDENT("Column_Color_" + intString(i), DAE.T_INTEGER_DEFAULT, {}), eqnMarks)::spDepEqnsVars;
     i := i+1;
   end for;
+  //spDepEqnsVars := listReverse(spDepEqnsVars);
   //BackendDump.printDependentArray(spDepEqnsVars);
 
   for comp in comps loop
@@ -4151,18 +4152,17 @@ algorithm
         crefToSimVarHTJacobian = List.fold(columnVars, addSimVarToHashTable, crefToSimVarHTJacobian);
 
         // Sparse evaluation of coloredJacobian
-        if Flags.getConfigBool(Flags.GENERATE_SYMJAC_SPARSE_EVAL) then
-          if Flags.isSet(Flags.JAC_DUMP2) then
-            print("analytical Jacobians -> creating SimCode equations for Matrix " + name + " time: " + realString(clock()) + "\n");
-          end if;
-          (allEquations, columnEquations, constantEqns, uniqueEqIndex, tempvars) = getSimEqSystemDepForJacobians(systs, shared, sparsepatternComRefs, sparseColoring, BackendVariable.listVar1(dependentVarsLst), name, uniqueEqIndex, tempvars);
-          if Flags.isSet(Flags.JAC_DUMP2) then
-            print("analytical Jacobians -> created all SimCode equations for Matrix " + name +  " time: " + realString(clock()) + "\n");
-          end if;
+        if Flags.isSet(Flags.JAC_DUMP2) then
+          print("analytical Jacobians -> creating SimCode equations for Matrix " + name + " time: " + realString(clock()) + "\n");
+        end if;
+        if Flags.isSet(Flags.ALGLOOPS_SYMJAC_SPARSE_ROW) then
+         (allEquations, columnEquations, constantEqns, uniqueEqIndex, tempvars) = getSimEqSystemDepForJacobians(systs, shared, sparsepatternComRefs, sparseColoring, BackendVariable.listVar1(dependentVarsLst), name, uniqueEqIndex, tempvars);
         else
           (allEquations, columnEquations, constantEqns, uniqueEqIndex, tempvars) = getSimEqSystemForJacobians(systs, shared, uniqueEqIndex, tempvars);
         end if;
-
+        if Flags.isSet(Flags.JAC_DUMP2) then
+          print("analytical Jacobians -> created all SimCode equations for Matrix " + name +  " time: " + realString(clock()) + "\n");
+        end if;
 
       then (SOME(SimCode.JAC_MATRIX({SimCode.JAC_COLUMN(allEquations, columnVars, nRows, columnEquations, constantEqns)}, seedVars, name, sparseInts, sparseIntsT, coloring, maxColor, -1, 0, SOME(crefToSimVarHTJacobian))), uniqueEqIndex, tempvars);
 
@@ -4223,7 +4223,7 @@ algorithm
     (constantEqns, _, uniqueEqIndex, tempvars) := createEquations(false, false, true, false, eq, inShared, comps, uniqueEqIndex, tempvars);
     accEqns := constantEqns::accEqns;
   end for;
-    constantEqns := List.flattenReverse(accEqns);
+  constantEqns := List.flattenReverse(accEqns);
 end getSimEqSystemForJacobians;
 
 protected function getSimEqSystemDepForJacobians
@@ -4258,7 +4258,7 @@ algorithm
     (constantEqns, _, uniqueEqIndex, tempvars) := createEquations(false, false, true, false, eq, inShared, comps, uniqueEqIndex, tempvars);
     accEqns := constantEqns::accEqns;
   end for;
-    constantEqns := List.flattenReverse(accEqns);
+  constantEqns := List.flattenReverse(accEqns);
 end getSimEqSystemDepForJacobians;
 
 public function createJacobianLinearCode
@@ -4534,7 +4534,7 @@ algorithm
           print("analytical Jacobians -> creating SimCode equations for Matrix " + name + " time: " + realString(clock()) + "\n");
         end if;
         // Sparse evaluation of coloredJacobian
-        if Flags.getConfigBool(Flags.GENERATE_SYMJAC_SPARSE_EVAL) then
+        if Flags.isSet(Flags.SYMJAC_SPARSE_ROW) then
           (allEquations, columnEquations, constantEqns, uniqueEqIndex, _) = getSimEqSystemDepForJacobians(systs, shared, sparsepattern, colsColors, BackendVariable.listVar1(alldiffedVars), name, uniqueEqIndex, {});
         else
           (allEquations, columnEquations, constantEqns, uniqueEqIndex, _) = getSimEqSystemForJacobians(systs, shared, uniqueEqIndex, {});
@@ -4674,7 +4674,7 @@ algorithm
     case BackendDAE.STATE() then ComponentReference.crefPrefixDer(inCref);
     else inCref;
   end match;
-  outCref := Differentiate.createDifferentiatedCrefName(outCref, inCrefDiff, inMatrixName);
+  outCref := ComponentReference.createDifferentiatedCrefName(outCref, inCrefDiff, inMatrixName);
 end createDiffedVar;
 
 public function collectAllJacobianEquations

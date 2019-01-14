@@ -34,6 +34,7 @@
 #include <math.h>
 #include <string.h>
 
+#include "simulation/options.h"
 #include "model_help.h"
 #include "util/omc_error.h"
 #include "util/rtclock.h"
@@ -409,7 +410,7 @@ int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber, dou
   data->simulationInfo->noThrowDivZero = 1;
 
   /* set if the system is used in symbolic jacobian to reuse LU factors */
-  if (data->simulationInfo->currentContext == CONTEXT_SYM_JACOBIAN){
+  if (data->simulationInfo->currentContext == CONTEXT_SYM_JACOBIAN && !omc_flagValue[FLAG_JAC_REUSE]){
     /* set linsys->reuseMatrixJacIndex to currentJacobian eval as first column */
     if (linsys->reuseMatrixJacIndex < 0){
       linsys->reuseMatrixJacIndex = data->simulationInfo->currentJacobianEval;

@@ -89,6 +89,7 @@ const char *FLAG_NAME[FLAG_MAX+1] = {
   /* FLAG_IPOPT_WARM_START */             "ipopt_warm_start",
   /* FLAG_JACOBIAN */                     "jacobian",
   /* FLAG_JACOBIAN_DEBUG */               "jacRowDep",
+  /* FLAG_JAC_REUSE */                    "jacReUseLU",
   /* FLAG_L */                            "l",
   /* FLAG_L_DATA_RECOVERY */              "l_datarec",
   /* FLAG_LOG_FORMAT */                   "logFormat",
@@ -203,6 +204,7 @@ const char *FLAG_DESC[FLAG_MAX+1] = {
   /* FLAG_IPOPT_WARM_START */             "value specifies lvl for a warm start in ipopt: 1,2,3,...",
   /* FLAG_JACOBIAN */                     "select the calculation method of the Jacobian used only by ida and dassl solver.",
   /* FLAG_JACOBIAN_DEBUG */               "enables the jacobian debug flag (only for development testing).",
+  /* FLAG_JAC_REUSE */                    "disabele symbolic jacobian ReUse of LU for linear loops.",
   /* FLAG_L */                            "value specifies a time where the linearization of the model should be performed",
   /* FLAG_L_DATA_RECOVERY */              "emit data recovery matrices with model linearization",
   /* FLAG_LOG_FORMAT */                   "value specifies the log format of the executable. -logFormat=text (default), -logFormat=xml or -logFormat=xmltcp",
@@ -388,7 +390,9 @@ const char *FLAG_DETAILED_DESC[FLAG_MAX+1] = {
   /* FLAG_JACOBIAN */
   "  Select the calculation method for Jacobian used by the integration method:\n",
   /* FLAG_JACOBIAN_DEBUG */
-  "enables the jacobian debug flag (only for development testing).",
+  "  enables the jacobian debug flag (only for development testing).",
+  /* FLAG_JAC_REUSE */
+  "  disabele symbolic jacobian ReUse of LU for linear loops.",
   /* FLAG_L */
   "  Value specifies a time where the linearization of the model should be performed.",
   /* FLAG_L_DATA_RECOVERY */
@@ -591,6 +595,7 @@ const int FLAG_TYPE[FLAG_MAX] = {
   /* FLAG_IPOPT_WARM_START */             FLAG_TYPE_OPTION,
   /* FLAG_JACOBIAN */                     FLAG_TYPE_OPTION,
   /* FLAG_JACOBIAN_DEBUG */               FLAG_TYPE_FLAG,
+  /* FLAG_JAC_REUSE */                    FLAG_TYPE_FLAG,
   /* FLAG_L */                            FLAG_TYPE_OPTION,
   /* FLAG_L_DATA_RECOVERY */              FLAG_TYPE_FLAG,
   /* FLAG_LOG_FORMAT */                   FLAG_TYPE_OPTION,

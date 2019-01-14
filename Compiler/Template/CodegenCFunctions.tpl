@@ -4964,6 +4964,7 @@ case BINARY(__) then
       let &preExp +=
         <<
         <%tmp%> = <%e1%>;
+        <%assertCommonVar('<%tmp%> >= 0.0', '"Model error: Argument of sqrt(<%Util.escapeModelicaStringToCString(cstr)%>) was %g should be >= 0", <%tmp%>', context, &varDecls, dummyInfo)%>
         >>
       'sqrt(<%tmp%>)'
     else match realExpIntLit(exp2)
@@ -4988,12 +4989,66 @@ case BINARY(__) then
         let tmp1 = tempDecl("modelica_real", &varDecls)
         let tmp2 = tempDecl("modelica_real", &varDecls)
         let tmp3 = tempDecl("modelica_real", &varDecls)
+        let tmp4 = tempDecl("modelica_real", &varDecls) //fractpart
+        let tmp5 = tempDecl("modelica_real", &varDecls) //intpart
+        let tmp6 = tempDecl("modelica_real", &varDecls) //intpart
+        let tmp7 = tempDecl("modelica_real", &varDecls) //fractpart
         let &preExp +=
           <<
           <%tmp1%> = <%e1%>;
           <%tmp2%> = <%e2%>;
-          <%tmp3%> = pow(<%tmp1%>, <%tmp2%>);
+          if(<%tmp1%> < 0.0 && <%tmp2%> != 0.0)
+          {
+            <%tmp4%> = modf(<%tmp2%>, &<%tmp5%>);
 
+            if(<%tmp4%> > 0.5)
+            {
+              <%tmp4%> -= 1.0;
+              <%tmp5%> += 1.0;
+            }
+            else if(<%tmp4%> < -0.5)
+            {
+              <%tmp4%> += 1.0;
+              <%tmp5%> -= 1.0;
+            }
+
+            if(fabs(<%tmp4%>) < 1e-10)
+              <%tmp3%> = pow(<%tmp1%>, <%tmp5%>);
+            else
+            {
+              <%tmp7%> = modf(1.0/<%tmp2%>, &<%tmp6%>);
+              if(<%tmp7%> > 0.5)
+              {
+                <%tmp7%> -= 1.0;
+                <%tmp6%> += 1.0;
+              }
+              else if(<%tmp7%> < -0.5)
+              {
+                <%tmp7%> += 1.0;
+                <%tmp6%> -= 1.0;
+              }
+              if(fabs(<%tmp7%>) < 1e-10 && ((unsigned long)<%tmp6%> & 1))
+              {
+                <%tmp3%> = -pow(-<%tmp1%>, <%tmp4%>)*pow(<%tmp1%>, <%tmp5%>);
+              }
+              else
+              {
+                <%if acceptMetaModelicaGrammar()
+                  then '<%generateThrow()%>;<%\n%>'
+                  else 'throwStreamPrint(threadData, "%s:%d: Invalid root: (%g)^(%g)", __FILE__, __LINE__, <%tmp1%>, <%tmp2%>);<%\n%>'%>
+              }
+            }
+          }
+          else
+          {
+            <%tmp3%> = pow(<%tmp1%>, <%tmp2%>);
+          }
+          if(isnan(<%tmp3%>) || isinf(<%tmp3%>))
+          {
+            <%if acceptMetaModelicaGrammar()
+              then '<%generateThrow()%>;<%\n%>'
+              else 'throwStreamPrint(threadData, "%s:%d: Invalid root: (%g)^(%g)", __FILE__, __LINE__, <%tmp1%>, <%tmp2%>);<%\n%>'%>
+          }
           >>
         '<%tmp3%>'
 
@@ -5613,6 +5668,7 @@ template daeExpCall(Exp call, Context context, Text &preExp, Text &varDecls, Tex
         let &preExp +=
           <<
           <%tmp%> = <%argStr%>;
+          <%assertCommonVar('<%tmp%> >= 0.0', '"Model error: Argument of sqrt(<%Util.escapeModelicaStringToCString(cstr)%>) was %g should be >= 0", <%tmp%>', context, &varDecls, dummyInfo)%>
           >>
        'sqrt(<%tmp%>)')
 
@@ -5623,6 +5679,7 @@ template daeExpCall(Exp call, Context context, Text &preExp, Text &varDecls, Tex
     let &preExp +=
       <<
       <%tmp%> = <%argStr%>;
+      <%assertCommonVar('<%tmp%> > 0.0', '"Model error: Argument of log(<%Util.escapeModelicaStringToCString(cstr)%>) was %g should be > 0", <%tmp%>', context, &varDecls, dummyInfo)%>
       >>
     'log(<%tmp%>)'
 
@@ -5633,6 +5690,7 @@ template daeExpCall(Exp call, Context context, Text &preExp, Text &varDecls, Tex
     let &preExp +=
       <<
       <%tmp%> = <%argStr%>;
+      <%assertCommonVar('<%tmp%> > 0.0','"Model error: Argument of log10(<%Util.escapeModelicaStringToCString(cstr)%>) was %g should be > 0", <%tmp%>', context, &varDecls, dummyInfo)%>
       >>
     'log10(<%tmp%>)'
 
@@ -5643,6 +5701,7 @@ template daeExpCall(Exp call, Context context, Text &preExp, Text &varDecls, Tex
     let &preExp +=
       <<
       <%tmp%> = <%argStr%>;
+      <%assertCommonVar('<%tmp%> >= -1.0 && <%tmp%> <= 1.0', '"Model error: Argument of <%Util.escapeModelicaStringToCString(cstr)%> outside the domain -1.0 <= %g <= 1.0", <%tmp%>', context, &varDecls, dummyInfo)%>
       >>
     'acos(<%tmp%>)'
 
@@ -5653,6 +5712,7 @@ template daeExpCall(Exp call, Context context, Text &preExp, Text &varDecls, Tex
     let &preExp +=
       <<
       <%tmp%> = <%argStr%>;
+      <%assertCommonVar('<%tmp%> >= -1.0 && <%tmp%> <= 1.0', '"Model error: Argument of <%Util.escapeModelicaStringToCString(cstr)%> outside the domain -1.0 <= %g <= 1.0", <%tmp%>', context, &varDecls, dummyInfo)%>
       >>
     'asin(<%tmp%>)'
 

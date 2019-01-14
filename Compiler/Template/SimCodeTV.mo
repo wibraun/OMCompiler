@@ -3587,10 +3587,6 @@ package Config
   function adaptiveHomotopy
     output Boolean outBoolean;
   end adaptiveHomotopy;
-
-  function generateSparseColoredJacobianEvaluation
-    output Boolean outBoolean;
-  end generateSparseColoredJacobianEvaluation;
 end Config;
 
 package Flags

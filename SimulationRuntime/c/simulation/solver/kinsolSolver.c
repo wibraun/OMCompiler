@@ -546,7 +546,7 @@ int nlsSparseSymJac(N_Vector vecX, N_Vector vecFX, SlsMat Jac, void *userData, N
   SlsSetToZero(Jac);
 
   if (analyticJacobian->constantEqns != NULL) {
-    analyticJacobian->constantEqns(data, threadData);
+    analyticJacobian->constantEqns(data, threadData, analyticJacobian, NULL);
   }
 
   for(i = 0; i < sparsePattern->maxColors; i++)

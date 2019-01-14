@@ -544,6 +544,13 @@ constant DebugFlag WARNING_MINMAX_ATTRIBUTES = DEBUG_FLAG(184, "warnMinMax", tru
   Util.gettext("Makes a warning assert from min/max variable attributes instead of error."));
 constant DebugFlag NF_EXPAND_FUNC_ARGS = DEBUG_FLAG(185, "nfExpandFuncArgs", false,
   Util.gettext("Expand all function arguments in the new frontend."));
+constant DebugFlag SPLIT_CONSTANT_PARTS_SYMJAC = DEBUG_FLAG(186, "symJacConstantSplit", false,
+  Util.gettext("Generates all symbolic Jacobians with splitted constant parts."));
+constant DebugFlag SYMJAC_SPARSE_ROW = DEBUG_FLAG(187, "symJacSparseRow", false,
+  Util.gettext("Generates row sparse Jacobian for integration. Use with config flag '--generateSymbolicJacobian' and simulation flag '-jacobian=symbolic' or '-jacobian=coloredSymbolic'."));
+constant DebugFlag ALGLOOPS_SYMJAC_SPARSE_ROW = DEBUG_FLAG(188, "AlgLoopsSymJacSparseRow", false,
+  Util.gettext("Generates row sparse Jacobian for all algebraic loops."));
+
 
 // This is a list of all debug flags, to keep track of which flags are used. A
 // flag can not be used unless it's in this list, and the list is checked at
@@ -735,7 +742,10 @@ constant list<DebugFlag> allDebugFlags = {
   NF_API,
   FMI20_DEPENDENCIES,
   WARNING_MINMAX_ATTRIBUTES,
-  NF_EXPAND_FUNC_ARGS
+  NF_EXPAND_FUNC_ARGS,
+  SPLIT_CONSTANT_PARTS_SYMJAC,
+  SYMJAC_SPARSE_ROW,
+  ALGLOOPS_SYMJAC_SPARSE_ROW
 };
 
 public
@@ -1477,10 +1487,6 @@ constant ConfigFlag SINGLE_INSTANCE_AGLSOLVER = CONFIG_FLAG(127, "singleInstance
   NONE(), EXTERNAL(), BOOL_FLAG(false), NONE(),
   Util.gettext("Sets to instantiate only  one algebraic loop solver all algebraic loops"));
 
-constant ConfigFlag GENERATE_SYMJAC_SPARSE_EVAL = CONFIG_FLAG(128, "generateSparseColoredJacobianEvaluation",
-  NONE(), EXTERNAL(), BOOL_FLAG(false), NONE(),
-  Util.gettext("Generates code with sparse evaluation of Jacobian. Use with config flag '--generateSymbolicJacobian' and simulation flag '-symbolic' or '-coloredSymbolic'."));
-
 protected
 // This is a list of all configuration flags. A flag can not be used unless it's
 // in this list, and the list is checked at initialization so that all flags are
@@ -1612,8 +1618,7 @@ constant list<ConfigFlag> allConfigFlags = {
   POST_OPT_MODULES_DAE,
   EVAL_LOOP_LIMIT,
   EVAL_RECURSION_LIMIT,
-  SINGLE_INSTANCE_AGLSOLVER,
-  GENERATE_SYMJAC_SPARSE_EVAL
+  SINGLE_INSTANCE_AGLSOLVER
 };
 
 public function new

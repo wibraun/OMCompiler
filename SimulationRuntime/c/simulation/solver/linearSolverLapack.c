@@ -37,6 +37,7 @@
 
 #include "simulation_data.h"
 #include "simulation/simulation_info_json.h"
+#include "simulation/options.h"
 #include "util/omc_error.h"
 #include "omc_math.h"
 #include "util/varinfo.h"
@@ -123,8 +124,8 @@ int getAnalyticalJacobianLapack(DATA* data, threadData_t *threadData, double* ja
       if(symbolicJacobian->sparsePattern.colorCols[ii]-1 == i)
         symbolicJacobian->seedVars[ii] = 1;
 
-    if (symbolicJacobian->columnColor != NULL){
-      symbolicJacobian->columnColor(data, threadData, i, symbolicJacobian, systemData->parentJacobian);
+    if (symbolicJacobian->columnColor != NULL && omc_flag[FLAG_JACOBIAN_DEBUG]){
+      symbolicJacobian->columnColor(data, threadData, i+1, symbolicJacobian, systemData->parentJacobian);
     }
     else {
       symbolicJacobian->columnCall(data, threadData, symbolicJacobian, systemData->parentJacobian);

@@ -150,15 +150,14 @@ int getAnalyticalJacobian(DATA* data, threadData_t *threadData, int sysNumber)
         nth = symbolicJacobian->sparsePattern.leadindex[j];
         while(nth < symbolicJacobian->sparsePattern.leadindex[j+1])
         {
-          l  = symbolicJacobian->sparsePattern.index[ii];
-          systemData->setAElement(i, l, -symbolicJacobian->resultVars[l], nth, (void*) systemData, threadData);
+          l  = symbolicJacobian->sparsePattern.index[nth];
+          systemData->setAElement(j, l, -symbolicJacobian->resultVars[l], nth, (void*) systemData, threadData);
           nth++;
         };
-      }
-      /* de-activate seed variable for the corresponding color */
-      if (symbolicJacobian->sparsePattern.colorCols[j]-1 == i)
+        /* de-activate seed variable for the corresponding color */
         symbolicJacobian->seedVars[j] = 0;
-    };
+      }
+    }
   }
   return 0;
 }

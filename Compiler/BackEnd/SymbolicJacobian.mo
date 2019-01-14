@@ -2070,6 +2070,8 @@ algorithm
       BackendDAE.EqSystem syst;
       BackendDAE.Shared shared;
       Boolean b;
+      String addRemoveConstantEqnsModule;
+      list<String> strPostOptModules;
 
       case (BackendDAE.DAE(syst::{}, shared), {}, _)
         equation
@@ -2093,22 +2095,27 @@ algorithm
             b = Flags.disableDebug(Flags.EXEC_STAT);
           end if;
 
+          strPostOptModules = {"wrapFunctionCalls",
+                               "inlineArrayEqn",
+                               "constantLinearSystem",
+                               "solveSimpleEquations",
+                               "tearingSystem",
+                               "calculateStrongComponentJacobians",
+                               "removeConstants",
+                               "simplifyTimeIndepFuncCalls"};
+
+          // add removeSimpleEquation to remove constant parts
+          if Flags.isSet(Flags.SPLIT_CONSTANT_PARTS_SYMJAC) then
+            strPostOptModules = List.insert(strPostOptModules, 4, "removeSimpleEquations");
+          end if;
+
           backendDAE2 = BackendDAEUtil.getSolvedSystemforJacobians(backendDAE,
                                                                    {"removeEqualFunctionCalls",
                                                                     "removeSimpleEquations",
                                                                     "evalFunc"},
                                                                    NONE(),
                                                                    NONE(),
-                                                                   {
-                                                                    "wrapFunctionCalls",
-                                                                    "inlineArrayEqn",
-                                                                    "constantLinearSystem",
-                                                                    "removeSimpleEquations",
-                                                                    "solveSimpleEquations",
-                                                                    "tearingSystem",
-                                                                    "calculateStrongComponentJacobians",
-                                                                    "removeConstants",
-                                                                    "simplifyTimeIndepFuncCalls"});
+                                                                   strPostOptModules);
           if Flags.isSet(Flags.JAC_DUMP) then
             BackendDump.bltdump("Symbolic Jacobian",backendDAE2);
           else

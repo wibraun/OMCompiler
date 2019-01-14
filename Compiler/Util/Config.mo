@@ -651,11 +651,5 @@ algorithm
   outRes := intGe(languageStandardInt(std), 33);
 end synchronousFeaturesAllowed;
 
-public function generateSparseColoredJacobianEvaluation
-  output Boolean outBoolean;
-algorithm
-  outBoolean := Flags.getConfigBool(Flags.GENERATE_SYMJAC_SPARSE_EVAL);
-end generateSparseColoredJacobianEvaluation;
-
 annotation(__OpenModelica_Interface="util");
 end Config;

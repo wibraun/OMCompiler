@@ -937,7 +937,7 @@ int jacA_sym(double *t, double *y, double *yprime, double *delta, double *matrix
   setContext(data, t, CONTEXT_SYM_JACOBIAN);
 
   if (data->simulationInfo->analyticJacobians[index].constantEqns != NULL) {
-    data->simulationInfo->analyticJacobians[index].constantEqns(data, threadData);
+    data->simulationInfo->analyticJacobians[index].constantEqns(data, threadData, jacobian, NULL);
   }
   k = 0;
   for(i=0; i < jacobian->sizeCols; i++)
