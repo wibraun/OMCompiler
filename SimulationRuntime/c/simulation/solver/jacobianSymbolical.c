@@ -74,7 +74,7 @@ void genericParallelColoredSymbolicJacobianEvaluation(int rows, int columns, SPA
   unsigned int ii, j, l, nth, i;
 #pragma omp for
   for(i = 0; i < spp->maxColors; i++) {
-    //infoStreamPrint(LOG_STATS_V, 0, "Thread-ID %d, color i = %i\n", omp_get_thread_num(), i);
+    infoStreamPrint(LOG_STATS_V, 0, "Thread-ID %d, color i = %i\n", omp_get_thread_num(), i);
     for(j=0; j < columns; j++) {
       if(spp->colorCols[j]-1 == i)
         t_jac->seedVars[j] = 1;

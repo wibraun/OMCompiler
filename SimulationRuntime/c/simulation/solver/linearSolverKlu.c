@@ -32,7 +32,10 @@
  */
 
 #include "omc_config.h"
-#include <omp.h>
+#ifdef _OPENMP
+  #include <omp.h>
+#endif
+
 
 #ifdef WITH_UMFPACK
 #include <math.h>
@@ -134,9 +137,7 @@ int getAnalyticalJacobian(DATA* data, threadData_t *threadData, DATA_KLU* solver
   ANALYTIC_JACOBIAN* jacobian = solverData->matrixA;
 #else
   ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[systemData->jacobianIndex]);
-
 #endif
-  ANALYTIC_JACOBIAN* parentJacobian = systemData->parentJacobian;
 
   int nth = 0;
   int nnz = jacobian->sparsePattern->numberOfNoneZeros;
@@ -145,7 +146,7 @@ int getAnalyticalJacobian(DATA* data, threadData_t *threadData, DATA_KLU* solver
   {
     jacobian->seedVars[i] = 1;
 
-    ((systemData->analyticalJacobianColumn))(data, threadData, jacobian, parentJacobian);
+    ((systemData->analyticalJacobianColumn))(data, threadData, jacobian, systemData->parentJacobian);
 
     for(j = 0; j < jacobian->sizeCols; j++)
     {
@@ -155,7 +156,11 @@ int getAnalyticalJacobian(DATA* data, threadData_t *threadData, DATA_KLU* solver
         while(ii < jacobian->sparsePattern->leadindex[j+1])
         {
           l  = jacobian->sparsePattern->index[ii];
+#ifdef _OPENMP
           systemData->setAElement(i, l, -jacobian->resultVars[l], nth, (void*) systemData, threadData);
+#else
+          systemData->setAElement(i, l, -jacobian->resultVars[l], nth, (void*) solverData, threadData);
+#endif
           nth++;
           ii++;
         }

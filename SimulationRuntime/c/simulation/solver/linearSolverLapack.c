@@ -200,10 +200,9 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
          data->localData[0]->timeValue);
 
   allocateLapackData(systemData->size, (void**) &solverData);
+
   /* set data */
   _omc_setVectorData(solverData->x, aux_x);
-  _omc_setVectorData(solverData->b, systemData->b);
-  _omc_setMatrixData(solverData->A, systemData->A);
 
   rt_ext_tp_tick(&(solverData->timeClock));
   if (0 == systemData->method) {
@@ -218,13 +217,6 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
     /* update vector b (rhs) */
     systemData->setb(data, threadData, systemData);
   } else {
-      /* calculate jacobian -> matrix A*/
-      if(systemData->jacobianIndex != -1){
-        getAnalyticalJacobianLapack(data, threadData, solverData->A->data, sysNumber);
-      } else {
-        assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
-      }
-
     if (!reuseMatrixJac){
       /* calculate jacobian -> matrix A*/
       if(systemData->jacobianIndex != -1){

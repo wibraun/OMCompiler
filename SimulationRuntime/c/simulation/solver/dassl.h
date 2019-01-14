@@ -82,6 +82,7 @@ typedef struct DASSL_DATA{
 #ifdef _OPENMP
   ANALYTIC_JACOBIAN* jacColumns;
 #endif
+  int allocatedParMem; /* indicated if parallel memory was allocated */
 
 } DASSL_DATA;
 

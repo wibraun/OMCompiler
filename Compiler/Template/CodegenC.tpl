@@ -1557,54 +1557,6 @@ template symJacDefinition(list<JacobianMatrix> JacobianMatrixes, String modelNam
   >>
 end symJacDefinition;
 
-template variableDefinitionsJacobians2(Integer indexJacobian, list<JacobianColumn> jacobianColumn, list<SimVar> seedVars, String name) "template variableDefinitionsJacobians2
-  Generates Matrixes for Linear Model."
-::=
-  let seedVarsResult = (seedVars |> var hasindex index0 =>
-    jacobianVarDefine(var, indexJacobian, index0, name)
-    ;separator="\n")
-  let columnVarsResult = (jacobianColumn |> JAC_COLUMN(columnVars=vars) =>
-    (vars |> var hasindex index0 => jacobianVarDefine(var, indexJacobian, index0, name);separator="\n")
-    ;separator="\n\n")
-  /* generate at least one print command to have the same index and avoid the strange side effect */
-  <<
-  /* <%name%> */
-  <%seedVarsResult%>
-  <%columnVarsResult%>
-  >>
-end variableDefinitionsJacobians2;
-
-template jacobianVarDefine(SimVar simVar, Integer indexJac, Integer index0, String matrixName) "template jacobianVarDefine
-  "
-::=
-  match simVar
-    case SIMVAR(arrayCref=arrayCref,aliasvar=NOALIAS(),name=name,index=index) then
-      let crefName = crefDefine(name)
-      let typeName = match varKind
-                       case BackendDAE.JAC_VAR() then 'resultVars[<%index%>]'
-                       case BackendDAE.JAC_DIFF_VAR() then 'tmpVars[<%index%>]'
-                       case BackendDAE.SEED_VAR() then 'seedVars[<%index0%>]'
-                       else 'UNKNOWN KIND'
-      let arrayCrefString = if Util.isSome(arrayCref) then cref(Util.getOption(arrayCref)) else ''
-      let arrayDefine =  if Util.isSome(arrayCref) then
-        <<
-        /* array <%arrayCrefString%> */
-        #define _<%arrayCrefString%>(i) jacobian-><%typeName%>
-        #define <%arrayCrefString%> _<%arrayCrefString%>(0)
-        >> else ''
-      <<
-      <%arrayDefine%>
-      /* <%crefName%> */
-      #define _<%crefName%>(i) jacobian-><%typeName%>
-      #define <%crefName%> _<%crefName%>(0)
-      <%if stringEq('<%crefName%>', '$P<%BackendDAE.optimizationMayerTermName%>$P$pDERC$PdummyVarC') then "\n"+'#define <%crefName%>$indexdiffed <%index%>'
-      %><%if stringEq('<%crefName%>', '$P<%BackendDAE.optimizationLagrangeTermName%>$P$pDERB$PdummyVarB') then "\n"+'#define <%crefName%>$indexdiffed <%index%>'
-      %><%if stringEq('<%crefName%>', '$P<%BackendDAE.optimizationLagrangeTermName%>$P$pDERC$PdummyVarC') then "\n"+'#define <%crefName%>$indexdiffed <%index%>'%>
-      >>
-  end match
-end jacobianVarDefine;
->>>>>>> newParJac
-
 template aliasVarNameType(AliasVariable var)
   "Generates type of alias."
 ::=
@@ -2839,7 +2791,7 @@ template generateStaticSparseData(String indexName, String systemType, list<tupl
       let sizeleadindex = listLength(sparsepattern)
       let colPtr = genSPCRSPtr(listLength(sparsepattern), sparsepattern, "colPtrIndex")
       let rowIndex = genSPCRSRows(lengthListElements(unzipSecond(sparsepattern)), sparsepattern, "rowIndex")
-      let colorString = genSPColors(colorList, "inSysData->sparsePattern.colorCols")
+      let colorString = genSPColors(colorList, "inSysData->sparsePattern->colorCols")
       <<
       void initializeSparsePattern<%indexName%>(<%systemType%>* inSysData)
       {
@@ -2848,20 +2800,20 @@ template generateStaticSparseData(String indexName, String systemType, list<tupl
         <%rowIndex%>
         /* sparsity pattern available */
         inSysData->isPatternAvailable = 'T';
-        inSysData->sparsePattern.leadindex = (unsigned int*) malloc((<%sizeleadindex%>+1)*sizeof(int));
-        inSysData->sparsePattern.index = (unsigned int*) malloc(<%sp_size_index%>*sizeof(int));
-        inSysData->sparsePattern.numberOfNoneZeros = <%sp_size_index%>;
-        inSysData->sparsePattern.colorCols = (unsigned int*) malloc(<%sizeleadindex%>*sizeof(int));
-        inSysData->sparsePattern.maxColors = <%maxColor%>;
+        inSysData->sparsePattern->leadindex = (unsigned int*) malloc((<%sizeleadindex%>+1)*sizeof(int));
+        inSysData->sparsePattern->index = (unsigned int*) malloc(<%sp_size_index%>*sizeof(int));
+        inSysData->sparsePattern->numberOfNoneZeros = <%sp_size_index%>;
+        inSysData->sparsePattern->colorCols = (unsigned int*) malloc(<%sizeleadindex%>*sizeof(int));
+        inSysData->sparsePattern->maxColors = <%maxColor%>;
 
         /* write lead index of compressed sparse column */
-        memcpy(inSysData->sparsePattern.leadindex, colPtrIndex, (<%sizeleadindex%>+1)*sizeof(int));
+        memcpy(inSysData->sparsePattern->leadindex, colPtrIndex, (<%sizeleadindex%>+1)*sizeof(int));
 
         for(i=2;i<<%sizeleadindex%>+1;++i)
-          inSysData->sparsePattern.leadindex[i] += inSysData->sparsePattern.leadindex[i-1];
+          inSysData->sparsePattern->leadindex[i] += inSysData->sparsePattern->leadindex[i-1];
 
         /* call sparse index */
-        memcpy(inSysData->sparsePattern.index, rowIndex, <%sp_size_index%>*sizeof(int));
+        memcpy(inSysData->sparsePattern->index, rowIndex, <%sp_size_index%>*sizeof(int));
 
         /* write color array */
         <%colorString%>
@@ -4720,7 +4672,7 @@ match sparsepattern
       let sizeleadindex = listLength(sparsepattern)
       let colPtr = genSPCRSPtr(listLength(sparsepattern), sparsepattern, "colPtrIndex")
       let rowIndex = genSPCRSRows(lengthListElements(unzipSecond(sparsepattern)), sparsepattern, "rowIndex")
-      let colorString = genSPColors(colorList, "jacobian->sparsePattern.colorCols")
+      let colorString = genSPColors(colorList, "jacobian->sparsePattern->colorCols")
       let indexColumn = (jacobianColumn |> JAC_COLUMN(numberOfResultVars=n) => '<%n%>';separator="\n")
       let tmpvarsSize = (jacobianColumn |> JAC_COLUMN(columnVars=vars) => listLength(vars);separator="\n")
       let index_ = listLength(seedVars)
@@ -4740,20 +4692,21 @@ match sparsepattern
         jacobian->seedVars = (modelica_real*) calloc(<%index_%>,sizeof(modelica_real));
         jacobian->resultVars = (modelica_real*) calloc(<%indexColumn%>,sizeof(modelica_real));
         jacobian->tmpVars = (modelica_real*) calloc(<%tmpvarsSize%>,sizeof(modelica_real));
-        jacobian->sparsePattern.leadindex = (unsigned int*) malloc((<%sizeleadindex%>+1)*sizeof(int));
-        jacobian->sparsePattern.index = (unsigned int*) malloc(<%sp_size_index%>*sizeof(int));
-        jacobian->sparsePattern.numberOfNoneZeros = <%sp_size_index%>;
-        jacobian->sparsePattern.colorCols = (unsigned int*) malloc(<%index_%>*sizeof(int));
-        jacobian->sparsePattern.maxColors = <%maxColor%>;
+        jacobian->sparsePattern = (SPARSE_PATTERN*) malloc(sizeof(SPARSE_PATTERN));
+        jacobian->sparsePattern->leadindex = (unsigned int*) malloc((<%sizeleadindex%>+1)*sizeof(int));
+        jacobian->sparsePattern->index = (unsigned int*) malloc(<%sp_size_index%>*sizeof(int));
+        jacobian->sparsePattern->numberOfNoneZeros = <%sp_size_index%>;
+        jacobian->sparsePattern->colorCols = (unsigned int*) malloc(<%index_%>*sizeof(int));
+        jacobian->sparsePattern->maxColors = <%maxColor%>;
 
         /* write lead index of compressed sparse column */
-        memcpy(jacobian->sparsePattern.leadindex, colPtrIndex, (<%sizeleadindex%>+1)*sizeof(int));
+        memcpy(jacobian->sparsePattern->leadindex, colPtrIndex, (<%sizeleadindex%>+1)*sizeof(int));
 
         for(i=2;i<<%sizeleadindex%>+1;++i)
-          jacobian->sparsePattern.leadindex[i] += jacobian->sparsePattern.leadindex[i-1];
+          jacobian->sparsePattern->leadindex[i] += jacobian->sparsePattern->leadindex[i-1];
 
         /* call sparse index */
-        memcpy(jacobian->sparsePattern.index, rowIndex, <%sp_size_index%>*sizeof(int));
+        memcpy(jacobian->sparsePattern->index, rowIndex, <%sp_size_index%>*sizeof(int));
 
         /* write color array */
         <%colorString%>

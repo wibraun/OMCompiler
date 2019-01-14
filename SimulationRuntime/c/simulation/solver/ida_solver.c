@@ -606,8 +606,6 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
     infoStreamPrint(LOG_SOLVER, 0, "initial step size is set automatically.");
   }
 
-
-
   /* configure the sensitivities part */
   idaData->idaSmode = omc_flag[FLAG_IDAS] ? 1 : 0;
 
@@ -1447,6 +1445,7 @@ int jacColoredSymbolicalDense(double tt, N_Vector yy, N_Vector yp, N_Vector rr, 
   SPARSE_PATTERN* sparsePattern = data->simulationInfo->analyticJacobians[index].sparsePattern;;
 
   setContext(data, &tt, CONTEXT_JACOBIAN);
+  //ANALYTIC_JACOBIAN* t_jac = &(idaData->jacColumns[1]);
 #pragma omp parallel default(none) firstprivate(N) shared(i, sparsePattern, idaData, data, threadData, Jac)
 {
   // Use a thread local analyticJacobians (replace SimulationInfo->analyticaJacobians)

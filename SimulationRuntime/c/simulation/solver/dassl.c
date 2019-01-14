@@ -167,6 +167,7 @@ int dassl_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo,
   dasslData->newdelta = (double*) malloc(N*sizeof(double));
   dasslData->stateDer = (double*) calloc(N, sizeof(double));
   dasslData->states = (double*) malloc(N*sizeof(double));
+  dasslData->allocatedParMem = 0;
 
   data->simulationInfo->currentContext = CONTEXT_ALGEBRAIC;
 
@@ -339,12 +340,14 @@ int dassl_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo,
       dasslData->jacobianFunction =  jacA_symColored;
 #ifdef _OPENMP
       allocateThreadLocalJacobians(data, &(dasslData->jacColumns));
+      dasslData->allocatedParMem = 1;
 #endif
       break;
     case SYMJAC:
       dasslData->jacobianFunction =  jacA_sym;
 #ifdef _OPENMP
       allocateThreadLocalJacobians(data, &(dasslData->jacColumns));
+      dasslData->allocatedParMem = 1;
 #endif
       break;
     case NUMJAC:
@@ -416,7 +419,8 @@ int dassl_deinitial(DASSL_DATA *dasslData)
   free(dasslData->stateDer);
 
 #ifdef _OPENMP
-  free(dasslData->jacColumns);
+  if (dasslData->allocatedParMem)
+    free(dasslData->jacColumns);
 #endif
 
   free(dasslData);

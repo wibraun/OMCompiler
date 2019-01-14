@@ -497,6 +497,18 @@ int initializeModel(DATA* data, threadData_t *threadData, const char* init_initM
     rt_accumulate(SIM_TIMER_INIT);
   }
 
+
+  /* get number of omp threads for parallel jacobian evaluation */
+#ifdef _OPENMP
+  omp_set_num_threads(1);
+  if (omc_flag[FLAG_JACOBIAN_THREADS])
+  {
+    omp_set_num_threads(atoi(omc_flagValue[FLAG_JACOBIAN_THREADS]));
+  }
+  infoStreamPrint(LOG_SOLVER, 0, "Set OpenMP jacobian threads to : %d", omp_get_max_threads());
+#endif
+
+
   TRACE_POP
   return retValue;
 }
