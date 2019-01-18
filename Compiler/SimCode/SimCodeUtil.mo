@@ -1843,9 +1843,9 @@ algorithm
       //  print("eqn: " + intString(eqn) + " " + boolString(arrayGet(marks, eqn) == 1) + "\n");
       //end for;
       if b then
-        columnInts := Array.appendToElement(i, list(1 for i in equations), columnInts);
+        columnInts := Array.appendToElement(i, list(1 for j in equations), columnInts);
       else
-        columnInts := Array.appendToElement(i, list(0 for i in equations), columnInts);
+        columnInts := Array.appendToElement(i, list(0 for j in equations), columnInts);
       end if;
       i := i+1;
     end for;
@@ -1856,6 +1856,7 @@ algorithm
   end for;
 
   allEquations := List.flattenReverse(accEquations);
+  columnInts := Array.mapNoCopy(columnInts, listReverse);
   columnCallInts := arrayList(columnInts);
 end createDependendEquations;
 
