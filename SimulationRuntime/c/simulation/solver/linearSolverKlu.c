@@ -306,6 +306,19 @@ solveKlu(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
 
     if (ACTIVE_STREAM(LOG_LS_V))
     {
+      for (j = 0; j < n; j++)
+      {
+        if ((k < Ap[i + 1]) && (Ai[k] == j))
+        {
+          sprintf(buffer[j], "%s %5g ", buffer[j], Ax[k]);
+          k++;
+        }
+        else
+        {
+          sprintf(buffer[j], "%s %5g ", buffer[j], 0.0);
+        }
+      }
+
       infoStreamPrint(LOG_LS_V, 1, "Solution x:");
       infoStreamPrint(LOG_LS_V, 0, "System %d numVars %d.", eqSystemNumber, modelInfoGetEquation(&data->modelData->modelDataXml,eqSystemNumber).numVar);
 

@@ -26,11 +26,14 @@
  * EXPRESSLY SET FORTH IN THE BY RECIPIENT SELECTED SUBSIDIARY LICENSE
  * CONDITIONS OF OSMC-PL.
  *
+ *! \file omc_jacobian.h
+ *
  */
 
+#ifndef _OMC_JACOCOBIAN_H_
+#define _OMC_JACOCOBIAN_H_
 
 #include "omc_matrix.h"
-
 
 typedef struct {
  int index;           /* index of ANALYTICAL_JACOBIAN Structure: data->simulationInfo->analyticJacobians */
@@ -42,4 +45,8 @@ typedef struct {
 omc_jacobian* create_omc_jacobian(int index, int (*columnCall)(void*, threadData_t*, ANALYTIC_JACOBIAN*, ANALYTIC_JACOBIAN*),
                                   unsigned int size_rows, unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type);
 
-int get_omc_jacobian(DATA* data, threadData_t* threadData, omc_jacobian*);
+int get_omc_jacobian(DATA* data, threadData_t* threadData, omc_jacobian* jac);
+
+void free_omc_jacobian(omc_matrix* jac);
+
+#endif
