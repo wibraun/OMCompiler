@@ -46,6 +46,8 @@
 
 #include "linearSystem.h"
 #include "linearSolverKlu.h"
+#include "omc_matrix.h"
+#include "omc_jacobian.h"
 
 
 static void printMatrixCSC(int* Ap, int* Ai, double* Ax, int n);
@@ -63,10 +65,6 @@ allocateKluData(int n_row, int n_col, int nz, omc_matrix_orientation orientation
   data->symbolic = NULL;
   data->numeric = NULL;
 
-  data->n_col = n_col;
-  data->n_row = n_row;
-  data->nnz = nz;
-
   data->matrix = allocate_matrix(n_row, n_col, nz, orientation, type);
 
   data->numberSolving = 0;
@@ -76,7 +74,6 @@ allocateKluData(int n_row, int n_col, int nz, omc_matrix_orientation orientation
 
   return 0;
 }
-
 
 /*! \fn free memory for linear system solver Klu
  *
@@ -111,6 +108,8 @@ static int residual_wrapper(double* x, double* f, void** data, int sysNumber)
   return 0;
 }
 
+/*What to do with the get analytical jacobian??????????????????*/
+
 /*! \fn solve linear system with Klu method
  *
  *  \param  [in]  [data]
@@ -120,7 +119,7 @@ static int residual_wrapper(double* x, double* f, void** data, int sysNumber)
  * author: wbraun
  */
 int
-solveKlu(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
+solveKlu(DATA *data, threadData_t *threadData, omc_jacobian* jac, double* aux_x)
 {
   void *dataAndThreadData[2] = {data, threadData};
   LINEAR_SYSTEM_DATA* systemData = &(data->simulationInfo->linearSystemData[sysNumber]);
@@ -139,9 +138,9 @@ solveKlu(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
   {
     if (!reuseMatrixJac){
       /* set A matrix */
-      solverData->Ap[0] = 0;
-      systemData->setA(data, threadData, systemData);
-      solverData->Ap[solverData->n_row] = solverData->nnz;
+      solverData->matrix->ptr[0] = 0;
+      systemData->setA(data, threadData, systemData); // How to handle this set call????????????
+      solverData->matrix->ptr[solverData->matrix->size_rows] = solverData->matrix->nnz;
     }
 
     /* set b vector */
@@ -149,14 +148,14 @@ solveKlu(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
   } else {
 
     if (!reuseMatrixJac){
-      solverData->Ap[0] = 0;
+      solverData->matrix->ptr[0] = 0;
       /* calculate jacobian -> matrix A*/
       if(systemData->jacobianIndex != -1){
-        getAnalyticalJacobian(data, threadData, sysNumber);
+        get_omc_Jacobian(data, threadData, jac);
       } else {
         assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
       }
-      solverData->Ap[solverData->n_row] = solverData->nnz;
+      solverData->matrix->ptr[solverData->n_row] = solverData->nnz;
     }
 
     /* calculate vector b (rhs) */
