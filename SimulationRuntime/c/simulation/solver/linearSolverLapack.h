@@ -46,7 +46,7 @@ typedef struct DATA_LAPACK
 
   _omc_vector* x;
   _omc_vector* b;
-  _omc_matrix* A;
+  _omc_dense_matrix* A;
 
   rtclock_t timeClock;             /* time clock */
 

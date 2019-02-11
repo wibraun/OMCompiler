@@ -55,7 +55,7 @@ static void printMatrixCSR(int* Ap, int* Ai, double* Ax, int n);
  *
  */
 int
-allocateKluData(int n_row, int n_col, int nz, void** voiddata)
+allocateKluData(int n_row, int n_col, int nz, omc_matrix_orientation orientation, omc_matrix_type type, void **data)
 {
   DATA_KLU* data = (DATA_KLU*) malloc(sizeof(DATA_KLU));
   assertStreamPrint(NULL, 0 != data, "Could not allocate data for linear solver Klu.");
@@ -67,11 +67,7 @@ allocateKluData(int n_row, int n_col, int nz, void** voiddata)
   data->n_row = n_row;
   data->nnz = nz;
 
-  data->Ap = (int*) calloc((n_row+1),sizeof(int));
-
-  data->Ai = (int*) calloc(nz,sizeof(int));
-  data->Ax = (double*) calloc(nz,sizeof(double));
-  data->work = (double*) calloc(n_col,sizeof(double));
+  data->matrix = allocate_matrix(n_row, n_col, nz, orientation, type);
 
   data->numberSolving = 0;
   klu_defaults(&(data->common));
@@ -92,9 +88,7 @@ freeKluData(void **voiddata)
 
   DATA_KLU* data = (DATA_KLU*) *voiddata;
 
-  free(data->Ap);
-  free(data->Ai);
-  free(data->Ax);
+  free_matrix(&data->matrix);
   free(data->work);
 
   if(data->symbolic)
@@ -103,57 +97,6 @@ freeKluData(void **voiddata)
     klu_free_numeric(&data->numeric, &data->common);
 
   TRACE_POP
-  return 0;
-}
-
-/*! \fn getAnalyticalJacobian
- *
- *  function calculates analytical jacobian
- *
- *  \param [ref] [data]
- *  \param [in]  [sysNumber]
- *
- *  \author wbraun
- *
- */
-static
-int getAnalyticalJacobian(DATA* data, threadData_t *threadData, int sysNumber)
-{
-  int i,ii,j,k,l;
-  LINEAR_SYSTEM_DATA* systemData = &(((DATA*)data)->simulationInfo->linearSystemData[sysNumber]);
-
-  const int index = systemData->jacobianIndex;
-  ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[systemData->jacobianIndex]);
-  ANALYTIC_JACOBIAN* parentJacobian = systemData->parentJacobian;
-
-  int nth = 0;
-  int nnz = jacobian->sparsePattern.numberOfNoneZeros;
-
-  for(i=0; i < jacobian->sizeRows; i++)
-  {
-    jacobian->seedVars[i] = 1;
-
-    ((systemData->analyticalJacobianColumn))(data, threadData, jacobian, parentJacobian);
-
-    for(j = 0; j < jacobian->sizeCols; j++)
-    {
-      if(jacobian->seedVars[j] == 1)
-      {
-        ii = jacobian->sparsePattern.leadindex[j];
-        while(ii < jacobian->sparsePattern.leadindex[j+1])
-        {
-          l  = jacobian->sparsePattern.index[ii];
-          systemData->setAElement(i, l, -jacobian->resultVars[l], nth, (void*) systemData, threadData);
-          nth++;
-          ii++;
-        };
-      }
-    };
-
-    /* de-activate seed variable for the corresponding color */
-    jacobian->seedVars[i] = 0;
-  }
-
   return 0;
 }
 

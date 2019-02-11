@@ -47,6 +47,9 @@
 #endif
 #include "linearSolverTotalPivot.h"
 #include "simulation/simulation_info_json.h"
+#include "omc_matrix.h"
+#include "omc_jacobian.h"
+
 
 static void setAElement(int row, int col, double value, int nth, void *data, threadData_t *);
 static void setAElementLis(int row, int col, double value, int nth, void *data, threadData_t *);
@@ -137,7 +140,7 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
       case LSS_KLU:
         linsys[i].setAElement = setAElementKlu;
         linsys[i].setBElement = setBElement;
-        allocateKluData(size, size, nnz, linsys[i].solverData);
+        allocateKluData(size, size, nnz, COLUMN_WISE, SPARSE_MATRIX, linsys[i].solverData);
         break;
     #else
       case LSS_KLU:
