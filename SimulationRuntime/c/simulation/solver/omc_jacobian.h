@@ -48,6 +48,6 @@ omc_jacobian* create_omc_jacobian(int index, int (*columnCall)(void*, threadData
 
 int get_omc_jacobian(DATA* data, threadData_t* threadData, omc_jacobian* jac);
 
-void free_omc_jacobian(omc_matrix* jac);
+void free_omc_jacobian(omc_jacobian* jac);
 
 #endif

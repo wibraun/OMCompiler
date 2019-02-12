@@ -198,7 +198,7 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
       case LS_KLU:
         linsys[i].setAElement = setAElementKlu;
         linsys[i].setBElement = setBElement;
-        allocateKluData(size, size, nnz, linsys[i].solverData);
+        allocateKluData(size, size, nnz, COLUMN_WISE, SPARSE_MATRIX, linsys[i].solverData);
         break;
     #else
       case LS_UMFPACK:
