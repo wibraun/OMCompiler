@@ -44,15 +44,15 @@
 #include "omc_jacobian.h"
 #include "omc_matrix.h"
 
-omc_jacobian* create_omc_jacobian(int index, int (*columnCall)(void*, threadData_t*, ANALYTIC_JACOBIAN*, ANALYTIC_JACOBIAN*),
-                                  unsigned int size_rows, unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type
-                                  ANALYTIC_JACOBIAN* parentJacobian)
+omc_jacobian* create_omc_jacobian(int index,
+    int (*columnCall)(void*, threadData_t*, ANALYTIC_JACOBIAN*, ANALYTIC_JACOBIAN*), ANALYTIC_JACOBIAN* parentJacobian,
+    unsigned int size_rows, unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type);
 {
   omc_jacobian* jac = (omc_jacobian*) malloc(sizeof(omc_jacobian));
   jac->index = index;
   jac->columnCall = columnCall;
-  jac->matrix = allocate_matrix(size_rows, size_cols, nnz, orientation, type);
   jac->parentJacobian = parentJacobian;
+  jac->matrix = allocate_matrix(size_rows, size_cols, nnz, orientation, type);
 
   return (jac);
 }
@@ -96,7 +96,7 @@ int get_omc_jacobian(DATA* data, threadData_t* threadData, omc_jacobian* jac)
 void free_omc_jacobian(omc_jacobian* jac)
 {
   free(jac->columnCall);
-  free_matrix(jac->matrix);
   free(jac->parentJacobian);
+  free_matrix(jac->matrix);
   free(jac);
 }

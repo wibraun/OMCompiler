@@ -140,7 +140,7 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
       case LSS_KLU:
         linsys[i].setAElement = setAElementKlu;
         linsys[i].setBElement = setBElement;
-        allocateKluData(size, size, nnz, COLUMN_WISE, SPARSE_MATRIX, linsys[i].solverData);
+        allocateKluData(data->simulationInfo->anayticaJacobians->jacobianIndex, linsys[i] size, size, nnz, COLUMN_WISE, SPARSE_MATRIX, linsys[i].solverData);
         break;
     #else
       case LSS_KLU:
@@ -198,7 +198,7 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
       case LS_KLU:
         linsys[i].setAElement = setAElementKlu;
         linsys[i].setBElement = setBElement;
-        allocateKluData(size, size, nnz, COLUMN_WISE, SPARSE_MATRIX, linsys[i].solverData);
+        allocateKluData(linsys[i].jacobianIndex, linsys[i].analyticalJacobianColumn, linsys[i].parentJacobian, size, size, nnz, COLUMN_WISE, SPARSE_MATRIX, linsys[i].solverData);
         break;
     #else
       case LS_UMFPACK:
@@ -396,7 +396,7 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
  *
  *  \author wbraun
  */
-int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
+int solve_linear_system(DATA *data, threadData_t *threadData, sysNumber, double* aux_x)
 {
   TRACE_PUSH
   int success;
@@ -424,7 +424,7 @@ int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber, dou
   #endif
   #ifdef WITH_UMFPACK
     case LSS_KLU:
-      success = solveKlu(data, threadData, sysNumber, aux_x);
+      success = solveKlu(data, threadData, linsys, aux_x);
       break;
     case LSS_UMFPACK:
       success = solveUmfPack(data, threadData, sysNumber, aux_x);
@@ -459,7 +459,7 @@ int solve_linear_system(DATA *data, threadData_t *threadData, int sysNumber, dou
   #endif
   #ifdef WITH_UMFPACK
     case LS_KLU:
-      success = solveKlu(data, threadData, sysNumber, aux_x);
+      success = solveKlu(data, threadData, linsys, aux_x);
       break;
     case LS_UMFPACK:
       success = solveUmfPack(data, threadData, sysNumber, aux_x);
@@ -686,12 +686,12 @@ static void setAElementKlu(int row, int col, double value, int nth, void *data, 
   DATA_KLU* sData = (DATA_KLU*) linSys->solverData[0];
 
   if (row > 0){
-    if (sData->Ap[row] == 0){
-      sData->Ap[row] = nth;
+    if (sData->jacobian->matrix->ptr[row] == 0){
+      sData->jacobian->matrix->ptr[row] = nth;
     }
   }
 
-  sData->Ai[nth] = col;
-  sData->Ax[nth] = value;
+  sData->jacobian->matrix->index[nth] = col;
+  sData->jacobian->matrix->data[nth] = value;
 }
 #endif

@@ -37,7 +37,6 @@
 #ifndef _LINEARSOLVERKLU_H_
 #define _LINEARSOLVERKLU_H_
 
-#include "omc_matrix.h"
 #include "omc_jacobian.h"
 #include "simulation_data.h"
 #include "suitesparse/Include/amd.h"
@@ -45,7 +44,7 @@
 
 typedef struct DATA_KLU
 {
-  omc_matrix *matrix;
+  omc_jacobian *jacobian;
   klu_symbolic *symbolic;
   klu_numeric *numeric;
   klu_common common;
@@ -57,7 +56,9 @@ typedef struct DATA_KLU
 
 } DATA_KLU;
 
-int allocateKluData(int n_row, int n_col, int nz, omc_matrix_orientation orientation, omc_matrix_type type, void **data);
+int allocateKluData(int index,
+                    int (*columnCall)(void*, threadData_t*, ANALYTIC_JACOBIAN*, ANALYTIC_JACOBIAN*), ANALYTIC_JACOBIAN* parentJacobian,
+                    unsigned int size_rows, unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type void **data);
 int freeKluData(void **data);
 int solveKlu(DATA *data, threadData_t *threadData, omc_jacobian* jac , double* aux_x);
 

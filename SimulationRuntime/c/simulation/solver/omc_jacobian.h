@@ -38,13 +38,14 @@
 typedef struct {
  int index;           /* index of ANALYTICAL_JACOBIAN Structure: data->simulationInfo->analyticJacobians */
  int (*columnCall)(void*, threadData_t*, ANALYTIC_JACOBIAN*, ANALYTIC_JACOBIAN*);
- omc_matrix* matrix;  /* matrix data */
  ANALYTIC_JACOBIAN* parentJacobian;
+ omc_matrix* matrix;  /* matrix data */
 } omc_jacobian;
 
 
-omc_jacobian* create_omc_jacobian(int index, int (*columnCall)(void*, threadData_t*, ANALYTIC_JACOBIAN*, ANALYTIC_JACOBIAN*),
-    unsigned int size_rows, unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type, ANALYTIC_JACOBIAN* parentJacobian);
+omc_jacobian* create_omc_jacobian(int index,
+                                  int (*columnCall)(void*, threadData_t*, ANALYTIC_JACOBIAN*, ANALYTIC_JACOBIAN*), ANALYTIC_JACOBIAN* parentJacobian,
+                                  unsigned int size_rows, unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type);
 
 int get_omc_jacobian(DATA* data, threadData_t* threadData, omc_jacobian* jac);
 
