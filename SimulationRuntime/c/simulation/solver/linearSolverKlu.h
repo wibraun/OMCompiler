@@ -43,6 +43,7 @@
 #include "suitesparse/Include/klu.h"
 #include "omc_jacobian.h"
 #include "linearSystem.h"
+#include "omc_jacobian.h"
 
 typedef struct DATA_KLU
 {
