@@ -59,7 +59,7 @@ static void printMatrixCSR(int* Ap, int* Ai, double* Ax, int n);
 int
 allocateKluData(int index,
                 int (*columnCall)(void*, threadData_t*, ANALYTIC_JACOBIAN*, ANALYTIC_JACOBIAN*), ANALYTIC_JACOBIAN* parentJacobian,
-                unsigned int size_rows, unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type void **data);
+                unsigned int size_rows, unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type, void **data);
 {
   DATA_KLU* data = (DATA_KLU*) malloc(sizeof(DATA_KLU));
   assertStreamPrint(NULL, 0 != data, "Could not allocate data for linear solver Klu.");
@@ -138,9 +138,9 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
   {
     if (!reuseMatrixJac){
       /* set A matrix */
-      solverData->matrix->ptr[0] = 0;
+      solverData->jacobian->matrix->matrix->ptr[0] = 0;
       systemData->setA(data, threadData, systemData);
-      solverData->matrix->ptr[solverData->matrix->size_rows] = solverData->matrix->nnz;
+      solverData->jacobian->matrix->matrix->ptr[solverData->jacobian->matrix->matrix->size_rows] = solverData->jacobian->matrix->matrix->nnz;
     }
 
     /* set b vector */
@@ -148,19 +148,19 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
   } else {
 
     if (!reuseMatrixJac){
-      solverData->matrix->ptr[0] = 0;
+      solverData->jacobian->matrix->matrix->ptr[0] = 0;
       /* calculate jacobian -> matrix A*/
       if(systemData->jacobianIndex != -1){
         get_omc_Jacobian(data, threadData, solverData->jacobian);
       } else {
         assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
       }
-      solverData->matrix->ptr[solverData->jacobian->matrix->size_rows] = solverData->jacobian->matrix->nnz;
+      solverData->jacobian->matrix->matrix->ptr[solverData->jacobian->matrix->size_rows] = solverData->jacobian->matrix->matrix->nnz;
     }
 
     /* calculate vector b (rhs) */
-    memcpy(solverData->work, aux_x, sizeof(double)*solverData->jacobian->matrix->size_rows);
-    residual_wrapper(solverData->work, systemData->b, dataAndThreadData, systemData);
+    memcpy(solverData->work, aux_x, sizeof(double)*solverData->jacobian->matrix->matrix->size_rows);
+    residual_wrapper(solverData->work, systemData->b, dataAndThreadData, systemData.equationIndex);
   }
   tmpJacEvalTime = rt_ext_tp_tock(&(solverData->timeClock));
   systemData->jacobianTime += tmpJacEvalTime;
@@ -173,16 +173,16 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
       infoStreamPrint(LOG_LS_V, 0, "[%d] %s = %g", i+1, modelInfoGetEquation(&data->modelData->modelDataXml,eqSystemNumber).vars[i], aux_x[i]);
     messageClose(LOG_LS_V);
 
-    infoStreamPrint(LOG_LS_V, 1, "Matrix A n_rows = %d", solverData->jacobian->matrix->size_rows);
+    infoStreamPrint(LOG_LS_V, 1, "Matrix A n_rows = %d", solverData->jacobian->matrix->matrix->size_rows);
     for (i=0; i<solverData->n_row; i++){
-      infoStreamPrint(LOG_LS_V, 0, "%d. Ap => %d -> %d", i, solverData->jacobian->matrix->ptr[i], solverData->jacobian->matrix->ptr[i+1]);
-      for (j=solverData->Ap[i]; j<solverData->Ap[i+1]; j++){
-        infoStreamPrint(LOG_LS_V, 0, "A[%d,%d] = %f", i, solverData->jacobian->matrix->index[j], solverData->jacobian->matrix->data[j]);
+      infoStreamPrint(LOG_LS_V, 0, "%d. Ap => %d -> %d", i, solverData->jacobian->matrix->matrix->ptr[i], solverData->jacobian->matrix->matrix->ptr[i+1]);
+      for (j=solverData->jacobian->matrix->matrix->ptr[i]; j<solverData->jacobian->matrix->matrix->ptr[i+1]; j++){
+        infoStreamPrint(LOG_LS_V, 0, "A[%d,%d] = %f", i, solverData->jacobian->matrix->matrix->index[j], solverData->jacobian->matrix->matrix->data[j]);
       }
     }
     messageClose(LOG_LS_V);
 
-    for (i=0; i<solverData->jacobian->matrix->size_row; i++)
+    for (i=0; i<solverData->jacobian->matrix->matrix->size_row; i++)
       infoStreamPrint(LOG_LS_V, 0, "b[%d] = %e", i, systemData->b[i]);
   }
   rt_ext_tp_tick(&(solverData->timeClock));
@@ -192,7 +192,7 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
   if (0 == solverData->numberSolving)
   {
     infoStreamPrint(LOG_LS_V, 0, "Perform analyze settings:\n - ordering used: %d\n - current status: %d", solverData->common.ordering, solverData->common.status);
-    solverData->symbolic = klu_analyze(solverData->jacobian->matrix->size_col, solverData->jacobian->matrix->ptr, solverData->jacobian->matrix->index, &solverData->common);
+    solverData->symbolic = klu_analyze(solverData->jacobian->matrix->matrix->size_col, solverData->jacobian->matrix->matrix->ptr, solverData->jacobian->matrix->matrix->index, &solverData->common);
   }
 
   /* if reuseMatrixJac use also previous factorization */
@@ -202,28 +202,28 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
     if (0 == solverData->common.status){
       if(solverData->numeric){
         /* Just refactor using the same pivots, but check that the refactor is still accurate */
-        klu_refactor(solverData->jacobian->matrix->ptr, solverData->jacobian->matrix->index, solverData->jacobian->matrix->index, solverData->symbolic, solverData->numeric, &solverData->common);
-        klu_rgrowth(solverData->jacobian->matrix->ptr, solverData->jacobian->matrix->index, solverData->jacobian->matrix->data, solverData->symbolic, solverData->numeric, &solverData->common);
+        klu_refactor(solverData->jacobian->matrix->matrix->ptr, solverData->jacobian->matrix->matrix->index, solverData->jacobian->matrix->matrix->index, solverData->symbolic, solverData->numeric, &solverData->common);
+        klu_rgrowth(solverData->jacobian->matrix->matrix->ptr, solverData->jacobian->matrix->matrix->index, solverData->jacobian->matrix->matrix->data, solverData->symbolic, solverData->numeric, &solverData->common);
         infoStreamPrint(LOG_LS_V, 0, "Klu rgrowth after refactor: %f", solverData->common.rgrowth);
         /* If rgrowth is small then do a whole factorization with new pivots (What should this tolerance be?) */
         if (solverData->common.rgrowth < 1e-3){
           klu_free_numeric(&solverData->numeric, &solverData->common);
-          solverData->numeric = klu_factor(solverData->jacobian->matrix->ptr, solverData->jacobian->matrix->index, solverData->jacobian->matrix->data, solverData->symbolic, &solverData->common);
+          solverData->numeric = klu_factor(solverData->jacobian->matrix->matrix->ptr, solverData->jacobian->matrix->matrix->index, solverData->jacobian->matrix->matrix->data, solverData->symbolic, &solverData->common);
           infoStreamPrint(LOG_LS_V, 0, "Klu new factorization performed.");
         }
       } else {
-        solverData->numeric = klu_factor(solverData->jacobian->matrix->ptr, solverData->jacobian->matrix->index, solverData->jacobian->matrix->data, solverData->symbolic, &solverData->common);
+        solverData->numeric = klu_factor(solverData->jacobian->matrix->matrix->ptr, solverData->jacobian->matrix->matrix->index, solverData->jacobian->matrix->matrix->data, solverData->symbolic, &solverData->common);
       }
     }
   }
 
   if (0 == solverData->common.status){
     if (1 == systemData->method){
-      if (klu_solve(solverData->symbolic, solverData->numeric, solverData->jacobian->matrix->size_cols, 1, systemData->b, &solverData->common)){
+      if (klu_solve(solverData->symbolic, solverData->numeric, solverData->jacobian->matrix->matrix->size_cols, 1, systemData->b, &solverData->common)){
         success = 1;
       }
     } else {
-      if (klu_tsolve(solverData->symbolic, solverData->numeric, solverData->jacobian->matrix->size_cols, 1, systemData->b, &solverData->common)){
+      if (klu_tsolve(solverData->symbolic, solverData->numeric, solverData->jacobian->matrix->matrix->size_cols, 1, systemData->b, &solverData->common)){
         success = 1;
       }
     }
@@ -236,11 +236,11 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
 
     if (1 == systemData->method){
       /* take the solution */
-      for(i = 0; i < solverData->jacobian->matrix->size_rows; ++i)
+      for(i = 0; i < solverData->jacobian->matrix->matrix->size_rows; ++i)
         aux_x[i] += systemData->b[i];
 
       /* update inner equations */
-      residual_wrapper(aux_x, solverData->work, dataAndThreadData, linsys);
+      residual_wrapper(aux_x, solverData->work, dataAndThreadData, systemData.equationIndex);
     } else {
       /* the solution is automatically in x */
       memcpy(aux_x, systemData->b, sizeof(double)*systemData->size);

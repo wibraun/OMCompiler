@@ -47,7 +47,6 @@
 #endif
 #include "linearSolverTotalPivot.h"
 #include "simulation/simulation_info_json.h"
-#include "omc_matrix.h"
 #include "omc_jacobian.h"
 
 
@@ -140,7 +139,7 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
       case LSS_KLU:
         linsys[i].setAElement = setAElementKlu;
         linsys[i].setBElement = setBElement;
-        allocateKluData(data->simulationInfo->anayticaJacobians->jacobianIndex, linsys[i] size, size, nnz, COLUMN_WISE, SPARSE_MATRIX, linsys[i].solverData);
+        allocateKluData(linsys[i].jacobianIndex, linsys[i].analyticalJacobianColumn, linsys[i].parentJacobian, size, size, nnz, COLUMN_WISE, SPARSE_MATRIX, linsys[i].solverData);
         break;
     #else
       case LSS_KLU:
@@ -685,13 +684,6 @@ static void setAElementKlu(int row, int col, double value, int nth, void *data, 
   LINEAR_SYSTEM_DATA* linSys = (LINEAR_SYSTEM_DATA*) data;
   DATA_KLU* sData = (DATA_KLU*) linSys->solverData[0];
 
-  if (row > 0){
-    if (sData->jacobian->matrix->ptr[row] == 0){
-      sData->jacobian->matrix->ptr[row] = nth;
-    }
-  }
-
-  sData->jacobian->matrix->index[nth] = col;
-  sData->jacobian->matrix->data[nth] = value;
+  set_matrix_element(sData->jacobian->matrix, row, col, nth, value);
 }
 #endif

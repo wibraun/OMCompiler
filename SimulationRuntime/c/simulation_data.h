@@ -465,7 +465,7 @@ typedef struct MODEL_DATA_XML
 } MODEL_DATA_XML;
 
 typedef struct SUBCLOCK_INFO {
-  RATIONAL shift;size, size, nnz, COLUMN_WISE, SPARSE_MATRIX, linsys[i].solverData
+  RATIONAL shift;
   RATIONAL factor;
   const char* solverMethod;
   modelica_boolean holdEvents;

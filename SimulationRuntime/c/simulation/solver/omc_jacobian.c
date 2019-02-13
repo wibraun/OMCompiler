@@ -80,7 +80,7 @@ int get_omc_jacobian(DATA* data, threadData_t* threadData, omc_jacobian* jac)
           while(ii < jacobian->sparsePattern.leadindex[j+1])
           {
             l  = jacobian->sparsePattern.index[ii];
-            set_matrix_element(omc_jacobian->matrix, i, l, nth, jacobian->resultVars[l]);
+            set_matrix_element(jac->matrix, i, l, nth, jacobian->resultVars[l]);
             nth++;
             ii++;
           };
