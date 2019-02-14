@@ -95,11 +95,9 @@ int freeLapackData(void **voiddata)
 /*! \fn wrapper_fvec_lapack for the residual function
  *
  */
-static int wrapper_fvec_lapack(_omc_vector* x, _omc_vector* f, int* iflag, void** data, int sysNumber)
+static int wrapper_fvec_lapack(_omc_vector* x, _omc_vector* f, int* iflag, void** data,  LINEAR_SYSTEM_DATA* systemData)
 {
-  int currentSys = sysNumber;
-
-  (*((DATA*)data[0])->simulationInfo->linearSystemData[currentSys].residualFunc)(data, x->data, f->data, iflag);
+  systemData->residualFunc(data, x->data, f->data, iflag);
   return 0;
 }
 
@@ -135,7 +133,7 @@ int solveLapack(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* system
   /* set data */
   _omc_setVectorData(solverData->x, aux_x);
   _omc_setVectorData(solverData->b, systemData->b);
-  _omc_setMatrixData(matrixData, systemData->A);
+  //_omc_setMatrixData(matrixData, systemData->A);
 
   rt_ext_tp_tick(&(solverData->timeClock));
   if (0 == systemData->method) {
@@ -163,7 +161,7 @@ int solveLapack(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* system
 
     /* calculate vector b (rhs) */
     _omc_copyVector(solverData->work, solverData->x);
-    wrapper_fvec_lapack(solverData->work, solverData->b, &iflag, dataAndThreadData, systemData->equationIndex);
+    wrapper_fvec_lapack(solverData->work, solverData->b, &iflag, dataAndThreadData, systemData);
   }
   tmpJacEvalTime = rt_ext_tp_tock(&(solverData->timeClock));
   systemData->jacobianTime += tmpJacEvalTime;
@@ -238,7 +236,7 @@ int solveLapack(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* system
       solverData->x = _omc_addVectorVector(solverData->x, solverData->work, solverData->b); // x = xold(work) + xnew(b)
 
       /* update inner equations */
-      wrapper_fvec_lapack(solverData->x, solverData->work, &iflag, dataAndThreadData, systemData->equationIndex);
+      wrapper_fvec_lapack(solverData->x, solverData->work, &iflag, dataAndThreadData, systemData);
       residualNorm = _omc_euclideanVectorNorm(solverData->work);
 
       if ((isnan(residualNorm)) || (residualNorm>1e-4)){

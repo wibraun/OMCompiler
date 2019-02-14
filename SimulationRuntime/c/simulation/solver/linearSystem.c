@@ -178,7 +178,7 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
         linsys[i].A = (double*) malloc(size*size*sizeof(double));
         linsys[i].setAElement = setAElement;
         linsys[i].setBElement = setBElement;
-        allocateLapackData(size, linsys[i].solverData, linsys[i].jacobianIndex, linsys[i].analyticalJacobianColumn, linsys[i].parentJacobian, nnz, COLUMN_WISE, DENSE_MATRIX);
+        allocateLapackData(size, linsys[i].solverData, linsys[i].jacobianIndex, linsys[i].analyticalJacobianColumn, linsys[i].parentJacobian, nnz, ROW_WISE, DENSE_MATRIX);
         break;
 
     #if !defined(OMC_MINIMAL_RUNTIME)
@@ -217,7 +217,7 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
         linsys[i].setAElement = setAElement;
         linsys[i].setBElement = setBElement;
 
-        allocateLapackData(size, linsys[i].solverData, linsys[i].jacobianIndex, linsys[i].analyticalJacobianColumn, linsys[i].parentJacobian, nnz, COLUMN_WISE, DENSE_MATRIX);
+        allocateLapackData(size, linsys[i].solverData, linsys[i].jacobianIndex, linsys[i].analyticalJacobianColumn, linsys[i].parentJacobian, nnz, ROW_WISE, DENSE_MATRIX);
         allocateTotalPivotData(size, linsys[i].solverData);
 
         break;

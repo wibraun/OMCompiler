@@ -152,7 +152,6 @@ _omc_dense_matrix* _omc_allocateMatrixData(const _omc_size rows, const _omc_size
 void _omc_deallocateMatrixData(_omc_dense_matrix* mat)
 {
   free(mat->data);
-  free(mat);
 }
 
 /*! \fn _omc_dense_matrix* _omc_createMatrix(_omc_size rows, _omc_size cols, _omc_scalar* data)

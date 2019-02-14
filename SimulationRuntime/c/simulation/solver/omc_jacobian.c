@@ -95,8 +95,6 @@ int get_omc_jacobian(DATA* data, threadData_t* threadData, omc_jacobian* jac)
 
 void free_omc_jacobian(omc_jacobian* jac)
 {
-  free(jac->columnCall);
-  free(jac->parentJacobian);
   free_matrix(jac->matrix);
   free(jac);
 }
