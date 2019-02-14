@@ -35,7 +35,7 @@
 #define _LINEARSOLVERLAPACK_H_
 
 #include "simulation_data.h"
-#include "omc_math.h"
+#include "omc_jacobian.h"
 
 typedef struct DATA_LAPACK
 {
@@ -46,7 +46,7 @@ typedef struct DATA_LAPACK
 
   _omc_vector* x;
   _omc_vector* b;
-  _omc_dense_matrix* A;
+  omc_jacobian* jacobian;
 
   rtclock_t timeClock;             /* time clock */
 
@@ -54,7 +54,7 @@ typedef struct DATA_LAPACK
 
 int allocateLapackData(int size, void **data);
 int freeLapackData(void **data);
-int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x);
+int solveLapack(DATA *data, threadData_t *threadData, struct omc_jacobian* jac, double* aux_x);
 
 #endif
 

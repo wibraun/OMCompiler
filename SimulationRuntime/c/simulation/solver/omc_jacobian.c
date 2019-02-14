@@ -46,7 +46,7 @@
 
 omc_jacobian* create_omc_jacobian(int index,
     int (*columnCall)(void*, threadData_t*, ANALYTIC_JACOBIAN*, ANALYTIC_JACOBIAN*), ANALYTIC_JACOBIAN* parentJacobian,
-    unsigned int size_rows, unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type);
+    unsigned int size_rows, unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type)
 {
   omc_jacobian* jac = (omc_jacobian*) malloc(sizeof(omc_jacobian));
   jac->index = index;
@@ -70,7 +70,7 @@ int get_omc_jacobian(DATA* data, threadData_t* threadData, omc_jacobian* jac)
     {
       jacobian->seedVars[i] = 1;
 
-      ((jac->columnCall))(data, threadData, jacobian, parentJacobian);
+      (jac->columnCall)(data, threadData, jacobian, jac->parentJacobian);
 
       for(j = 0; j < jacobian->sizeCols; j++)
       {
