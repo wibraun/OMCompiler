@@ -35,6 +35,7 @@
 #define _LINEARSOLVERLAPACK_H_
 
 #include "simulation_data.h"
+#include "omc_math.h"
 #include "omc_jacobian.h"
 
 typedef struct DATA_LAPACK
@@ -52,9 +53,10 @@ typedef struct DATA_LAPACK
 
 } DATA_LAPACK;
 
-int allocateLapackData(int size, void **data);
+int allocateLapackData(int size, void **data, int index, int (*columnCall)(void*, threadData_t*, ANALYTIC_JACOBIAN*, ANALYTIC_JACOBIAN*), ANALYTIC_JACOBIAN* parentJacobian,
+                       int nnz, omc_matrix_orientation orientation, omc_matrix_type type);
 int freeLapackData(void **data);
-int solveLapack(DATA *data, threadData_t *threadData, struct omc_jacobian* jac, double* aux_x);
+int solveLapack(DATA *data, threadData_t *threadData, struct LINEAR_SYSTEM_DATA *linsys, double* aux_x);
 
 #endif
 

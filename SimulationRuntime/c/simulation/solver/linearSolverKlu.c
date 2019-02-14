@@ -56,7 +56,7 @@ static void printMatrixCSR(int* Ap, int* Ai, double* Ax, int n);
  *
  */
 int
-allocateKluData(int index, int (*columnCall)(void* vptr, threadData_t*, struct ANALYTIC_JACOBIAN* jac, struct ANALYTIC_JACOBIAN* parjac), struct ANALYTIC_JACOBIAN* parentJacobian, unsigned int size_rows, unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type, void **voiddata)
+allocateKluData(int index, int (*columnCall)(void* vptr, threadData_t* thread, struct ANALYTIC_JACOBIAN* jac, struct ANALYTIC_JACOBIAN* parjac), struct ANALYTIC_JACOBIAN* parentJacobian, unsigned int size_rows, unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type, void **voiddata)
 {
   DATA_KLU* data = (DATA_KLU*) malloc(sizeof(DATA_KLU));
   assertStreamPrint(NULL, 0 != data, "Could not allocate data for linear solver Klu.");

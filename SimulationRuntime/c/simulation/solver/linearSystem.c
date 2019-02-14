@@ -178,7 +178,7 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
         linsys[i].A = (double*) malloc(size*size*sizeof(double));
         linsys[i].setAElement = setAElement;
         linsys[i].setBElement = setBElement;
-        allocateLapackData(size, linsys[i].solverData);
+        allocateLapackData(size, linsys[i].solverData, linsys[i].jacobianIndex, linsys[i].analyticalJacobianColumn, linsys[i].parentJacobian, nnz, COLUMN_WISE, DENSE_MATRIX);
         break;
 
     #if !defined(OMC_MINIMAL_RUNTIME)
@@ -217,7 +217,7 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
         linsys[i].setAElement = setAElement;
         linsys[i].setBElement = setBElement;
 
-        allocateLapackData(size, linsys[i].solverData);
+        allocateLapackData(size, linsys[i].solverData, linsys[i].jacobianIndex, linsys[i].analyticalJacobianColumn, linsys[i].parentJacobian, nnz, COLUMN_WISE, DENSE_MATRIX);
         allocateTotalPivotData(size, linsys[i].solverData);
 
         break;
@@ -448,7 +448,7 @@ int solve_linear_system(DATA *data, threadData_t *threadData, sysNumber, double*
     switch(data->simulationInfo->lsMethod)
     {
     case LS_LAPACK:
-      success = solveLapack(data, threadData, sysNumber, aux_x);
+      success = solveLapack(data, threadData, linsys, aux_x);
       break;
 
   #if !defined(OMC_MINIMAL_RUNTIME)
@@ -479,7 +479,7 @@ int solve_linear_system(DATA *data, threadData_t *threadData, sysNumber, double*
       break;
 
     case LS_DEFAULT:
-      success = solveLapack(data, threadData, sysNumber, aux_x);
+      success = solveLapack(data, threadData, linsys, aux_x);
 
       /* check if solution process was successful, if not use alternative tearing set if available (dynamic tearing)*/
       if (!success && linsys->strictTearingFunctionCall != NULL){
