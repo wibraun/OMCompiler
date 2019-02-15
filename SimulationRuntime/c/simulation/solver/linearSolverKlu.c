@@ -71,6 +71,8 @@ allocateKluData(int index, int (*columnCall)(void* vptr, threadData_t* thread, s
 
   *voiddata = (void*)data;
 
+  b = (double*) malloc(size*sizeof(double));
+
   return 0;
 }
 
@@ -92,6 +94,8 @@ freeKluData(void **voiddata)
   if(data->numeric)
     klu_free_numeric(&data->numeric, &data->common);
 
+  free(data->b);
+
   TRACE_POP
   return 0;
 }
@@ -108,6 +112,7 @@ static int residual_wrapper(double* x, double* f, void** data, LINEAR_SYSTEM_DAT
 }
 
 
+
 /*! \fn solve linear system with Klu method
  *
  *  \param  [in]  [data]
@@ -119,6 +124,21 @@ static int residual_wrapper(double* x, double* f, void** data, LINEAR_SYSTEM_DAT
 int
 solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, double* aux_x)
 {
+
+  static void setAElementKlu(int row, int col, double value, int nth, void *data, threadData_t *threadData)
+  {
+    LINEAR_SYSTEM_DATA* linSys = (LINEAR_SYSTEM_DATA*) data;
+    DATA_KLU* sData = (DATA_KLU*) linSys->solverData[0];
+
+    set_matrix_element(sData->jacobian->matrix, row, col, nth, value);
+  }
+
+  static void setBElement(int row, double value, void *data, threadData_t *threadData)
+  {
+    LINEAR_SYSTEM_DATA* linsys = (LINEAR_SYSTEM_DATA*) data;
+    linsys->b[row] = value;
+  }
+
   void *dataAndThreadData[2] = {data, threadData};
   DATA_KLU* solverData = (DATA_KLU*)systemData->solverData[0];
   omc_sparse_matrix* matrixData = (omc_sparse_matrix*)solverData->jacobian->matrix->matrix;

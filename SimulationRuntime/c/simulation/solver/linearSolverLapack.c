@@ -133,7 +133,7 @@ int solveLapack(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* system
   /* set data */
   _omc_setVectorData(solverData->x, aux_x);
   _omc_setVectorData(solverData->b, systemData->b);
-  //_omc_setMatrixData(matrixData, systemData->A);
+  _omc_setMatrixData(matrixData, systemData->A);
 
   rt_ext_tp_tick(&(solverData->timeClock));
   if (0 == systemData->method) {

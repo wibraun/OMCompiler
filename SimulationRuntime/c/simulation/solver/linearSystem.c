@@ -39,6 +39,7 @@
 #include "util/rtclock.h"
 #include "nonlinearSystem.h"
 #include "linearSystem.h"
+#include "omc_jacobian.h"
 #include "linearSolverLapack.h"
 #if !defined(OMC_MINIMAL_RUNTIME)
 #include "linearSolverKlu.h"
@@ -47,7 +48,6 @@
 #endif
 #include "linearSolverTotalPivot.h"
 #include "simulation/simulation_info_json.h"
-#include "omc_jacobian.h"
 
 
 static void setAElement(int row, int col, double value, int nth, void *data, threadData_t *);
@@ -90,9 +90,6 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
 
     linsys[i].totalTime = 0;
     linsys[i].failed = 0;
-
-    /* allocate system data */
-    linsys[i].b = (double*) malloc(size*sizeof(double));
 
     /* check if analytical jacobian is created */
     if (1 == linsys[i].method)
@@ -137,8 +134,7 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
         allocateUmfPackData(size, size, nnz, linsys[i].solverData);
         break;
       case LSS_KLU:
-        linsys[i].setAElement = setAElementKlu;
-        linsys[i].setBElement = setBElement;
+        //Vorher: Pointer to matrix set fn!!!
         allocateKluData(linsys[i].jacobianIndex, linsys[i].analyticalJacobianColumn, linsys[i].parentJacobian, size, size, nnz, COLUMN_WISE, SPARSE_MATRIX, linsys[i].solverData);
         break;
     #else
@@ -428,7 +424,7 @@ int solve_linear_system(DATA *data, threadData_t *threadData, sysNumber, double*
     case LSS_UMFPACK:
       success = solveUmfPack(data, threadData, sysNumber, aux_x);
       if (!success && linsys->strictTearingFunctionCall != NULL){
-        debugString(LOG_DT, "Solving the casual tearing set failed! Now the strict tearing set is used.");
+        debugString(LOG_DT, "Solving the casual tearing set failed! Now the stDATArict tearing set is used.");
         success = linsys->strictTearingFunctionCall(data, threadData);
         if (success) success=2;
       }
@@ -679,11 +675,5 @@ static void setAElementUmfpack(int row, int col, double value, int nth, void *da
   sData->Ai[nth] = col;
   sData->Ax[nth] = value;
 }
-static void setAElementKlu(int row, int col, double value, int nth, void *data, threadData_t *threadData)
-{
-  LINEAR_SYSTEM_DATA* linSys = (LINEAR_SYSTEM_DATA*) data;
-  DATA_KLU* sData = (DATA_KLU*) linSys->solverData[0];
 
-  set_matrix_element(sData->jacobian->matrix, row, col, nth, value);
-}
 #endif
