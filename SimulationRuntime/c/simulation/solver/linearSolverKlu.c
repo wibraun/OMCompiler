@@ -99,11 +99,11 @@ freeKluData(void **voiddata)
 /*! \fn residual_wrapper for the residual function
  *
  */
-static int residual_wrapper(double* x, double* f, void** data, int sysNumber)
+static int residual_wrapper(double* x, double* f, void** data, LINEAR_SYSTEM_DATA* systemData)
 {
   int iflag = 0;
 
-  (*((DATA*)data[0])->simulationInfo->linearSystemData[sysNumber].residualFunc)(data, x, f, &iflag);
+  systemData->residualFunc(data, x, f, &iflag);
   return 0;
 }
 
@@ -158,7 +158,7 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
 
     /* calculate vector b (rhs) */
     memcpy(solverData->work, aux_x, sizeof(double)*matrixData->size_rows);
-    residual_wrapper(solverData->work, systemData->b, dataAndThreadData, systemData->equationIndex);
+    residual_wrapper(solverData->work, systemData->b, dataAndThreadData, systemData);
   }
   tmpJacEvalTime = rt_ext_tp_tock(&(solverData->timeClock));
   systemData->jacobianTime += tmpJacEvalTime;
@@ -238,7 +238,7 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
         aux_x[i] += systemData->b[i];
 
       /* update inner equations */
-      residual_wrapper(aux_x, solverData->work, dataAndThreadData, systemData->equationIndex);
+      residual_wrapper(aux_x, solverData->work, dataAndThreadData, systemData);
     } else {
       /* the solution is automatically in x */
       memcpy(aux_x, systemData->b, sizeof(double)*systemData->size);

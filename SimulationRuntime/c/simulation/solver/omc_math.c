@@ -123,7 +123,7 @@ void _omc_copyVector(_omc_vector* dest, const _omc_vector* src)
  *  \param [in]  [rows] Number of rows
  *  \param [in]  [cols] Number of cols
  */
-_omc_dense_matrix* _omc_allocateMatrixData(const _omc_size rows, const _omc_size cols)
+_omc_dense_matrix* _omc_allocateMatrixData(const _omc_size rows, const _omc_size cols, omc_matrix_orientation orientation)
 {
   _omc_dense_matrix* mat = NULL;
   _omc_scalar* data = NULL;
@@ -139,6 +139,7 @@ _omc_dense_matrix* _omc_allocateMatrixData(const _omc_size rows, const _omc_size
   mat->rows = rows;
   mat->cols = cols;
   mat->data = data;
+  mat->orientation = orientation;
 
   return mat;
 }
@@ -162,7 +163,7 @@ void _omc_deallocateMatrixData(_omc_dense_matrix* mat)
  *  \param [in]  [cols] Number of cols
  *  \param [ref] [data] !TODO: DESCRIBE ME!
  */
-_omc_dense_matrix* _omc_createMatrix(const _omc_size rows, const _omc_size cols, _omc_scalar* data)
+_omc_dense_matrix* _omc_createMatrix(const _omc_size rows, const _omc_size cols, _omc_scalar* data, omc_matrix_orientation orientation)
 {
   _omc_dense_matrix* mat = NULL;
   assertStreamPrint(NULL, rows > 0, "size of rows need greater zero");
@@ -171,9 +172,10 @@ _omc_dense_matrix* _omc_createMatrix(const _omc_size rows, const _omc_size cols,
   mat = (_omc_dense_matrix*) malloc(sizeof(_omc_dense_matrix));
   assertStreamPrint(NULL, NULL != mat, "out of memory");
 
-  mat->rows = rows;
-  mat->cols = cols;
-  mat->data = data;
+    mat->rows = rows;
+    mat->cols = cols;
+    mat->data = data;
+    mat->orientation = orientation;
 
   return mat;
 }
@@ -197,7 +199,7 @@ void _omc_destroyMatrix(_omc_dense_matrix* mat)
  */
 _omc_dense_matrix* _omc_copyMatrix(_omc_dense_matrix* mat1)
 {
-  _omc_dense_matrix* mat = _omc_allocateMatrixData(mat1->rows, mat1->cols);
+  _omc_dense_matrix* mat = _omc_allocateMatrixData(mat1->rows, mat1->cols, mat1->orientation);
   memcpy(mat->data, mat1->data, sizeof(_omc_scalar) * _omc_getMatrixSize(mat1));
   return mat;
 }
@@ -325,7 +327,16 @@ _omc_scalar _omc_getMatrixElement(_omc_dense_matrix* mat, const _omc_size i, con
   assertStreamPrint(NULL, 0 <= j, "index j out of bounds: %d", (int)j);
   assertStreamPrint(NULL, i < mat->rows, "_omc_dense_matrix rows(%d) too small for %d", (int)mat->rows, (int)i);
   assertStreamPrint(NULL, j < mat->cols, "_omc_dense_matrix cols(%d) too small for %d", (int)mat->cols, (int)j);
-  return mat->data[i + j * mat->cols];
+
+  if(ROW_WISE == mat->orientation)
+  {
+    return mat->data[i + j * mat->cols];
+  }
+  else
+  {
+    return mat->data[j + i*mat->rows];
+  }
+
 }
 
 /*! \fn void _omc_setMatrixElement(_omc_dense_matrix* mat, _omc_size i, _omc_size j, _omc_scalar s)
@@ -342,6 +353,15 @@ void _omc_setMatrixElement(_omc_dense_matrix* mat, const _omc_size i, const _omc
   assertStreamPrint(NULL, i < mat->rows, "_omc_dense_matrix rows(%d) too small for %d", (int)mat->rows, (int)i);
   assertStreamPrint(NULL, j < mat->cols, "_omc_dense_matrix cols(%d) too small for %d", (int)mat->cols, (int)j);
   mat->data[i + j * mat->cols] = s;
+  if(ROW_WISE == mat->orientation)
+  {
+   mat->data[i + j * mat->cols] = s;
+  }
+  else
+  {
+   mat->data[j + i*mat->rows] = s;
+  }
+
 }
 
 /*! \fn _omc_scalar* _omc_setMatrixData(_omc_dense_matrix* mat, _omc_scalar* data)

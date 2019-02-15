@@ -32,6 +32,7 @@
 #define OMCMATH_H_
 
 #include "simulation/simulation_info_json.h"
+#include "omc_matrix.h"
 
 typedef double _omc_scalar;
 
@@ -54,6 +55,7 @@ typedef struct
   _omc_size rows;
   _omc_size cols;
   _omc_scalar *data;
+  omc_matrix_orientation orientation;
 } _omc_dense_matrix;
 
 /* memory management vector */
@@ -64,9 +66,9 @@ void _omc_destroyVector(_omc_vector* vec);
 void _omc_copyVector(_omc_vector* dest, const _omc_vector* src);
 
 /* memory management matrix */
-_omc_dense_matrix* _omc_allocateMatrixData(const _omc_size rows, const _omc_size cols);
+_omc_dense_matrix* _omc_allocateMatrixData(const _omc_size rows, const _omc_size cols, omc_matrix_orientation orientation);
 void _omc_deallocateMatrixData(_omc_dense_matrix* mat);
-_omc_dense_matrix* _omc_createMatrix(const _omc_size rows, const _omc_size cols, _omc_scalar* data);
+_omc_dense_matrix* _omc_createMatrix(const _omc_size rows, const _omc_size cols, _omc_scalar* data, omc_matrix_orientation orientation);
 void _omc_destroyMatrix(_omc_dense_matrix* mat);
 _omc_dense_matrix* _omc_copyMatrix(_omc_dense_matrix* mat);
 

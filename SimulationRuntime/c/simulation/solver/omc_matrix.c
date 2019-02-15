@@ -63,7 +63,7 @@ allocate_matrix(unsigned int size_rows, unsigned int size_cols, int nnz, omc_mat
 
   switch (type){
     case DENSE_MATRIX:
-      A->matrix = _omc_allocateMatrixData(size_rows, size_cols);
+      A->matrix = _omc_allocateMatrixData(size_rows, size_cols, orientation);
       A->orientation = orientation;
       A->type = type;
       break;
