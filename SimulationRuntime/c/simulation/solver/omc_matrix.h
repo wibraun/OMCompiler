@@ -46,7 +46,7 @@ typedef enum {
 } omc_matrix_type;
 
 typedef struct {
-  void* matrix;
+  void* data;
   omc_matrix_orientation orientation;
   omc_matrix_type type;
 }omc_matrix;

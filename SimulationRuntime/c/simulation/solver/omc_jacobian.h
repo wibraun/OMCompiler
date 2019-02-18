@@ -46,7 +46,11 @@ omc_jacobian* create_omc_jacobian(int index,
                                   int (*columnCall)(void*, threadData_t*, ANALYTIC_JACOBIAN*, ANALYTIC_JACOBIAN*), ANALYTIC_JACOBIAN* parentJacobian,
                                   unsigned int size_rows, unsigned int size_cols, int nnz, omc_matrix_orientation orientation, omc_matrix_type type);
 
-int get_omc_jacobian(DATA* data, threadData_t* threadData, omc_jacobian* jac);
+/*Analytic Jacobian*/
+int get_analytic_jacobian(DATA* data, threadData_t* threadData, omc_jacobian* jac);
+/*Numerical Jacobian -> Call may by flag; not used yet!*/
+int function_residual(DATA* data, threadData_t *threadData, double *dx);
+int get_numeric_jacobian(DATA* data, threadData_t *threadData, omc_jacobian* jac);
 
 void free_omc_jacobian(omc_jacobian* jac);
 

@@ -63,12 +63,12 @@ allocate_matrix(unsigned int size_rows, unsigned int size_cols, int nnz, omc_mat
 
   switch (type){
     case DENSE_MATRIX:
-      A->matrix = _omc_allocateMatrixData(size_rows, size_cols, orientation);
+      A->data = _omc_allocateMatrixData(size_rows, size_cols, orientation);
       A->orientation = orientation;
       A->type = type;
       break;
     case SPARSE_MATRIX:
-      A->matrix = allocate_sparse_matrix(size_rows, size_cols, nnz, orientation);
+      A->data = allocate_sparse_matrix(size_rows, size_cols, nnz, orientation);
       A->orientation = orientation;
       A->type = type;
       break;
@@ -92,10 +92,10 @@ copy_matrix(omc_matrix* A)
   mat->type = A->type;
   switch (A->type){
     case DENSE_MATRIX:
-      mat->matrix = _omc_copyMatrix((_omc_dense_matrix*)A->matrix);
+      mat->data = _omc_copyMatrix((_omc_dense_matrix*)A->data);
       break;
     case SPARSE_MATRIX:
-      mat->matrix = copy_sparse_matrix((omc_sparse_matrix*)A->matrix);
+      mat->data = copy_sparse_matrix((omc_sparse_matrix*)A->data);
       break;
     default:
       break;
@@ -113,13 +113,13 @@ free_matrix(omc_matrix* A)
 {
   switch (A->type){
     case DENSE_MATRIX:
-      _omc_deallocateMatrixData((_omc_dense_matrix*)A->matrix);
-      free(A->matrix);
+      _omc_deallocateMatrixData((_omc_dense_matrix*)A->data);
+      free(A->data);
       free(A);
       break;
     case SPARSE_MATRIX:
-      free_sparse_matrix((omc_sparse_matrix*)A->matrix);
-      free(A->matrix);
+      free_sparse_matrix((omc_sparse_matrix*)A->data);
+      free(A->data);
       free(A);
       break;
     default:
@@ -138,10 +138,10 @@ set_zero_matrix(omc_matrix* A)
 {
   switch (A->type){
     case DENSE_MATRIX:
-      A->matrix = _omc_fillMatrix((_omc_dense_matrix*)A->matrix, 0.0);
+      A->data = _omc_fillMatrix((_omc_dense_matrix*)A->data, 0.0);
       break;
     case SPARSE_MATRIX:
-      A->matrix = set_zero_sparse_matrix((omc_sparse_matrix*)A->matrix);
+      A->data = set_zero_sparse_matrix((omc_sparse_matrix*)A->data);
       break;
     default:
       break;
@@ -163,10 +163,10 @@ set_matrix_element(omc_matrix* A, int row, int col, int nth, double value)
 {
   switch (A->type){
     case DENSE_MATRIX:
-      _omc_setMatrixElement((_omc_dense_matrix*)A->matrix, row, col, value);
+      _omc_setMatrixElement((_omc_dense_matrix*)A->data, row, col, value);
       break;
     case SPARSE_MATRIX:
-      set_sparse_matrix_element((omc_sparse_matrix*)A->matrix, row, col, nth, value);
+      set_sparse_matrix_element((omc_sparse_matrix*)A->data, row, col, nth, value);
       break;
     default:
       break;
@@ -186,10 +186,10 @@ get_matrix_element(omc_matrix* A, int row, int col)
 {
   switch (A->type){
     case DENSE_MATRIX:
-       return(_omc_getMatrixElement((_omc_dense_matrix*)A->matrix , row, col));
+       return(_omc_getMatrixElement((_omc_dense_matrix*)A->data , row, col));
       break;
     case SPARSE_MATRIX:
-      return(get_sparse_matrix_element((omc_sparse_matrix*)A->matrix, row, col));
+      return(get_sparse_matrix_element((omc_sparse_matrix*)A->data, row, col));
       break;
     default:
       break;
@@ -208,10 +208,10 @@ scale_matrix(omc_matrix* A, double scalar)
 {
   switch (A->type){
     case DENSE_MATRIX:
-      A->matrix = _omc_multiplyScalarMatrix((_omc_dense_matrix*)A->matrix, scalar);
+      A->data = _omc_multiplyScalarMatrix((_omc_dense_matrix*)A->data, scalar);
       break;
     case SPARSE_MATRIX:
-      A->matrix = scale_sparse_matrix((omc_sparse_matrix*)A->matrix, scalar);
+      A->data = scale_sparse_matrix((omc_sparse_matrix*)A->data, scalar);
       break;
     default:
       break;
@@ -228,10 +228,10 @@ print_matrix(omc_matrix* A, const char* name, const int logLevel)
 {
   switch (A->type){
     case DENSE_MATRIX:
-     _omc_printMatrix((_omc_dense_matrix*)A->matrix, name, logLevel);
+     _omc_printMatrix((_omc_dense_matrix*)A->data, name, logLevel);
       break;
     case SPARSE_MATRIX:
-      print_sparse_matrix((omc_sparse_matrix*)A->matrix, logLevel);
+      print_sparse_matrix((omc_sparse_matrix*)A->data, logLevel);
       break;
     default:
       break;

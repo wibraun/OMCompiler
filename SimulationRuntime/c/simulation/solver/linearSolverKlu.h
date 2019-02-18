@@ -51,7 +51,6 @@ typedef struct DATA_KLU
   klu_symbolic *symbolic;
   klu_numeric *numeric;
   klu_common common;
-  double *b;                        /*vector b*/
 
   double* work;
 

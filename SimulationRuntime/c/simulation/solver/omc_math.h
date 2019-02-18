@@ -52,8 +52,8 @@ typedef struct
 
 typedef struct
 {
-  _omc_size rows;
-  _omc_size cols;
+  _omc_size size_rows;
+  _omc_size size_cols;
   _omc_scalar *data;
   omc_matrix_orientation orientation;
 } _omc_dense_matrix;

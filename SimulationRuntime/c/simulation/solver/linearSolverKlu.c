@@ -104,8 +104,6 @@ static int residual_wrapper(double* x, double* f, void** data, LINEAR_SYSTEM_DAT
   return 0;
 }
 
-
-
 /*! \fn solve linear system with Klu method
  *
  *  \param  [in]  [data]
@@ -119,7 +117,7 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
 {
   void *dataAndThreadData[2] = {data, threadData};
   DATA_KLU* solverData = (DATA_KLU*)systemData->solverData[0];
-  omc_sparse_matrix* matrixData = (omc_sparse_matrix*)solverData->jacobian->matrix->matrix;
+  omc_sparse_matrix* matrixData = (omc_sparse_matrix*)solverData->jacobian->matrix->data;
 
   int i, j, status = 0, success = 0, n = systemData->size, eqSystemNumber = systemData->equationIndex, indexes[2] = {1,eqSystemNumber};
   double tmpJacEvalTime;
@@ -147,7 +145,7 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
       matrixData->ptr[0] = 0;
       /* calculate jacobian -> matrix A*/
       if(systemData->jacobianIndex != -1){
-        get_omc_jacobian(data, threadData, solverData->jacobian);
+        get_analytic_jacobian(data, threadData, solverData->jacobian);
       } else {
         assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
       }

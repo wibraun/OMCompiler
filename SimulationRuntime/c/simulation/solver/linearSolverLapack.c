@@ -113,7 +113,7 @@ int solveLapack(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* system
   void *dataAndThreadData[2] = {data, threadData};
   int i, iflag = 1;
   DATA_LAPACK* solverData = (DATA_LAPACK*)systemData->solverData[0];
-  _omc_dense_matrix* matrixData = (_omc_dense_matrix*)solverData->jacobian->matrix->matrix;
+  _omc_dense_matrix* matrixData = (_omc_dense_matrix*)solverData->jacobian->matrix->data;
 
   int success = 1;
 
@@ -153,7 +153,7 @@ int solveLapack(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* system
     if (!reuseMatrixJac){
       /* calculate jacobian -> matrix A*/
       if(systemData->jacobianIndex != -1){
-        get_omc_jacobian(data, threadData, solverData->jacobian);
+        get_analytic_jacobian(data, threadData, solverData->jacobian);
       } else {
         assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
       }
