@@ -134,7 +134,8 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
         allocateUmfPackData(size, size, nnz, linsys[i].solverData);
         break;
       case LSS_KLU:
-        //Vorher: Pointer to matrix set fn!!!
+        linsys[i].setAElement = setAElementKlu;
+        linsys[i].setBElement = setBElement;
         allocateKluData(linsys[i].jacobianIndex, linsys[i].analyticalJacobianColumn, linsys[i].parentJacobian, size, size, nnz, COLUMN_WISE, SPARSE_MATRIX, linsys[i].solverData);
         break;
     #else
@@ -657,6 +658,7 @@ static void setBElementLis(int row, double value, void *data, threadData_t *thre
   DATA_LIS* sData = (DATA_LIS*) linsys->solverData[0];
   lis_vector_set_value(LIS_INS_VALUE, row, value, sData->b);
 }
+
 #endif
 
 #ifdef WITH_UMFPACK
@@ -674,6 +676,14 @@ static void setAElementUmfpack(int row, int col, double value, int nth, void *da
 
   sData->Ai[nth] = col;
   sData->Ax[nth] = value;
+}
+
+static void setAElementKlu(int row, int col, double value, int nth, void *data, threadData_t *threadData)
+{
+  LINEAR_SYSTEM_DATA* linSys = (LINEAR_SYSTEM_DATA*) data;
+  DATA_KLU* sData = (DATA_KLU*) linSys->solverData[0];
+
+  set_matrix_element(sData->jacobian->matrix, row, col, nth, value);
 }
 
 #endif
