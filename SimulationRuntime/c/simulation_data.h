@@ -593,6 +593,7 @@ typedef struct SIMULATION_INFO
   int nlsLinearSolver;                 /* nls linear solver setting =1 totalpivot, =2 lapack, =3=klu */
   /* current context evaluation, set by dassl and used for extrapolation
    * of next non-linear guess */
+
   int currentContext;
   int currentContextOld;
   int jacobianEvals;                   /* number of different columns to evaluate functionODE */

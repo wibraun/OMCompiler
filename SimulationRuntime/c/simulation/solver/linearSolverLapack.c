@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <string.h> /* memcpy */
 
+#include "simulation/options.h"
 #include "simulation_data.h"
 #include "simulation/simulation_info_json.h"
 #include "util/omc_error.h"
@@ -134,7 +135,6 @@ int solveLapack(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* system
   _omc_setVectorData(solverData->x, aux_x);
   _omc_setVectorData(solverData->b, systemData->b);
   _omc_setMatrixData(matrixData, systemData->A);
-
   rt_ext_tp_tick(&(solverData->timeClock));
   if (0 == systemData->method) {
 
@@ -149,12 +149,24 @@ int solveLapack(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* system
     /* update vector b (rhs) */
     systemData->setb(data, threadData, systemData);
   } else {
-
     if (!reuseMatrixJac){
       /* calculate jacobian -> matrix A*/
       if(systemData->jacobianIndex != -1){
-        get_analytic_jacobian(data, threadData, solverData->jacobian);
-      } else {
+        if (omc_flag[FLAG_JACOBIAN]){
+            for(i=1; i< JAC_MAX;i++){
+              if(!strcmp((const char*)omc_flagValue[FLAG_JACOBIAN], JACOBIAN_METHOD[i])){
+                if(4 ==(int)i){
+                 get_numeric_jacobian(data, threadData, solverData->jacobian);
+                 infoStreamPrint(LOG_STDOUT, 0, "jacobian uses numeric calculation\n");
+                } else {
+                  get_analytic_jacobian(data, threadData, solverData->jacobian);
+                  infoStreamPrint(LOG_STDOUT, 0, "jacobian uses analytic calculation\n");
+                }
+                break;
+              }
+            }
+        }
+            } else {
         assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
       }
     }

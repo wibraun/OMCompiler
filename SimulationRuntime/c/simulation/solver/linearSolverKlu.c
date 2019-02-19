@@ -38,6 +38,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+
+#include "simulation/options.h"
 #include "simulation_data.h"
 #include "simulation/simulation_info_json.h"
 #include "util/omc_error.h"
@@ -124,12 +126,11 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
   int reuseMatrixJac = (data->simulationInfo->currentContext == CONTEXT_SYM_JACOBIAN && data->simulationInfo->currentJacobianEval > 0);
 
   infoStreamPrintWithEquationIndexes(LOG_LS, 0, indexes, "Start solving Linear System %d (size %d) at time %g with Klu Solver",
-   eqSystemNumber, (int) systemData->size,
-   data->localData[0]->timeValue);
-
+  eqSystemNumber, (int) systemData->size,
+  data->localData[0]->timeValue);
   rt_ext_tp_tick(&(solverData->timeClock));
-  if (0 == systemData->method)
-  {
+
+  if (0 == systemData->method){
     if (!reuseMatrixJac){
       /* set A matrix */
       matrixData->ptr[0] = 0;
@@ -140,13 +141,25 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
     /* set b vector */
     systemData->setb(data, threadData, systemData);
   } else {
-
     if (!reuseMatrixJac){
       matrixData->ptr[0] = 0;
       /* calculate jacobian -> matrix A*/
       if(systemData->jacobianIndex != -1){
-        get_analytic_jacobian(data, threadData, solverData->jacobian);
-      } else {
+        if (omc_flag[FLAG_JACOBIAN]){
+            for(i=1; i< JAC_MAX;i++){
+              if(!strcmp((const char*)omc_flagValue[FLAG_JACOBIAN], JACOBIAN_METHOD[i])){
+                if(4 ==(int)i){
+                 get_numeric_jacobian(data, threadData, solverData->jacobian);
+                 infoStreamPrint(LOG_STDOUT, 0, "jacobian uses numeric calculation\n");
+                } else {
+                  get_analytic_jacobian(data, threadData, solverData->jacobian);
+                  infoStreamPrint(LOG_STDOUT, 0, "jacobian uses analytic calculation\n");
+                }
+                break;
+              }
+            }
+        }
+            } else {
         assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
       }
       matrixData->ptr[matrixData->size_rows] = matrixData->nnz;

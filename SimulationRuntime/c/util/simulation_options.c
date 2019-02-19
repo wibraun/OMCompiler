@@ -193,7 +193,7 @@ const char *FLAG_DESC[FLAG_MAX+1] = {
   /* FLAG_INITIAL_STEP_SIZE */            "value specifies an initial step size for supported solver",
   /* FLAG_INPUT_CSV */                    "value specifies an csv-file with inputs for the simulation/optimization of the model",
   /* FLAG_INPUT_FILE */                   "value specifies an external file with inputs for the simulation/optimization of the model",
-  /* FLAG_INPUT_FILE_STATES */            "value specifies an file with states start values for the optimization of the model",
+  /* FLAG_INPUT_FILE_STATES */            "value specifies an filNUMERIC_JACOBIANe with states start values for the optimization of the model",
   /* FLAG_INPUT_PATH */                   "value specifies a path for reading the input files i.e., model_init.xml and model_info.json",
   /* FLAG_IPOPT_HESSE */                  "value specifies the hessian for Ipopt",
   /* FLAG_IPOPT_INIT */                   "value specifies the initial guess for optimization",
