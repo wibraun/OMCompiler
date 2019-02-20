@@ -54,8 +54,11 @@ static void setAElement(int row, int col, double value, int nth, void *data, thr
 static void setAElementLis(int row, int col, double value, int nth, void *data, threadData_t *);
 static void setAElementUmfpack(int row, int col, double value, int nth, void *data, threadData_t *);
 static void setAElementKlu(int row, int col, double value, int nth, void *data, threadData_t *);
+static void setAElementLapack(int row, int col, double value, int nth, void *data, threadData_t *threadData);
 static void setBElement(int row, double value, void *data, threadData_t*);
 static void setBElementLis(int row, double value, void *data, threadData_t*);
+static void setBElementLapack(int row, double value, void *data, threadData_t *threadData);
+static void setBElementKLU(int row, double value, void *data, threadData_t *threadData);
 
 int check_linear_solution(DATA *data, int printFailingSystems, int sysNumber);
 
@@ -135,7 +138,7 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
         break;
       case LSS_KLU:
         linsys[i].setAElement = setAElementKlu;
-        linsys[i].setBElement = setBElement;
+        linsys[i].setBElement = setBElementKLU;
         allocateKluData(linsys[i].jacobianIndex, linsys[i].analyticalJacobianColumn, linsys[i].parentJacobian, size, size, nnz, COLUMN_WISE, SPARSE_MATRIX, linsys[i].solverData);
         break;
     #else
@@ -172,9 +175,8 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
     switch(data->simulationInfo->lsMethod)
     {
       case LS_LAPACK:
-        linsys[i].A = (double*) malloc(size*size*sizeof(double));
-        linsys[i].setAElement = setAElement;
-        linsys[i].setBElement = setBElement;
+        linsys[i].setAElement = setAElementLapack;
+        linsys[i].setBElement = setBElementLapack;
         allocateLapackData(size, linsys[i].solverData, linsys[i].jacobianIndex, linsys[i].analyticalJacobianColumn, linsys[i].parentJacobian, nnz, ROW_WISE, DENSE_MATRIX);
         break;
 
@@ -193,7 +195,7 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
         break;
       case LS_KLU:
         linsys[i].setAElement = setAElementKlu;
-        linsys[i].setBElement = setBElement;
+        linsys[i].setBElement = setBElementKLU;
         allocateKluData(linsys[i].jacobianIndex, linsys[i].analyticalJacobianColumn, linsys[i].parentJacobian, size, size, nnz, COLUMN_WISE, SPARSE_MATRIX, linsys[i].solverData);
         break;
     #else
@@ -631,6 +633,14 @@ static void setAElement(int row, int col, double value, int nth, void *data, thr
   linsys->A[row + col * linsys->size] = value;
 }
 
+static void setAElementLapack(int row, int col, double value, int nth, void *data, threadData_t *threadData)
+{
+  LINEAR_SYSTEM_DATA* linSys = (LINEAR_SYSTEM_DATA*) data;
+  DATA_LAPACK* sData = (DATA_LAPACK*) linSys->solverData[0];
+
+  set_matrix_element(sData->jacobian->matrix, row, col, nth, value);
+}
+
 /*! \fn setBElement
  *  This function sets the row-th value of linsys->b[row] = value.
  *
@@ -643,6 +653,14 @@ static void setBElement(int row, double value, void *data, threadData_t *threadD
   LINEAR_SYSTEM_DATA* linsys = (LINEAR_SYSTEM_DATA*) data;
   linsys->b[row] = value;
 }
+
+static void setBElementLapack(int row, double value, void *data, threadData_t *threadData)
+{
+  LINEAR_SYSTEM_DATA* linSys = (LINEAR_SYSTEM_DATA*) data;
+  DATA_LAPACK* sData = (DATA_LAPACK*) linSys->solverData[0];
+  sData->b->data[row] = value;
+}
+
 
 #if !defined(OMC_MINIMAL_RUNTIME)
 static void setAElementLis(int row, int col, double value, int nth, void *data, threadData_t *threadData)
@@ -684,6 +702,13 @@ static void setAElementKlu(int row, int col, double value, int nth, void *data, 
   DATA_KLU* sData = (DATA_KLU*) linSys->solverData[0];
 
   set_matrix_element(sData->jacobian->matrix, row, col, nth, value);
+}
+
+static void setBElementKLU(int row, double value, void *data, threadData_t *threadData)
+{
+  LINEAR_SYSTEM_DATA* linSys = (LINEAR_SYSTEM_DATA*) data;
+  DATA_KLU* sData = (DATA_KLU*) linSys->solverData[0];
+  sData->b->data[row] = value;
 }
 
 #endif

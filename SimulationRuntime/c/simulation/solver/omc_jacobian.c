@@ -94,32 +94,9 @@ int get_analytic_jacobian(DATA* data, threadData_t* threadData, omc_jacobian* ja
     return 0;
 }
 
-int function_residual(DATA* data, threadData_t *threadData, double *dx)
-{
-    TRACE_PUSH
-
-    long i;
-
-    /* read input vars */
-    externalInputUpdate(data);
-    data->callback->input_function(data, threadData);
-
-    /* eval input vars */
-    data->callback->functionODE(data, threadData);
-
-    /* get the difference between the temp_xd(=localData->statesDerivatives)
-     and xd(=statesDerivativesBackup) */
-    for(i=0; i < data->modelData->nStates; i++)
-    {
-        dx[i] = data->localData[0]->realVars[data->modelData->nStates + i];
-    }
-
-    TRACE_POP
-    return 0;
-}
-
 int get_numeric_jacobian(DATA* data, threadData_t *threadData, omc_jacobian* jac)
 {
+  /*
   const double delta_h = sqrt(DBL_EPSILON*2e1);
   double delta_hh;
   double xsave;
@@ -141,21 +118,15 @@ int get_numeric_jacobian(DATA* data, threadData_t *threadData, omc_jacobian* jac
 
   function_residual(data, threadData, x0);
 
-  x = data->localData[0]->realVars;
 
-  /* use actually value for xScaling */
-  for (i=0;i<size_A;i++){
-      xScaling[i] = fmax(data->modelData->realVarsData[i].attribute.nominal,fabs(x[i]));
-  }
-
-  /* solverData->f1 must be set outside this function based on x */
+  // solverData->f1 must be set outside this function based on x
   for(i = 0; i < size_A; i++) {
       xsave = x[i];
       delta_hh = delta_h * (fabs(xsave) + 1.0);
       if ((xsave + delta_hh >=  data->modelData->realVarsData[i].attribute.max))
           delta_hh *= -1;
       x[i] += delta_hh / xScaling[i];
-      /* Calculate scaled difference quotient */
+      // Calculate scaled difference quotient
       delta_hh = 1. / delta_hh * xScaling[i];
 
       function_residual(data, threadData, x1);
@@ -171,9 +142,11 @@ int get_numeric_jacobian(DATA* data, threadData_t *threadData, omc_jacobian* jac
   free(xScaling);
   free(x0);
   free(x1);
+  */
 
   return 0;
 }
+
 
 void free_omc_jacobian(omc_jacobian* jac)
 {

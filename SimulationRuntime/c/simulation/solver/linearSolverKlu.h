@@ -43,7 +43,9 @@
 #include "suitesparse/Include/klu.h"
 #include "omc_jacobian.h"
 #include "linearSystem.h"
+#include "omc_math.h"
 #include "omc_jacobian.h"
+
 
 typedef struct DATA_KLU
 {
@@ -52,7 +54,9 @@ typedef struct DATA_KLU
   klu_numeric *numeric;
   klu_common common;
 
-  double* work;
+  _omc_vector* work;
+  _omc_vector* b;
+  _omc_vector* x;
 
   rtclock_t timeClock;             /* time clock */
   int numberSolving;

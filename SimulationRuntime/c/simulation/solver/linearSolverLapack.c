@@ -66,7 +66,7 @@ int allocateLapackData(int size, void** voiddata, int index, int (*columnCall)(v
   data->work = _omc_allocateVectorData(size);
 
   data->x = _omc_createVector(size, NULL);
-  data->b = _omc_createVector(size, NULL);
+  data->b = _omc_allocateVectorData(size);
   data->jacobian = create_omc_jacobian(index, columnCall, parentJacobian, size, size, nnz, orientation, type);
 
   *voiddata = (void*)data;
@@ -84,7 +84,7 @@ int freeLapackData(void **voiddata)
   _omc_deallocateVectorData(data->work);
 
   _omc_destroyVector(data->x);
-  _omc_destroyVector(data->b);
+  _omc_deallocateVectorData(data->b);
   free_omc_jacobian(data->jacobian);
 
   free(data);
@@ -133,14 +133,13 @@ int solveLapack(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* system
 
   /* set data */
   _omc_setVectorData(solverData->x, aux_x);
-  _omc_setVectorData(solverData->b, systemData->b);
-  _omc_setMatrixData(matrixData, systemData->A);
+
   rt_ext_tp_tick(&(solverData->timeClock));
   if (0 == systemData->method) {
 
     if (!reuseMatrixJac){
       /* reset matrix A */
-      memset(systemData->A, 0, (systemData->size)*(systemData->size)*sizeof(double));
+      set_zero_matrix(solverData->jacobian->matrix);
 
       /* update matrix A */
       systemData->setA(data, threadData, systemData);
@@ -151,24 +150,22 @@ int solveLapack(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* system
   } else {
     if (!reuseMatrixJac){
       /* calculate jacobian -> matrix A*/
-      if(systemData->jacobianIndex != -1){
-        if (omc_flag[FLAG_JACOBIAN]){
-              if(!strcmp((const char*)omc_flagValue[FLAG_JACOBIAN], JACOBIAN_METHOD[4])){
-                 get_numeric_jacobian(data, threadData, solverData->jacobian);
-                 infoStreamPrint(LOG_LS_V, 0, "jacobian uses numeric calculation\n");
-                } else {
-                  get_analytic_jacobian(data, threadData, solverData->jacobian);
-                  infoStreamPrint(LOG_LS_V, 0, "jacobian uses analytic calculation\n");
-                }
-              }
-            } else {
-        assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
+      if (omc_flag[FLAG_LS_JACOBIAN]){
+        get_numeric_jacobian(data, threadData, solverData->jacobian);
+        infoStreamPrint(LOG_LS_V, 0, "jacobian uses numeric calculation\n");
+      } else {
+        if(systemData->jacobianIndex != -1){
+          get_analytic_jacobian(data, threadData, solverData->jacobian);
+          infoStreamPrint(LOG_LS_V, 0, "jacobian uses analytic calculation\n");
+        } else {
+          assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
+        }
       }
     }
-
     /* calculate vector b (rhs) */
     _omc_copyVector(solverData->work, solverData->x);
     wrapper_fvec_lapack(solverData->work, solverData->b, &iflag, dataAndThreadData, systemData);
+    _omc_negateVector(solverData->b);
   }
   tmpJacEvalTime = rt_ext_tp_tock(&(solverData->timeClock));
   systemData->jacobianTime += tmpJacEvalTime;

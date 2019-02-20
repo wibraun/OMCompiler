@@ -48,6 +48,7 @@
 
 #include "linearSystem.h"
 #include "linearSolverKlu.h"
+#include "omc_math.h"
 #include "omc_matrix.h"
 #include "omc_sparse_matrix.h"
 
@@ -64,6 +65,9 @@ allocateKluData(int index, int (*columnCall)(void* vptr, threadData_t* thread, s
 
   data->symbolic = NULL;
   data->numeric = NULL;
+  data->work = _omc_allocateVectorData(size_rows);
+  data->b = _omc_allocateVectorData(size_rows);
+  data->x = _omc_createVector(size_rows, NULL);
 
   data->numberSolving = 0;
   klu_defaults(&(data->common));
@@ -98,11 +102,11 @@ freeKluData(void **voiddata)
 /*! \fn residual_wrapper for the residual function
  *
  */
-static int residual_wrapper(double* x, double* f, void** data, LINEAR_SYSTEM_DATA* systemData)
+static int residual_wrapper(_omc_vector* x, _omc_vector* f, void** data, LINEAR_SYSTEM_DATA* systemData)
 {
   int iflag = 0;
 
-  systemData->residualFunc(data, x, f, &iflag);
+  systemData->residualFunc(data, x->data, f->data, &iflag);
   return 0;
 }
 
@@ -125,6 +129,7 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
   double tmpJacEvalTime;
   int reuseMatrixJac = (data->simulationInfo->currentContext == CONTEXT_SYM_JACOBIAN && data->simulationInfo->currentJacobianEval > 0);
 
+  _omc_setVectorData(solverData->x, aux_x);
 
   infoStreamPrintWithEquationIndexes(LOG_LS, 0, indexes, "Start solving Linear System %d (size %d) at time %g with Klu Solver",
   eqSystemNumber, (int) systemData->size,
@@ -145,24 +150,23 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
     if (!reuseMatrixJac){
       matrixData->ptr[0] = 0;
       /* calculate jacobian -> matrix A*/
-      if(systemData->jacobianIndex != -1){
-        if (omc_flag[FLAG_JACOBIAN]){
-              if(!strcmp((const char*)omc_flagValue[FLAG_JACOBIAN], JACOBIAN_METHOD[4])){
-                 get_numeric_jacobian(data, threadData, solverData->jacobian);
-                 infoStreamPrint(LOG_LS_V, 0, "jacobian uses numeric calculation\n");
-                } else {
-                  get_analytic_jacobian(data, threadData, solverData->jacobian);
-                  infoStreamPrint(LOG_LS_V, 0, "jacobian uses analytic calculation\n");
-                }
-              }
-            } else {
-              assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
+      if (omc_flag[FLAG_LS_JACOBIAN]){
+        get_numeric_jacobian(data, threadData, solverData->jacobian);
+        infoStreamPrint(LOG_LS_V, 0, "jacobian uses numeric calculation\n");
+      } else {
+        if(systemData->jacobianIndex != -1){
+          get_analytic_jacobian(data, threadData, solverData->jacobian);
+          infoStreamPrint(LOG_LS_V, 0, "jacobian uses analytic calculation\n");
+        } else {
+          assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
+        }
       }
       matrixData->ptr[matrixData->size_rows] = matrixData->nnz;
     }
     /* calculate vector b (rhs) */
-    memcpy(solverData->work, aux_x, sizeof(double)*matrixData->size_rows);
-    residual_wrapper(solverData->work, systemData->b, dataAndThreadData, systemData);
+    _omc_copyVector(solverData->work, solverData->x);
+    residual_wrapper(solverData->work, solverData->b, dataAndThreadData, systemData);
+    _omc_negateVector(solverData->b);
   }
   tmpJacEvalTime = rt_ext_tp_tock(&(solverData->timeClock));
   systemData->jacobianTime += tmpJacEvalTime;
@@ -185,7 +189,7 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
     messageClose(LOG_LS_V);
 
     for (i = 0; i<matrixData->size_rows; i++)
-      infoStreamPrint(LOG_LS_V, 0, "b[%d] = %e", i, systemData->b[i]);
+      infoStreamPrint(LOG_LS_V, 0, "b[%d] = %e", i, solverData->b->data[i]);
   }
   rt_ext_tp_tick(&(solverData->timeClock));
 
@@ -221,11 +225,11 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
 
   if (0 == solverData->common.status){
     if (1 == systemData->method){
-      if (klu_solve(solverData->symbolic, solverData->numeric, matrixData->size_cols, 1, systemData->b, &solverData->common)){
+      if (klu_solve(solverData->symbolic, solverData->numeric, matrixData->size_cols, 1, solverData->b->data, &solverData->common)){
         success = 1;
       }
     } else {
-      if (klu_tsolve(solverData->symbolic, solverData->numeric, matrixData->size_cols, 1, systemData->b, &solverData->common)){
+      if (klu_tsolve(solverData->symbolic, solverData->numeric, matrixData->size_cols, 1, solverData->b->data, &solverData->common)){
         success = 1;
       }
     }
@@ -237,12 +241,12 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
   if (1 == success){
 
     if (1 == systemData->method){
+
       /* take the solution */
-      for(i = 0; i < matrixData->size_rows; ++i)
-        aux_x[i] += systemData->b[i];
+      solverData->x = _omc_addVectorVector(solverData->x, solverData->work, solverData->b); // x = xold(work) + xnew(b)
 
       /* update inner equations */
-      residual_wrapper(aux_x, solverData->work, dataAndThreadData, systemData);
+      residual_wrapper(solverData->x, solverData->work, dataAndThreadData, systemData);
     } else {
       /* the solution is automatically in x */
       memcpy(aux_x, systemData->b, sizeof(double)*systemData->size);
@@ -270,4 +274,4 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
   return success;
 }
 
-#endif
+//#endif
