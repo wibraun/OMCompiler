@@ -125,6 +125,7 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
   double tmpJacEvalTime;
   int reuseMatrixJac = (data->simulationInfo->currentContext == CONTEXT_SYM_JACOBIAN && data->simulationInfo->currentJacobianEval > 0);
 
+
   infoStreamPrintWithEquationIndexes(LOG_LS, 0, indexes, "Start solving Linear System %d (size %d) at time %g with Klu Solver",
   eqSystemNumber, (int) systemData->size,
   data->localData[0]->timeValue);
@@ -146,25 +147,19 @@ solveKlu(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* systemData, d
       /* calculate jacobian -> matrix A*/
       if(systemData->jacobianIndex != -1){
         if (omc_flag[FLAG_JACOBIAN]){
-            for(i=1; i< JAC_MAX;i++){
-              if(!strcmp((const char*)omc_flagValue[FLAG_JACOBIAN], JACOBIAN_METHOD[i])){
-                if(4 ==(int)i){
+              if(!strcmp((const char*)omc_flagValue[FLAG_JACOBIAN], JACOBIAN_METHOD[4])){
                  get_numeric_jacobian(data, threadData, solverData->jacobian);
-                 infoStreamPrint(LOG_STDOUT, 0, "jacobian uses numeric calculation\n");
+                 infoStreamPrint(LOG_LS_V, 0, "jacobian uses numeric calculation\n");
                 } else {
                   get_analytic_jacobian(data, threadData, solverData->jacobian);
-                  infoStreamPrint(LOG_STDOUT, 0, "jacobian uses analytic calculation\n");
+                  infoStreamPrint(LOG_LS_V, 0, "jacobian uses analytic calculation\n");
                 }
-                break;
               }
-            }
-        }
             } else {
-        assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
+              assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
       }
       matrixData->ptr[matrixData->size_rows] = matrixData->nnz;
     }
-
     /* calculate vector b (rhs) */
     memcpy(solverData->work, aux_x, sizeof(double)*matrixData->size_rows);
     residual_wrapper(solverData->work, systemData->b, dataAndThreadData, systemData);

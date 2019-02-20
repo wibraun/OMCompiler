@@ -175,7 +175,6 @@ int get_numeric_jacobian(DATA* data, threadData_t *threadData, omc_jacobian* jac
   return 0;
 }
 
-
 void free_omc_jacobian(omc_jacobian* jac)
 {
   free_matrix(jac->matrix);

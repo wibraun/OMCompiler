@@ -153,19 +153,14 @@ int solveLapack(DATA *data, threadData_t *threadData, LINEAR_SYSTEM_DATA* system
       /* calculate jacobian -> matrix A*/
       if(systemData->jacobianIndex != -1){
         if (omc_flag[FLAG_JACOBIAN]){
-            for(i=1; i< JAC_MAX;i++){
-              if(!strcmp((const char*)omc_flagValue[FLAG_JACOBIAN], JACOBIAN_METHOD[i])){
-                if(4 ==(int)i){
+              if(!strcmp((const char*)omc_flagValue[FLAG_JACOBIAN], JACOBIAN_METHOD[4])){
                  get_numeric_jacobian(data, threadData, solverData->jacobian);
-                 infoStreamPrint(LOG_STDOUT, 0, "jacobian uses numeric calculation\n");
+                 infoStreamPrint(LOG_LS_V, 0, "jacobian uses numeric calculation\n");
                 } else {
                   get_analytic_jacobian(data, threadData, solverData->jacobian);
-                  infoStreamPrint(LOG_STDOUT, 0, "jacobian uses analytic calculation\n");
+                  infoStreamPrint(LOG_LS_V, 0, "jacobian uses analytic calculation\n");
                 }
-                break;
               }
-            }
-        }
             } else {
         assertStreamPrint(threadData, 1, "jacobian function pointer is invalid" );
       }
