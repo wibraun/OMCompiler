@@ -326,7 +326,7 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
     free(linsys[i].max);
 
 #ifdef _OPENMP
-    free(linsys[i].parentJacobian);
+    //free(linsys[i].parentJacobian);
 //    printf("#1 OPENMP is defined\n");
 #endif
 

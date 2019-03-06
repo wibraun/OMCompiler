@@ -272,7 +272,7 @@ typedef struct NONLINEAR_SYSTEM_DATA
   int (*initialAnalyticalJacobian)(void*, threadData_t*, ANALYTIC_JACOBIAN*);
   modelica_integer jacobianIndex;
 
-  SPARSE_PATTERN sparsePattern;        /* sparse pattern if no jacobian is available */
+  SPARSE_PATTERN *sparsePattern;        /* sparse pattern if no jacobian is available */
   modelica_boolean isPatternAvailable;
 
   void (*residualFunc)(void**, const double*, double*, const int*);
