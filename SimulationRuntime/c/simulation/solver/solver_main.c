@@ -498,15 +498,7 @@ int initializeModel(DATA* data, threadData_t *threadData, const char* init_initM
   }
 
 
-  /* get number of omp threads for parallel jacobian evaluation */
-#ifdef _OPENMP
-  omp_set_num_threads(1);
-  if (omc_flag[FLAG_JACOBIAN_THREADS])
-  {
-    omp_set_num_threads(atoi(omc_flagValue[FLAG_JACOBIAN_THREADS]));
-  }
-  infoStreamPrint(LOG_SOLVER, 0, "Set OpenMP jacobian threads to : %d", omp_get_max_threads());
-#endif
+
 
 
   TRACE_POP
@@ -710,6 +702,36 @@ int solver_main(DATA* data, threadData_t *threadData, const char* init_initMetho
   /* set tolerance for ZeroCrossings */
   setZCtol(fmin(data->simulationInfo->stepSize, data->simulationInfo->tolerance));
   omc_alloc_interface.collect_a_little();
+
+
+  /* get and set number of omp threads for parallel jacobian evaluation */
+  /* Users can specify the number of threads to use for par. jac. eval. via
+   *   1. simulation flag -jacobianThreads=N
+   *   2. environment variable OMP_NUM_THREADS=N
+   *
+   * This order also gives the order of the precedence, i.e. if both are specified
+   * value of -jacobianThreads is taken over OMP_NUM_THREADS.
+   * If nothing is specified by the user omp_get_max_thread() is used to set the
+   * number of threads to use for par. jac. eval.
+   */
+#ifdef _OPENMP
+  if (omc_flag[FLAG_JACOBIAN_THREADS]) {
+    omp_set_num_threads(atoi(omc_flagValue[FLAG_JACOBIAN_THREADS]));
+    int num_threads = atoi(omc_flagValue[FLAG_JACOBIAN_THREADS]);
+    if (0 >= num_threads) {
+      warningStreamPrint(LOG_STDOUT, 0,
+          "Number of desired OpenMP threads for parallel Jacobian evaluation is <= 0.");
+      warningStreamPrint(LOG_STDOUT, 0, "Use omp_get_max_threads().");
+      omp_set_num_threads(omp_get_max_threads());
+    }
+  } else {
+    // Might be redundant, but does not hurt and is more clear for future developers.
+    omp_set_num_threads(omp_get_max_threads());
+  }
+  infoStreamPrint(LOG_SOLVER, 0,
+      "Number of OpenMP threads for parallel Jacobian evaluation: %d",
+      omp_get_max_threads());
+#endif
 
   /* initialize solver data */
   /* For the DAEmode we need to initialize solverData before the initialization,
