@@ -349,7 +349,11 @@ typedef struct LINEAR_SYSTEM_DATA
   modelica_boolean solved;              /* 1: solved in current step - else not */
   modelica_boolean failed;              /* 1: failed while last try with lapack - else not */
   modelica_boolean useSparseSolver;     /* 1: use sparse solver, - else any solver */
+#ifdef _OPENMP
+  ANALYTIC_JACOBIAN** parentJacobian;    /* if != NULL then it's the parent jacobian matrix */
+#else
   ANALYTIC_JACOBIAN* parentJacobian;    /* if != NULL then it's the parent jacobian matrix */
+#endif
 
   /* statistics */
   unsigned long numberOfCall;           /* number of solving calls of this system */

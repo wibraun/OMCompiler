@@ -45,6 +45,9 @@
 #include "linearSystem.h"
 #include "linearSolverTotalPivot.h"
 
+#ifdef _OPENMP
+  #include <omp.h>
+#endif
 
 void debugMatrixDoubleLS(int logName, char* matrixName, double* matrix, int n, int m)
 {
@@ -325,7 +328,15 @@ int getAnalyticalJacobianTotalPivot(DATA* data, threadData_t *threadData, double
   LINEAR_SYSTEM_DATA* systemData = &(((DATA*)data)->simulationInfo->linearSystemData[currentSys]);
 
   const int index = systemData->jacobianIndex;
+
+#ifdef _OPENMP
+  ANALYTIC_JACOBIAN* jacobian = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
+  ((systemData->initialAnalyticalJacobian))(data, threadData, jacobian);
+  ANALYTIC_JACOBIAN* parentJacobian = systemData->parentJacobian[omp_get_thread_num()];
+#else
   ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[systemData->jacobianIndex]);
+  ANALYTIC_JACOBIAN* parentJacobian = systemData->parentJacobian;
+#endif
 
   memset(jac, 0, (systemData->size)*(systemData->size)*sizeof(double));
 
@@ -336,7 +347,7 @@ int getAnalyticalJacobianTotalPivot(DATA* data, threadData_t *threadData, double
       if(jacobian->sparsePattern->colorCols[ii]-1 == i)
         jacobian->seedVars[ii] = 1;
 
-    ((systemData->analyticalJacobianColumn))(data, threadData, jacobian, systemData->parentJacobian);
+    ((systemData->analyticalJacobianColumn))(data, threadData, jacobian, parentJacobian);
 
     for(j = 0; j < jacobian->sizeCols; j++)
     {

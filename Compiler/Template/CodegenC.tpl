@@ -2800,6 +2800,7 @@ template generateStaticSparseData(String indexName, String systemType, list<tupl
         <%rowIndex%>
         /* sparsity pattern available */
         inSysData->isPatternAvailable = 'T';
+        inSysData->sparsePattern = (SPARSE_PATTERN*) malloc(sizeof(SPARSE_PATTERN));
         inSysData->sparsePattern->leadindex = (unsigned int*) malloc((<%sizeleadindex%>+1)*sizeof(int));
         inSysData->sparsePattern->index = (unsigned int*) malloc(<%sp_size_index%>*sizeof(int));
         inSysData->sparsePattern->numberOfNoneZeros = <%sp_size_index%>;
@@ -5320,7 +5321,6 @@ case e as SES_LINEAR(lSystem=ls as LINEARSYSTEM(__), alternativeTearing = at) th
 
   retValue = solve_linear_system(data, threadData, <%ls.indexLinearSystem%>, &aux_x[0]);
 
-  retValue = solve_linear_system(data, threadData, <%ls.indexLinearSystem%>, aux_x);
   /* check if solution process was successful */
   if (retValue > 0){
     const int indexes[2] = {1,<%ls.index%>};

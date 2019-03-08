@@ -135,8 +135,10 @@ int getAnalyticalJacobian(DATA* data, threadData_t *threadData, DATA_KLU* solver
   const int index = systemData->jacobianIndex;
 #ifdef _OPENMP
   ANALYTIC_JACOBIAN* jacobian = solverData->matrixA;
+  ANALYTIC_JACOBIAN* parentJacobian = systemData->parentJacobian[omp_get_thread_num()];
 #else
   ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[systemData->jacobianIndex]);
+  ANALYTIC_JACOBIAN* parentJacobian = systemData->parentJacobian;
 #endif
 
   int nth = 0;
@@ -146,7 +148,7 @@ int getAnalyticalJacobian(DATA* data, threadData_t *threadData, DATA_KLU* solver
   {
     jacobian->seedVars[i] = 1;
 
-    ((systemData->analyticalJacobianColumn))(data, threadData, jacobian, systemData->parentJacobian);
+    ((systemData->analyticalJacobianColumn))(data, threadData, jacobian, parentJacobian);
 
     for(j = 0; j < jacobian->sizeCols; j++)
     {

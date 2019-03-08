@@ -33,6 +33,10 @@
 
 #include "omc_config.h"
 
+#ifdef _OPENMP
+  #include <omp.h>
+#endif
+
 #ifdef WITH_UMFPACK
 #include <math.h>
 #include <stdlib.h>
@@ -138,7 +142,14 @@ int getAnalyticalJacobianUmfPack(DATA* data, threadData_t *threadData, int sysNu
   LINEAR_SYSTEM_DATA* systemData = &(((DATA*)data)->simulationInfo->linearSystemData[sysNumber]);
 
   const int index = systemData->jacobianIndex;
+#ifdef _OPENMP
+  ANALYTIC_JACOBIAN* jacobian = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
+  ((systemData->initialAnalyticalJacobian))(data, threadData, jacobian);
+  ANALYTIC_JACOBIAN* parentJacobian = systemData->parentJacobian[omp_get_thread_num()];
+#else
   ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[systemData->jacobianIndex]);
+  ANALYTIC_JACOBIAN* parentJacobian = systemData->parentJacobian;
+#endif
 
   int nth = 0;
   int nnz = jacobian->sparsePattern->numberOfNoneZeros;
@@ -147,7 +158,7 @@ int getAnalyticalJacobianUmfPack(DATA* data, threadData_t *threadData, int sysNu
   {
     jacobian->seedVars[i] = 1;
 
-    ((systemData->analyticalJacobianColumn))(data, threadData, jacobian, systemData->parentJacobian);
+    ((systemData->analyticalJacobianColumn))(data, threadData, jacobian, parentJacobian);
 
     for(j = 0; j < jacobian->sizeCols; j++)
     {

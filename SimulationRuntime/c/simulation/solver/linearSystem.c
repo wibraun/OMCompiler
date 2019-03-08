@@ -48,6 +48,10 @@
 #include "linearSolverTotalPivot.h"
 #include "simulation/simulation_info_json.h"
 
+#ifdef _OPENMP
+  #include <omp.h>
+#endif
+
 static void setAElement(int row, int col, double value, int nth, void *data, threadData_t *);
 static void setAElementLis(int row, int col, double value, int nth, void *data, threadData_t *);
 static void setAElementUmfpack(int row, int col, double value, int nth, void *data, threadData_t *);
@@ -115,13 +119,13 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
       linsys[i].useSparseSolver = 1;
       infoStreamPrint(LOG_STDOUT, 0, "Using sparse solver for linear system %d,\nbecause density of %.3f remains under threshold of %.3f and size of %d exceeds threshold of %d.\nThe maximum density and the minimal system size for using sparse solvers can be specified\nusing the runtime flags '<-lssMaxDensity=value>' and '<-lssMinSize=value>'.", i, nnz/(double)(size*size), linearSparseSolverMaxDensity, size, linearSparseSolverMinSize);
     }
-/*
+
 #ifdef _OPENMP
     linsys[i].parentJacobian = (ANALYTIC_JACOBIAN**) malloc(omp_get_max_threads()*sizeof(ANALYTIC_JACOBIAN*));
 //    printf("#2 OPENMP is defined\n");
 //    printf("#2 omp_get_max_threads() = %i\n", omp_get_max_threads());
 #endif
-*/
+
     /* allocate more system data */
     linsys[i].nominal = (double*) malloc(size*sizeof(double));
     linsys[i].min = (double*) malloc(size*sizeof(double));
@@ -326,7 +330,7 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
     free(linsys[i].max);
 
 #ifdef _OPENMP
-    //free(linsys[i].parentJacobian);
+    free(linsys[i].parentJacobian);
 //    printf("#1 OPENMP is defined\n");
 #endif
 

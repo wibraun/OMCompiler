@@ -31,6 +31,10 @@
 /*! \file linearSolverLis.c
  */
 
+#ifdef _OPENMP
+  #include <omp.h>
+#endif
+
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -143,7 +147,14 @@ int getAnalyticalJacobianLis(DATA* data, threadData_t *threadData, int sysNumber
   LINEAR_SYSTEM_DATA* systemData = &(((DATA*)data)->simulationInfo->linearSystemData[sysNumber]);
 
   const int index = systemData->jacobianIndex;
+#ifdef _OPENMP
+  ANALYTIC_JACOBIAN* jacobian = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
+  ((systemData->initialAnalyticalJacobian))(data, threadData, jacobian);
+  ANALYTIC_JACOBIAN* parentJacobian = systemData->parentJacobian[omp_get_thread_num()];
+#else
   ANALYTIC_JACOBIAN* jacobian = &(data->simulationInfo->analyticJacobians[systemData->jacobianIndex]);
+  ANALYTIC_JACOBIAN* parentJacobian = systemData->parentJacobian;
+#endif
 
   int nth = 0;
   int nnz = jacobian->sparsePattern->numberOfNoneZeros;
@@ -152,7 +163,7 @@ int getAnalyticalJacobianLis(DATA* data, threadData_t *threadData, int sysNumber
   {
     jacobian->seedVars[i] = 1;
 
-    ((systemData->analyticalJacobianColumn))(data, threadData, jacobian, systemData->parentJacobian);
+    ((systemData->analyticalJacobianColumn))(data, threadData, jacobian, parentJacobian);
 
     for(j = 0; j < jacobian->sizeCols; j++)
     {
