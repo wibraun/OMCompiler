@@ -2064,7 +2064,7 @@ template functionSetupLinearSystemsTemp(list<SimEqSystem> linearSystems, String 
          threadData_t *threadData = (threadData_t*) ((void**)dataIn[1]);
          const int equationIndexes[2] = {1,<%ls.index%>};
          <% if ls.partOfJac then
-         '#ifdef _OPENMP
+         '#ifdef USE_PARJAC
            ANALYTIC_JACOBIAN* parentJacobian = data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].parentJacobian[omp_get_thread_num()];
          #else
            ANALYTIC_JACOBIAN* parentJacobian = data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].parentJacobian;
@@ -5312,7 +5312,7 @@ case e as SES_LINEAR(lSystem=ls as LINEARSYSTEM(__), alternativeTearing = at) th
   }
   <% if profileSome() then 'SIM_PROF_TICK_EQ(modelInfoGetEquation(&data->modelData->modelDataXml,<%ls.index%>).profileBlockIndex);' %>
   <% if ls.partOfJac then
-  '#ifdef _OPENMP
+  '#ifdef USE_PARJAC
      data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].parentJacobian[omp_get_thread_num()] = jacobian;
    #else
      data->simulationInfo->linearSystemData[<%ls.indexLinearSystem%>].parentJacobian = jacobian;

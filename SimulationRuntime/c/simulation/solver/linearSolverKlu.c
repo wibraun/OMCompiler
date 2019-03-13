@@ -32,7 +32,7 @@
  */
 
 #include "omc_config.h"
-#ifdef _OPENMP
+#ifdef USE_PARJAC
   #include <omp.h>
 #endif
 
@@ -133,7 +133,7 @@ int getAnalyticalJacobian(DATA* data, threadData_t *threadData, DATA_KLU* solver
   LINEAR_SYSTEM_DATA* systemData = &(((DATA*)data)->simulationInfo->linearSystemData[sysNumber]);
 
   const int index = systemData->jacobianIndex;
-#ifdef _OPENMP
+#ifdef USE_PARJAC
   ANALYTIC_JACOBIAN* jacobian = solverData->matrixA;
   ANALYTIC_JACOBIAN* parentJacobian = systemData->parentJacobian[omp_get_thread_num()];
 #else
@@ -158,7 +158,7 @@ int getAnalyticalJacobian(DATA* data, threadData_t *threadData, DATA_KLU* solver
         while(ii < jacobian->sparsePattern->leadindex[j+1])
         {
           l  = jacobian->sparsePattern->index[ii];
-#ifdef _OPENMP
+#ifdef USE_PARJAC
           systemData->setAElement(i, l, -jacobian->resultVars[l], nth, (void*) systemData, threadData);
 #else
           systemData->setAElement(i, l, -jacobian->resultVars[l], nth, (void*) solverData, threadData);
@@ -206,11 +206,11 @@ solveKlu(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
   int reuseMatrixJac = (data->simulationInfo->currentContext == CONTEXT_SYM_JACOBIAN && data->simulationInfo->currentJacobianEval > 0);
   DATA_KLU* solverData;
 
-#ifdef _OPENMP
+#ifdef USE_PARJAC
   infoStreamPrint(LOG_LS_V, 0, "----- Thread %i starts solveKLU.\n", omp_get_thread_num());
   solverData = systemData->parSolverData[omp_get_thread_num()];
 #else
-  solverData = systemData->solverData;
+  solverData = systemData->solverData[0];
 #endif
   infoStreamPrintWithEquationIndexes(LOG_LS, 0, indexes, "Start solving Linear System %d (size %d) at time %g with Klu Solver",
    eqSystemNumber, (int) systemData->size,
@@ -347,7 +347,7 @@ solveKlu(DATA *data, threadData_t *threadData, int sysNumber, double* aux_x)
         (int)systemData->equationIndex, data->localData[0]->timeValue, status);
   }
   solverData->numberSolving += 1;
-#ifdef _OPENMP
+#ifdef USE_PARJAC
   infoStreamPrint(LOG_LS_V, 0,"----- Thread %i finishes solveKLU.\n", omp_get_thread_num());
 #endif
   return success;

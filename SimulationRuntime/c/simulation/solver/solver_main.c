@@ -60,7 +60,7 @@
 
 #include "optimization/OptimizerInterface.h"
 
-#ifdef _OPENMP
+#ifdef USE_PARJAC
 #include <omp.h>
 #endif
 
@@ -592,7 +592,7 @@ int finishSimulation(DATA* data, threadData_t *threadData, SOLVER_INFO* solverIn
       infoStreamPrint(LOG_STATS, 0, "%5d error test failures", solverInfo->solverStats[3]);
       infoStreamPrint(LOG_STATS, 0, "%5d convergence test failures", solverInfo->solverStats[4]);
       infoStreamPrint(LOG_STATS, 0, "%gs time of jacobian evaluation", rt_accumulated(SIM_TIMER_JACOBIAN));
-#ifdef _OPENMP
+#ifdef USE_PARJAC
       infoStreamPrint(LOG_STATS, 0, "%i OpenMP-threads used for jacobian evaluation", omp_get_max_threads());
       int chunk_size;
       omp_sched_t kind;
@@ -714,21 +714,24 @@ int solver_main(DATA* data, threadData_t *threadData, const char* init_initMetho
    * If nothing is specified by the user omp_get_max_thread() is used to set the
    * number of threads to use for par. jac. eval.
    */
-#ifdef _OPENMP
+#ifdef USE_PARJAC
+  int num_threads = omp_get_max_threads();
   if (omc_flag[FLAG_JACOBIAN_THREADS]) {
-    omp_set_num_threads(atoi(omc_flagValue[FLAG_JACOBIAN_THREADS]));
-    int num_threads = atoi(omc_flagValue[FLAG_JACOBIAN_THREADS]);
-    if (0 >= num_threads) {
+    int num_threads_tmp = atoi(omc_flagValue[FLAG_JACOBIAN_THREADS]);
+    infoStreamPrint(LOG_STDOUT, 0,
+         "Number of threads passed via -jacobianThreads: %d",
+         num_threads_tmp);
+    if (0 >= num_threads_tmp) {
       warningStreamPrint(LOG_STDOUT, 0,
           "Number of desired OpenMP threads for parallel Jacobian evaluation is <= 0.");
       warningStreamPrint(LOG_STDOUT, 0, "Use omp_get_max_threads().");
-      omp_set_num_threads(omp_get_max_threads());
+    } else {
+      num_threads = num_threads_tmp;
     }
-  } else {
-    // Might be redundant, but does not hurt and is more clear for future developers.
-    omp_set_num_threads(omp_get_max_threads());
   }
-  infoStreamPrint(LOG_SOLVER, 0,
+  omp_set_num_threads(num_threads);
+
+  infoStreamPrint(LOG_STDOUT, 0,
       "Number of OpenMP threads for parallel Jacobian evaluation: %d",
       omp_get_max_threads());
 #endif

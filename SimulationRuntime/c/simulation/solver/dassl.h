@@ -79,7 +79,7 @@ typedef struct DASSL_DATA{
      double *rpar, int* ipar);
   void* zeroCrossingFunction;
 
-#ifdef _OPENMP
+#ifdef USE_PARJAC
   ANALYTIC_JACOBIAN* jacColumns;
 #endif
   int allocatedParMem; /* indicated if parallel memory was allocated */

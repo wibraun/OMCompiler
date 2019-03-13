@@ -45,7 +45,7 @@
 #include "linearSystem.h"
 #include "linearSolverTotalPivot.h"
 
-#ifdef _OPENMP
+#ifdef USE_PARJAC
   #include <omp.h>
 #endif
 
@@ -329,7 +329,7 @@ int getAnalyticalJacobianTotalPivot(DATA* data, threadData_t *threadData, double
 
   const int index = systemData->jacobianIndex;
 
-#ifdef _OPENMP
+#ifdef USE_PARJAC
   ANALYTIC_JACOBIAN* jacobian = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
   ((systemData->initialAnalyticalJacobian))(data, threadData, jacobian);
   ANALYTIC_JACOBIAN* parentJacobian = systemData->parentJacobian[omp_get_thread_num()];

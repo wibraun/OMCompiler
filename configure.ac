@@ -431,6 +431,7 @@ else
   AC_MSG_RESULT([$OMPCFLAGS]);
 fi
 
+
 AC_ARG_VAR(RUNTIMECC, [Selects a compiler to be used to compile generated code. It is more important to compile fast than to generate fast code for the runtime compiler.])
 AC_ARG_VAR(RUNTIMECFLAGS, [CFLAGS for the selected runtime compiler (defaults to -falign-functions -mfpmath=sse -fno-dollars-in-identifiers -fPIC as long as neither gives warnings to the CC). Note that heavy optimisations may cause the run-time to be faster while increasing compile-time. -O0 is often best.])
 
@@ -457,6 +458,31 @@ else
   AC_TRY_LINK([], [return 0;], [RUNTIMECFLAGS="$RUNTIMECFLAGS $FPIC"],[AC_MSG_ERROR([$CC $CFLAGS -Werror failed])])
 fi
 AC_MSG_RESULT([$RUNTIMECFLAGS])
+
+
+dnl Parallel Jacobian evaluation in C runtime
+dnl OpenMP needs to be available
+dnl If enabled, model needs to be compiled using -DUSE_PARJAC (add to RUNTIMECFLAGS)
+AC_ARG_ENABLE(
+  [parjac],
+  AS_HELP_STRING([--enable-parjac],
+                 [enable parallel symbolical Jacobian evaluation in C runtime]),
+  [want_parjac=$enableval],
+  [want_parjac=no]
+)
+USE_PARJAC="no"
+if test x$want_parjac = xyes; then
+  AC_MSG_CHECKING([for parallel Jacobian evaluation])
+  if test "$CONFIG_WITH_OPENMP=1"; then
+    USE_PARJAC="yes"
+    RUNTIMECFLAGS="$RUNTIMECFLAGS -DUSE_PARJAC"
+  else
+    AC_MSG_WARN([========= OpenMP is not available, not define par. jac])
+  fi
+fi
+AC_MSG_RESULT([$USE_PARJAC])
+AC_SUBST(USE_PARJAC)
+
 
 LIBS=""
 AC_SEARCH_LIBS(dlopen,dl)

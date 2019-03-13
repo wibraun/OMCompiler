@@ -31,7 +31,7 @@
 /*! \file ida_solver.c
  */
 
-#ifdef _OPENMP
+#ifdef USE_PARJAC
   #include <omp.h>
 #endif
 
@@ -491,7 +491,7 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
     case COLOREDSYMJAC:
     case COLOREDNUMJAC:
       flag = IDASlsSetSparseJacFn(idaData->ida_mem, callSparseJacobian);
-#ifdef _OPENMP
+#ifdef USE_PARJAC
       allocateThreadLocalJacobians(data, &(idaData->jacColumns));
 #endif
       break;
@@ -509,7 +509,7 @@ ida_solver_initial(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInfo
     case NUMJAC:
       /* set jacobian function */
       flag = IDADlsSetDenseJacFn(idaData->ida_mem, callDenseJacobian);
-#ifdef _OPENMP
+#ifdef USE_PARJAC
       allocateThreadLocalJacobians(data, &(idaData->jacColumns));
 #endif
       break;
@@ -698,7 +698,7 @@ ida_solver_deinitial(IDA_SOLVER *idaData){
   N_VDestroy_Serial(idaData->errwgt);
   N_VDestroy_Serial(idaData->newdelta);
 
-#ifdef _OPENMP
+#ifdef USE_PARJAC
   free(idaData->jacColumns);
 #endif
 
@@ -1448,9 +1448,13 @@ int jacColoredSymbolicalDense(double tt, N_Vector yy, N_Vector yp, N_Vector rr, 
   //ANALYTIC_JACOBIAN* t_jac = &(idaData->jacColumns[1]);
 #pragma omp parallel default(none) firstprivate(N) shared(i, sparsePattern, idaData, data, threadData, Jac)
 {
+#ifdef USE_PARJAC
   // Use a thread local analyticJacobians (replace SimulationInfo->analyticaJacobians)
   // This are not the Jacobians of the linear systems! (SimulationInfo->linearSystemData[idx].jacobian)
   ANALYTIC_JACOBIAN* t_jac = &(idaData->jacColumns[omp_get_thread_num()]);
+#else
+  ANALYTIC_JACOBIAN* t_jac = &(data->simulationInfo->analyticJacobians[index]);
+#endif
 
   unsigned ii, j, nth;
 #pragma omp for
@@ -1748,8 +1752,13 @@ jacColoredSymbolicalSparse(double tt, N_Vector yy, N_Vector yp, N_Vector rr, Sls
   SlsSetToZero(Jac);
 
   setContext(data, &tt, CONTEXT_JACOBIAN);
-  ANALYTIC_JACOBIAN* jacColumns = (idaData->jacColumns);
-  genericParallelColoredSymbolicJacobianEvaluation(rows, columns, sparsePattern, Jac, jacColumns,
+
+#ifdef USE_PARJAC
+  ANALYTIC_JACOBIAN* jac = (idaData->jacColumns);
+#else
+  ANALYTIC_JACOBIAN* jac = &(data->simulationInfo->analyticJacobians[index]);
+#endif
+  genericParallelColoredSymbolicJacobianEvaluation(rows, columns, sparsePattern, Jac, jac,
                                                    data, threadData, &setJacElementKluSparse_neu);
 
   finishSparseColPtr(Jac, sparsePattern->numberOfNoneZeros);

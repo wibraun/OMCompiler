@@ -102,7 +102,7 @@ typedef struct IDA_SOLVER
   N_Vector* ySp;
   N_Vector* ySResult;
 
-#ifdef _OPENMP
+#ifdef USE_PARJAC
   ANALYTIC_JACOBIAN* jacColumns;
 #endif
 

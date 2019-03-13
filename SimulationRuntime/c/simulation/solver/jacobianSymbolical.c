@@ -32,13 +32,14 @@
  */
 
 
-#ifdef _OPENMP
+#ifdef USE_PARJAC
   #include <omp.h>
 #endif
 
 
 #include "simulation/solver/jacobianSymbolical.h"
 
+#ifdef USE_PARJAC
 void allocateThreadLocalJacobians(DATA* data, ANALYTIC_JACOBIAN** jacColumns)
 {
   int maxTh = omp_get_max_threads();
@@ -61,6 +62,7 @@ void allocateThreadLocalJacobians(DATA* data, ANALYTIC_JACOBIAN** jacColumns)
     (*jacColumns)[i].seedVars   = (double*) calloc(columns, sizeof(double));
   }
 }
+#endif
 
 void genericParallelColoredSymbolicJacobianEvaluation(int rows, int columns, SPARSE_PATTERN* spp,
                                                       void* matrixA, ANALYTIC_JACOBIAN* jacColumns, DATA* data,
@@ -70,11 +72,20 @@ void genericParallelColoredSymbolicJacobianEvaluation(int rows, int columns, SPA
 #pragma omp parallel default(none) firstprivate(columns, rows) \
                                    shared(spp, matrixA, jacColumns, data, threadData, f)
 {
+#ifdef USE_PARJAC
   ANALYTIC_JACOBIAN* t_jac = &(jacColumns[omp_get_thread_num()]);
+#else
+  ANALYTIC_JACOBIAN* t_jac = jacColumns;
+#endif
+
   unsigned int ii, j, l, nth, i;
 #pragma omp for
   for(i = 0; i < spp->maxColors; i++) {
+#ifdef USE_PARJAC
     infoStreamPrint(LOG_STATS_V, 0, "Thread-ID %d, color i = %i\n", omp_get_thread_num(), i);
+#else
+    infoStreamPrint(LOG_STATS_V, 0, "Sequential, color i = %i\n", i);
+#endif
     for(j=0; j < columns; j++) {
       if(spp->colorCols[j]-1 == i)
         t_jac->seedVars[j] = 1;

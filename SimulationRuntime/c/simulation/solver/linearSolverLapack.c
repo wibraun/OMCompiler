@@ -31,7 +31,7 @@
 /*! \file nonlinear_solver.c
  */
 
-#ifdef _OPENMP
+#ifdef USE_PARJAC
   #include <omp.h>
 #endif
 
@@ -113,7 +113,7 @@ int getAnalyticalJacobianLapack(DATA* data, threadData_t *threadData, double* ja
   LINEAR_SYSTEM_DATA* systemData = &(((DATA*)data)->simulationInfo->linearSystemData[currentSys]);
 
   const int index = systemData->jacobianIndex;
-#ifdef _OPENMP
+#ifdef USE_PARJAC
   ANALYTIC_JACOBIAN* jacobian = (ANALYTIC_JACOBIAN*) malloc(sizeof(ANALYTIC_JACOBIAN));
   ((systemData->initialAnalyticalJacobian))(data, threadData, jacobian);
   ANALYTIC_JACOBIAN* parentJacobian = systemData->parentJacobian[omp_get_thread_num()];
@@ -152,7 +152,7 @@ int getAnalyticalJacobianLapack(DATA* data, threadData_t *threadData, double* ja
     }
   }
 
-#ifdef _OPENMP
+#ifdef USE_PARJAC
   freeAnalyticalJacobian(jacobian);
 #endif
 
@@ -185,7 +185,7 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
   DATA_LAPACK* solverData;
 
   int success = 1;
-#ifdef _OPENMP
+#ifdef USE_PARJAC
   infoStreamPrint(LOG_LS_V, 0, "----- Thread %i starts solveLapack.\n", omp_get_thread_num());
 #endif
 
@@ -234,7 +234,7 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
   }
   tmpJacEvalTime = rt_ext_tp_tock(&(solverData->timeClock));
 
-#ifdef _OPENMP
+#ifdef USE_PARJAC
   // MS: Caution with timing if the OpenMP-parallel Jacobian evaluation is used. Depending on the information of interest,
   //     there are different timings, e.g.:
   //     1. Accumulate time spent in Jacobian evaluations of all threads will give you the total CPU time.
@@ -358,7 +358,7 @@ int solveLapack(DATA *data, threadData_t *threadData, int sysNumber, double* aux
     }
   }
   freeLapackData((void**)&solverData);
-#ifdef _OPENMP
+#ifdef USE_PARJAC
   infoStreamPrint(LOG_LS_V, 1,"----- Thread %i finishes solveLapack.\n", omp_get_thread_num());
 #endif
 

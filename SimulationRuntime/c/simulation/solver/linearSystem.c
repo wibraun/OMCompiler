@@ -48,7 +48,7 @@
 #include "linearSolverTotalPivot.h"
 #include "simulation/simulation_info_json.h"
 
-#ifdef _OPENMP
+#ifdef USE_PARJAC
   #include <omp.h>
 #endif
 
@@ -120,10 +120,10 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
       infoStreamPrint(LOG_STDOUT, 0, "Using sparse solver for linear system %d,\nbecause density of %.3f remains under threshold of %.3f and size of %d exceeds threshold of %d.\nThe maximum density and the minimal system size for using sparse solvers can be specified\nusing the runtime flags '<-lssMaxDensity=value>' and '<-lssMinSize=value>'.", i, nnz/(double)(size*size), linearSparseSolverMaxDensity, size, linearSparseSolverMinSize);
     }
 
-#ifdef _OPENMP
+#ifdef USE_PARJAC
     linsys[i].parentJacobian = (ANALYTIC_JACOBIAN**) malloc(omp_get_max_threads()*sizeof(ANALYTIC_JACOBIAN*));
-//    printf("#2 OPENMP is defined\n");
-//    printf("#2 omp_get_max_threads() = %i\n", omp_get_max_threads());
+    printf("#2 OPENMP is defined\n");
+    printf("#2 omp_get_max_threads() = %i\n", omp_get_max_threads());
 #endif
 
     /* allocate more system data */
@@ -148,7 +148,7 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
       case LSS_KLU:
         linsys[i].setBElement = setBElement;
         linsys[i].setAElement = setAElementKlu;
-#ifndef _OPENMP
+#ifndef USE_PARJAC
         allocateKluData(size, size, nnz, linsys[i].solverData);
 #else
         linsys[i].setAElement = setAElementKluSD;
@@ -215,7 +215,7 @@ int initializeLinearSystems(DATA *data, threadData_t *threadData)
       case LS_KLU:
         linsys[i].setBElement = setBElement;
         linsys[i].setAElement = setAElementKlu;
-#ifndef _OPENMP
+#ifndef USE_PARJAC
         allocateKluData(size, size, nnz, linsys[i].solverData);
 #else
         linsys[i].setAElement = setAElementKluSD;
@@ -329,9 +329,8 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
     free(linsys[i].min);
     free(linsys[i].max);
 
-#ifdef _OPENMP
+#ifdef USE_PARJAC
     free(linsys[i].parentJacobian);
-//    printf("#1 OPENMP is defined\n");
 #endif
 
     if(linsys[i].useSparseSolver == 1)
@@ -349,7 +348,7 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
         freeUmfPackData(linsys[i].solverData);
         break;
       case LSS_KLU:
-#ifndef _OPENMP
+#ifndef USE_PARJAC
         freeKluData(linsys[i].solverData);
 #else
         for(j=0;j<omp_get_max_threads();j++){
@@ -388,7 +387,7 @@ int freeLinearSystems(DATA *data, threadData_t *threadData)
         freeUmfPackData(linsys[i].solverData);
         break;
       case LS_KLU:
-#ifndef _OPENMP
+#ifndef USE_PARJAC
         freeKluData(linsys[i].solverData);
 #else
         for(j=0;j<omp_get_max_threads();j++){
