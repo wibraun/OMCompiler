@@ -46,6 +46,10 @@ void allocateThreadLocalJacobians(DATA* data, ANALYTIC_JACOBIAN** jacColumns)
   *jacColumns = (ANALYTIC_JACOBIAN*) malloc(maxTh*sizeof(ANALYTIC_JACOBIAN));
   const int index = data->callback->INDEX_JAC_A;
   ANALYTIC_JACOBIAN* jac = &(data->simulationInfo->analyticJacobians[index]);
+
+  //MS Do we need this at any point?
+  jac->sparsePattern = data->simulationInfo->analyticJacobians[data->callback->INDEX_JAC_A].sparsePattern;
+
   unsigned int columns = jac->sizeCols;
   unsigned int rows = jac->sizeRows;
   unsigned int sizeTmpVars = jac->sizeTmpVars;
@@ -60,6 +64,7 @@ void allocateThreadLocalJacobians(DATA* data, ANALYTIC_JACOBIAN** jacColumns)
     (*jacColumns)[i].tmpVars    = (double*) calloc(sizeTmpVars, sizeof(double));
     (*jacColumns)[i].resultVars = (double*) calloc(rows, sizeof(double));
     (*jacColumns)[i].seedVars   = (double*) calloc(columns, sizeof(double));
+    (*jacColumns)[i].sparsePattern = data->simulationInfo->analyticJacobians[data->callback->INDEX_JAC_A].sparsePattern;
   }
 }
 #endif
@@ -73,6 +78,7 @@ void genericParallelColoredSymbolicJacobianEvaluation(int rows, int columns, SPA
                                    shared(spp, matrixA, jacColumns, data, threadData, f)
 {
 #ifdef USE_PARJAC
+//  printf("My id = %d of max threads= %d\n", omp_get_thread_num(), omp_get_num_threads());
   ANALYTIC_JACOBIAN* t_jac = &(jacColumns[omp_get_thread_num()]);
 #else
   ANALYTIC_JACOBIAN* t_jac = jacColumns;
@@ -80,18 +86,18 @@ void genericParallelColoredSymbolicJacobianEvaluation(int rows, int columns, SPA
 
   unsigned int ii, j, l, nth, i;
 #pragma omp for
-  for(i = 0; i < spp->maxColors; i++) {
-#ifdef USE_PARJAC
-    infoStreamPrint(LOG_STATS_V, 0, "Thread-ID %d, color i = %i\n", omp_get_thread_num(), i);
-#else
-    infoStreamPrint(LOG_STATS_V, 0, "Sequential, color i = %i\n", i);
-#endif
-    for(j=0; j < columns; j++) {
+  for(unsigned int i = 0; i < spp->maxColors; i++) {
+//#ifdef USE_PARJAC
+//    infoStreamPrint(LOG_STATS_V, 0, "Thread-ID %d, color i = %i\n", omp_get_thread_num(), i);
+//#else
+//    infoStreamPrint(LOG_STATS_V, 0, "Sequential, color i = %i\n", i);
+//#endif
+    for(unsigned int j=0; j < columns; j++) {
       if(spp->colorCols[j]-1 == i)
         t_jac->seedVars[j] = 1;
     }
     data->callback->functionJacA_column(data, threadData, t_jac, NULL);
-    for(j = 0; j < columns; j++) {
+    for(unsigned int j = 0; j < columns; j++) {
       if(t_jac->seedVars[j] == 1) {
         nth = spp->leadindex[j];
         while(nth < spp->leadindex[j+1]) {
